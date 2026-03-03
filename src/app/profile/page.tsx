@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
+import Footer from '@/components/Footer'; 
 import Toast from '@/components/Toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
