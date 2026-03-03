@@ -73,6 +73,18 @@ body {
   animation: slide-up 0.4s ease-out;
 }
 
+.delay-100 {
+  animation-delay: 0.1s;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
+
 /* Professional Focus States */
 *:focus-visible {
   outline: 2px solid #4FD1C7;

@@ -2,103 +2,72 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-const listings = [
+const newArrivals = [
   {
-    id: '1',
-    image: 'https://images.unsplash.com/photo-1605559424843-9e4c228bf1c2?w=800&q=80',
-    tag: { text: 'Verified Mint', position: 'left' },
-    title: '2024 Electric Signature SUV',
-    price: '$84,900',
-    location: 'Los Angeles, CA',
-    tags: ['Automatic', 'Electric', '0 miles'],
+    id: '10',
+    image: 'https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=800&q=80',
+    tag: { text: 'Just In', position: 'left' },
+    title: 'Tactile RGB Gaming Keyboard',
+    price: '$159.00',
+    location: 'Las Vegas, NV',
+    tags: ['Mechanical', 'RGB'],
   },
   {
-    id: '2',
-    image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
-    tag: { text: 'New Listing', position: 'right' },
-    title: 'Waterfront Modern Villa',
-    price: '$2.4M',
-    location: 'Miami Beach, FL',
-    tags: ['5 Bed', '6 Bath', '4,200 sqft'],
+    id: '11',
+    image: 'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=800&q=80',
+    tag: { text: 'New', position: 'right' },
+    title: 'Ultra-Sync HDMI 2.1 Cable',
+    price: '$24.99',
+    location: 'Phoenix, AZ',
+    tags: ['8K Ready', 'Premium'],
   },
   {
-    id: '3',
-    image: 'https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=800&q=80',
-    tag: { text: 'Best Deal', position: 'left' },
-    title: '8K Professional Cinema Camera',
-    price: '$12,500',
+    id: '12',
+    image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&q=80',
+    tag: { text: 'Hot', position: 'left' },
+    title: 'Sunglasses Pro Collection',
+    price: '$199.00',
+    location: 'San Diego, CA',
+    tags: ['UV Protection', 'Designer'],
+  },
+  {
+    id: '13',
+    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
+    tag: { text: 'Fresh', position: 'right' },
+    title: 'Organic Farm Fresh Produce',
+    price: '$45.99',
+    location: 'Sacramento, CA',
+    tags: ['Organic', 'Local'],
+  },
+  {
+    id: '14',
+    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80',
+    tag: { text: 'Trending', position: 'left' },
+    title: 'Designer Fashion Collection',
+    price: '$349.00',
     location: 'New York, NY',
-    tags: ['Gently Used', 'Complete Kit'],
+    tags: ['Designer', 'Limited'],
   },
   {
-    id: '4',
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
-    tag: { text: 'Top Seller', position: 'right' },
-    title: 'Pro Wireless ANC Headphones',
-    price: '$299.00',
-    location: 'San Francisco, CA',
-    tags: ['Noise Cancelling', '30hr Battery'],
-  },
-  {
-    id: '5',
-    image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80',
-    tag: { text: 'Premium', position: 'left' },
-    title: 'Lumix X1 Mirrorless Camera',
-    price: '$1,499.00',
-    location: 'Seattle, WA',
-    tags: ['4K Video', 'Professional'],
-  },
-  {
-    id: '6',
-    image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
-    tag: { text: 'Hot Deal', position: 'right' },
-    title: '2023 Luxury Sports Sedan',
-    price: '$65,000',
-    location: 'Austin, TX',
-    tags: ['Low Miles', 'Certified'],
-  },
-  {
-    id: '7',
-    image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=800&q=80',
-    tag: { text: 'Fresh', position: 'left' },
-    title: 'Organic Premium Grocery Bundle',
-    price: '$89.99',
-    location: 'Portland, OR',
-    tags: ['Organic', 'Fresh Daily'],
-  },
-  {
-    id: '8',
-    image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=800&q=80',
-    tag: { text: 'New Arrival', position: 'right' },
-    title: '34" Curved UltraWide Monitor',
-    price: '$549.00',
-    location: 'Denver, CO',
-    tags: ['4K Display', '144Hz'],
-  },
-  {
-    id: '9',
-    image: 'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&q=80',
-    tag: { text: 'Smart Home', position: 'left' },
-    title: 'Aura Smart Voice Assistant',
-    price: '$89.00',
-    originalPrice: '$129.00',
-    location: 'Chicago, IL',
-    tags: ['AI Powered', 'Voice Control'],
+    id: '15',
+    image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
+    tag: { text: 'New', position: 'right' },
+    title: 'Modern Luxury Furniture Set',
+    price: '$2,899.00',
+    location: 'Boston, MA',
+    tags: ['Premium', 'Complete Set'],
   },
 ];
 
-export default function FeaturedListings() {
-  // Show first 6 listings, rest can be viewed via "View All"
-  const displayedListings = listings.slice(0, 6);
-
+export default function NewArrivals() {
   return (
-    <section className="py-16 bg-white">
+    <section className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-12">
           <div>
-            <h2 className="text-4xl font-bold text-gray-800 mb-2">Featured Listings</h2>
-            <p className="text-gray-600">Premium assets from verified sellers</p>
+            <h2 className="text-4xl font-bold text-gray-800 mb-2">New Arrivals</h2>
+            <p className="text-gray-600">Latest additions to our marketplace</p>
           </div>
           <Link
             href="/products"
@@ -113,7 +82,7 @@ export default function FeaturedListings() {
 
         {/* Listing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {displayedListings.map((listing) => (
+          {newArrivals.map((listing) => (
             <div
               key={listing.id}
               className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group"
@@ -132,7 +101,7 @@ export default function FeaturedListings() {
                       listing.tag.position === 'left' ? 'left-4' : 'right-4'
                     }`}
                   >
-                    <span className="bg-mint text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
                       {listing.tag.text}
                     </span>
                   </div>
@@ -174,18 +143,6 @@ export default function FeaturedListings() {
             </div>
           ))}
         </div>
-
-        {/* View More Button */}
-        {listings.length > 6 && (
-          <div className="mt-12 text-center">
-            <Link
-              href="/products"
-              className="inline-block bg-mint text-white px-8 py-3 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-md hover:shadow-lg"
-            >
-              View All {listings.length} Listings
-            </Link>
-          </div>
-        )}
       </div>
     </section>
   );
