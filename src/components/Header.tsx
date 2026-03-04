@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function Header() {
@@ -22,10 +23,16 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
-            <div className="w-8 h-8 bg-mint rounded flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-              <div className="w-4 h-4 bg-white transform rotate-45"></div>
+            <div className="relative w-20 h-20 group-hover:scale-110 transition-transform duration-200">
+              <Image
+                src="/logo.webp"
+                alt="Mint Hub Logo"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
-            <span className="text-xl font-bold text-gray-800 group-hover:text-mint transition-colors">MINTHUB</span>
+             
           </Link>
 
           {/* Search Bar */}

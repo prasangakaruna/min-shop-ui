@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function AdminSignupPage() {
@@ -75,8 +76,14 @@ export default function AdminSignupPage() {
         {/* Logo and Header */}
         <div className="text-center">
           <Link href="/" className="inline-flex items-center space-x-2 mb-6">
-            <div className="w-12 h-12 bg-mint rounded-lg flex items-center justify-center">
-              <div className="w-6 h-6 bg-white transform rotate-45"></div>
+            <div className="relative w-12 h-12">
+              <Image
+                src="/logo.webp"
+                alt="Mint Hub Logo"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
             <span className="text-2xl font-bold text-gray-800">Mint Hub</span>
           </Link>
