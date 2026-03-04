@@ -92,13 +92,17 @@ export default function FeaturedListings() {
   const displayedListings = listings.slice(0, 6);
 
   return (
-    <section className="py-16 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-16 bg-white relative overflow-hidden border-t border-gray-100">
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-4xl font-bold text-gray-800 mb-2">Featured Listings</h2>
-            <p className="text-gray-600">Premium assets from verified sellers</p>
+            <div className="inline-block bg-mint/10 text-mint-dark px-3 py-1 rounded-full text-xs font-semibold mb-2">
+              FEATURED
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">Featured Listings</h2>
+            <p className="text-base text-gray-600">Premium assets from verified sellers</p>
           </div>
           <Link
             href="/products"
@@ -112,20 +116,21 @@ export default function FeaturedListings() {
         </div>
 
         {/* Listing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {displayedListings.map((listing) => (
             <div
               key={listing.id}
-              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group"
+              className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 group border border-mint/10 hover:border-mint/30"
             >
               {/* Image */}
-              <Link href={`/product/${listing.id}`} className="block relative h-48 overflow-hidden">
+              <Link href={`/product/${listing.id}`} className="block relative h-40 overflow-hidden">
                 <Image
                   src={listing.image}
                   alt={listing.title}
                   fill
                   className="object-cover group-hover:scale-110 transition-transform duration-300"
                 />
+                <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 {listing.tag && (
                   <div
                     className={`absolute top-4 ${
@@ -140,25 +145,25 @@ export default function FeaturedListings() {
               </Link>
 
               {/* Content */}
-              <div className="p-6">
+              <div className="p-4">
                 <Link href={`/product/${listing.id}`}>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2 hover:text-mint transition-colors">
+                  <h3 className="text-base font-bold text-gray-900 mb-1.5 hover:text-mint transition-colors line-clamp-2">
                     {listing.title}
                   </h3>
                 </Link>
-                <p className="text-2xl font-bold text-mint mb-3">{listing.price}</p>
-                <p className="text-gray-600 mb-4 flex items-center">
-                  <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <p className="text-xl font-bold text-mint mb-2">{listing.price}</p>
+                <p className="text-xs text-gray-600 mb-3 flex items-center">
+                  <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   {listing.location}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-1.5 mb-3">
                   {listing.tags.map((tag, index) => (
                     <span
                       key={index}
-                      className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-medium"
+                      className="bg-mint/10 text-mint-dark px-2 py-0.5 rounded-full text-xs font-medium"
                     >
                       {tag}
                     </span>
@@ -166,7 +171,7 @@ export default function FeaturedListings() {
                 </div>
                 <Link
                   href={`/product/${listing.id}`}
-                  className="block w-full bg-mint text-white py-2.5 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center"
+                  className="block w-full bg-mint text-white py-2 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center text-sm"
                 >
                   View Details
                 </Link>

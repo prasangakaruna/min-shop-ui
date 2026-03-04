@@ -9,48 +9,64 @@ const categories = [
     listings: '2,450+ Listings',
     image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
     link: '/vehicles',
+    icon: '🚗',
+    color: 'from-blue-500/20 to-blue-600/20',
   },
   {
     title: 'Real Estate',
     listings: '1,120+ Listings',
     image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
     link: '/real-estate',
+    icon: '🏠',
+    color: 'from-purple-500/20 to-purple-600/20',
   },
   {
     title: 'Home Electronics',
     listings: '5,800+ Listings',
     image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&q=80',
     link: '/electronics',
+    icon: '📱',
+    color: 'from-mint/20 to-mint-dark/20',
   },
   {
     title: 'Groceries',
     listings: '1,240+ Listings',
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
     link: '/groceries',
+    icon: '🛒',
+    color: 'from-green-500/20 to-green-600/20',
   },
   {
     title: 'Fashion',
     listings: '3,200+ Listings',
     image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80',
     link: '/products?category=fashion',
+    icon: '👔',
+    color: 'from-pink-500/20 to-pink-600/20',
   },
   {
     title: 'Furniture',
     listings: '1,890+ Listings',
     image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
     link: '/products?category=furniture',
+    icon: '🪑',
+    color: 'from-amber-500/20 to-amber-600/20',
   },
   {
     title: 'Sports & Outdoors',
     listings: '980+ Listings',
     image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80',
     link: '/products?category=sports',
+    icon: '⚽',
+    color: 'from-orange-500/20 to-orange-600/20',
   },
   {
     title: 'Books & Media',
     listings: '2,100+ Listings',
     image: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800&q=80',
     link: '/products?category=books',
+    icon: '📚',
+    color: 'from-indigo-500/20 to-indigo-600/20',
   },
 ];
 
@@ -101,20 +117,22 @@ export default function BrowseCategories() {
   const translateX = -(currentIndex * (100 / cardsPerView));
 
   return (
-    <section className="py-16 bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-16 bg-gray-50 relative overflow-hidden border-t border-gray-100">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%234FD1C7' fill-opacity='1' fill-rule='evenodd'/%3E%3C/svg%3E")`,
+        }}></div>
+      </div>
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h2 className="text-4xl font-bold text-gray-800 mb-2">Browse Categories</h2>
-            <p className="text-gray-600">Find exactly what you&apos;re looking for</p>
+        <div className="text-center mb-12">
+          <div className="inline-block bg-mint/10 text-mint-dark px-4 py-1.5 rounded-full text-xs font-semibold mb-4 border border-mint/20">
+            EXPLORE CATEGORIES
           </div>
-          <Link href="/products" className="text-mint font-medium hover:text-mint-dark transition-colors flex items-center space-x-1">
-            <span>View All</span>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">Browse Categories</h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">Discover amazing products across all categories</p>
         </div>
 
         {/* Category Slider */}
@@ -123,7 +141,7 @@ export default function BrowseCategories() {
           {canScrollLeft && (
             <button
               onClick={scrollPrev}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-mint hover:text-white transition-colors group"
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-14 h-14 bg-white rounded-full shadow-xl flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-300 group border border-gray-100 hover:border-mint hover:scale-110"
               aria-label="Previous categories"
             >
               <svg
@@ -140,7 +158,7 @@ export default function BrowseCategories() {
           {canScrollRight && (
             <button
               onClick={scrollNext}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-mint hover:text-white transition-colors group"
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-14 h-14 bg-white rounded-full shadow-xl flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-300 group border border-gray-100 hover:border-mint hover:scale-110"
               aria-label="Next categories"
             >
               <svg
@@ -171,16 +189,35 @@ export default function BrowseCategories() {
                 >
                   <Link
                     href={category.link}
-                    className="relative h-64 rounded-lg overflow-hidden group cursor-pointer block"
+                    className="relative h-56 rounded-2xl overflow-hidden group cursor-pointer block bg-white shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30"
                   >
+                    {/* Image Background */}
                     <div
-                      className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-110"
+                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
                       style={{ backgroundImage: `url(${category.image})` }}
                     ></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-                    <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                      <h3 className="text-2xl font-bold mb-1">{category.title}</h3>
-                      <p className="text-gray-300">{category.listings}</p>
+                    
+                    {/* Gradient Overlays */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 via-gray-900/20 to-transparent"></div>
+                    
+                    {/* Icon Badge */}
+                    <div className="absolute top-4 left-4 z-10">
+                      <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl shadow-lg group-hover:scale-110 group-hover:bg-white transition-all duration-300">
+                        {category.icon}
+                      </div>
+                    </div>
+                    
+                    {/* Content */}
+                    <div className="absolute bottom-0 left-0 right-0 p-5 text-white z-10">
+                      <h3 className="text-xl font-bold mb-1.5 group-hover:text-mint-light transition-colors duration-300">{category.title}</h3>
+                      <p className="text-white/90 text-sm font-medium mb-3">{category.listings}</p>
+                      <div className="flex items-center text-white group-hover:text-mint-light transition-colors duration-300">
+                        <span className="text-sm font-semibold mr-2">Explore Now</span>
+                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
                   </Link>
                 </div>
@@ -190,21 +227,34 @@ export default function BrowseCategories() {
 
           {/* Dots Indicator */}
           {categories.length > cardsPerView && (
-            <div className="flex justify-center items-center space-x-2 mt-6">
+            <div className="flex justify-center items-center space-x-3 mt-8">
               {Array.from({ length: Math.ceil(categories.length / cardsPerView) }).map((_, index) => (
                 <button
                   key={index}
                   onClick={() => scrollToIndex(index * cardsPerView)}
-                  className={`h-2 rounded-full transition-all ${
+                  className={`h-2.5 rounded-full transition-all duration-300 ${
                     Math.floor(currentIndex / cardsPerView) === index
-                      ? 'w-8 bg-mint'
-                      : 'w-2 bg-gray-300 hover:bg-gray-400'
+                      ? 'w-10 bg-mint shadow-md'
+                      : 'w-2.5 bg-gray-300 hover:bg-gray-400 hover:w-6'
                   }`}
                   aria-label={`Go to slide ${index + 1}`}
                 />
               ))}
             </div>
           )}
+          
+          {/* View All Link */}
+          <div className="text-center mt-10">
+            <Link 
+              href="/products" 
+              className="inline-flex items-center space-x-2 bg-mint text-white px-8 py-3 rounded-xl font-semibold hover:bg-mint-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+            >
+              <span>View All Categories</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
         </div>
       </div>
     </section>

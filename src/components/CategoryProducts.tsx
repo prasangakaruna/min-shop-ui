@@ -133,27 +133,31 @@ export default function CategoryProducts() {
   const [selectedCategory, setSelectedCategory] = useState(categories[0]);
 
   return (
-    <section className="py-16 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-16 bg-white relative overflow-hidden border-t border-gray-100">
+      
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="mb-12">
-          <h2 className="text-4xl font-bold text-gray-800 mb-2">Shop by Category</h2>
-          <p className="text-gray-600">Browse products from your favorite categories</p>
+        <div className="mb-8 text-center">
+          <div className="inline-block bg-mint/10 text-mint-dark px-3 py-1 rounded-full text-xs font-semibold mb-2">
+            CATEGORIES
+          </div>
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">Shop by Category</h2>
+          <p className="text-base text-gray-600 max-w-2xl mx-auto">Browse products from your favorite categories</p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Side - Categories */}
-          <div className="lg:w-64 flex-shrink-0">
-            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 px-2">Categories</h3>
+          <div className="lg:w-56 flex-shrink-0">
+            <div className="bg-white rounded-xl p-4 space-y-1.5 shadow-lg border border-mint/10">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 px-2">Categories</h3>
               {categories.map((category) => (
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(category)}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                  className={`w-full text-left px-4 py-3 rounded-xl transition-all font-medium ${
                     selectedCategory.id === category.id
-                      ? 'bg-mint text-white shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      ? 'bg-mint text-white shadow-lg scale-105'
+                      : 'text-gray-700 hover:bg-gray-100 hover:scale-102'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -172,10 +176,10 @@ export default function CategoryProducts() {
 
           {/* Right Side - Products */}
           <div className="flex-1">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-bold text-gray-800">{selectedCategory.name}</h3>
-                <p className="text-gray-600">{selectedCategory.products.length} products available</p>
+                <h3 className="text-xl font-bold text-gray-900">{selectedCategory.name}</h3>
+                <p className="text-sm text-gray-600">{selectedCategory.products.length} products</p>
               </div>
               <Link
                 href={`/${selectedCategory.id === 'real-estate' ? 'real-estate' : selectedCategory.id}`}
@@ -188,14 +192,14 @@ export default function CategoryProducts() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedCategory.products.map((product) => (
                 <div
                   key={product.id}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100"
+                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 group border border-mint/10"
                 >
                   {/* Image */}
-                  <Link href={`/product/${product.id}`} className="block relative h-48 overflow-hidden">
+                  <Link href={`/product/${product.id}`} className="block relative h-40 overflow-hidden">
                     <Image
                       src={product.image}
                       alt={product.title}
@@ -212,15 +216,15 @@ export default function CategoryProducts() {
                   </Link>
 
                   {/* Content */}
-                  <div className="p-5">
+                  <div className="p-4">
                     <Link href={`/product/${product.id}`}>
-                      <h3 className="text-lg font-bold text-gray-800 mb-2 hover:text-mint transition-colors line-clamp-2">
+                      <h3 className="text-base font-bold text-gray-900 mb-1.5 hover:text-mint transition-colors line-clamp-2">
                         {product.title}
                       </h3>
                     </Link>
-                    <p className="text-2xl font-bold text-mint mb-3">{product.price}</p>
-                    <p className="text-sm text-gray-600 mb-4 flex items-center">
-                      <svg className="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <p className="text-xl font-bold text-mint mb-2">{product.price}</p>
+                    <p className="text-xs text-gray-600 mb-3 flex items-center">
+                      <svg className="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
@@ -228,7 +232,7 @@ export default function CategoryProducts() {
                     </p>
                     <Link
                       href={`/product/${product.id}`}
-                      className="block w-full bg-mint text-white py-2.5 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center text-sm"
+                      className="block w-full bg-mint text-white py-2 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center text-xs"
                     >
                       View Details
                     </Link>

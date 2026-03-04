@@ -41,12 +41,15 @@ const topSellers = [
 
 export default function TopSellers() {
   return (
-    <section className="py-16 bg-white">
+    <section className="py-16 bg-gray-50 border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-4xl font-bold text-gray-800 mb-2">Top Sellers</h2>
-            <p className="text-gray-600">Best performing products this month</p>
+            <div className="inline-block bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold mb-2">
+              BEST SELLERS
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">Top Sellers</h2>
+            <p className="text-base text-gray-600">Best performing products this month</p>
           </div>
           <Link
             href="/products"
@@ -59,21 +62,21 @@ export default function TopSellers() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {topSellers.map((product, index) => (
             <div
               key={product.id}
-              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100 relative"
+              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 group border border-gray-100 relative"
             >
               {/* Rank Badge */}
-              <div className="absolute top-4 left-4 z-10">
-                <div className="bg-yellow-400 text-gray-800 w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg">
+              <div className="absolute top-3 left-3 z-10">
+                <div className="bg-yellow-400 text-gray-800 w-8 h-8 rounded-full flex items-center justify-center font-bold shadow-md text-sm">
                   #{index + 1}
                 </div>
               </div>
 
               {/* Image */}
-              <Link href={`/product/${product.id}`} className="block relative h-48 overflow-hidden">
+              <Link href={`/product/${product.id}`} className="block relative h-40 overflow-hidden">
                 <Image
                   src={product.image}
                   alt={product.title}
@@ -88,18 +91,18 @@ export default function TopSellers() {
               </Link>
 
               {/* Content */}
-              <div className="p-5">
+              <div className="p-4">
                 <Link href={`/product/${product.id}`}>
-                  <h3 className="text-lg font-bold text-gray-800 mb-2 hover:text-mint transition-colors line-clamp-2">
+                  <h3 className="text-base font-bold text-gray-900 mb-1.5 hover:text-mint transition-colors line-clamp-2">
                     {product.title}
                   </h3>
                 </Link>
-                <div className="flex items-center space-x-2 mb-2">
+                <div className="flex items-center space-x-1.5 mb-2">
                   <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                       <svg
                         key={i}
-                        className={`w-4 h-4 ${i < Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-300'}`}
+                        className={`w-3 h-3 ${i < Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-300'}`}
                         fill="currentColor"
                         viewBox="0 0 20 20"
                       >
@@ -107,20 +110,20 @@ export default function TopSellers() {
                       </svg>
                     ))}
                   </div>
-                  <span className="text-sm text-gray-600">({product.rating})</span>
+                  <span className="text-xs text-gray-600">({product.rating})</span>
                 </div>
-                <div className="flex items-center space-x-2 mb-3">
-                  <span className="text-2xl font-bold text-mint">{product.price}</span>
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-xl font-bold text-mint">{product.price}</span>
                   {product.originalPrice && (
-                    <span className="text-sm text-gray-400 line-through">{product.originalPrice}</span>
+                    <span className="text-xs text-gray-400 line-through">{product.originalPrice}</span>
                   )}
                 </div>
-                <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                <div className="flex items-center justify-between text-xs text-gray-600 mb-3">
                   <span>{product.sales} sold</span>
                 </div>
                 <Link
                   href={`/product/${product.id}`}
-                  className="block w-full bg-mint text-white py-2.5 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center text-sm"
+                  className="block w-full bg-mint text-white py-2 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center text-xs"
                 >
                   View Details
                 </Link>

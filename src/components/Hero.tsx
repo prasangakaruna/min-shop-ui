@@ -17,39 +17,54 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative h-[600px] overflow-hidden">
-      {/* Background Image */}
+    <section className="relative h-[500px] md:h-[550px] overflow-hidden">
+      {/* Background Image with Multiple Layers */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/80 to-transparent z-10"></div>
+        {/* Base Background Image */}
         <div 
-          className="absolute inset-0 bg-cover bg-center filter blur-sm"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage: 'url("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80")',
           }}
         ></div>
+        
+        {/* Gradient Overlays for Depth */}
+        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85 z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-mint/10 to-white/95 z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent z-10"></div>
+        
+        {/* Animated Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-mint/20 via-transparent to-blue-500/20 z-10 animate-pulse"></div>
+      </div>
+
+      {/* Floating Shapes for Visual Interest */}
+      <div className="absolute inset-0 z-10 overflow-hidden">
+        <div className="absolute top-20 right-20 w-72 h-72 bg-mint/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300"></div>
       </div>
 
       {/* Content */}
       <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
         <div className="max-w-2xl">
-          {/* Tag */}
-          <div className="inline-block bg-mint/10 text-mint-dark px-3 py-1 rounded-full text-sm font-medium mb-4 animate-fade-in">
+          {/* Tag with Enhanced Styling */}
+          <div className="inline-flex items-center bg-mint/10 backdrop-blur-sm text-mint-dark px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border border-mint/20 shadow-md">
+            <span className="w-2 h-2 bg-mint rounded-full mr-2 animate-pulse"></span>
             MINT CONDITION MARKETPLACE
           </div>
 
-          {/* Headline */}
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-800 mb-6 animate-slide-up">
+          {/* Headline with Text Shadow */}
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 animate-slide-up leading-tight">
             Sell Your Assets{' '}
-            <span className="text-mint">With Ease.</span>
+            <span className="bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">With Ease.</span>
           </h1>
 
-          {/* Description */}
-          <p className="text-lg text-gray-600 mb-8 animate-slide-up delay-100">
+          {/* Description with Better Contrast */}
+          <p className="text-lg md:text-xl text-gray-700 mb-6 animate-slide-up delay-100 leading-relaxed max-w-xl">
             The premier marketplace for high-value trade. Browse verified cars, luxury villas, and professional tech from trusted sellers.
           </p>
 
-          {/* Search Interface */}
-          <form onSubmit={handleSearch} className="bg-white rounded-xl shadow-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-3 animate-slide-up delay-200">
+          {/* Search Interface with Glassmorphism */}
+          <form onSubmit={handleSearch} className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 animate-slide-up delay-200 border border-white/20">
             <div className="flex-1 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,33 +108,23 @@ export default function Hero() {
             </button>
           </form>
 
-          {/* Quick Links */}
-          <div className="mt-6 flex flex-wrap gap-3 animate-fade-in delay-300">
-            <span className="text-sm text-gray-600">Popular:</span>
-            <button
-              onClick={() => router.push('/vehicles')}
-              className="text-sm text-mint hover:text-mint-dark font-medium hover:underline"
-            >
-              Vehicles
-            </button>
-            <button
-              onClick={() => router.push('/real-estate')}
-              className="text-sm text-mint hover:text-mint-dark font-medium hover:underline"
-            >
-              Real Estate
-            </button>
-            <button
-              onClick={() => router.push('/electronics')}
-              className="text-sm text-mint hover:text-mint-dark font-medium hover:underline"
-            >
-              Electronics
-            </button>
-            <button
-              onClick={() => router.push('/groceries')}
-              className="text-sm text-mint hover:text-mint-dark font-medium hover:underline"
-            >
-              Groceries
-            </button>
+          {/* Quick Links with Better Styling */}
+          <div className="mt-4 flex flex-wrap items-center gap-3 animate-fade-in delay-300">
+            <span className="text-sm text-gray-600 font-medium">Popular:</span>
+            {[
+              { name: 'Vehicles', path: '/vehicles' },
+              { name: 'Real Estate', path: '/real-estate' },
+              { name: 'Electronics', path: '/electronics' },
+              { name: 'Groceries', path: '/groceries' },
+            ].map((item) => (
+              <button
+                key={item.path}
+                onClick={() => router.push(item.path)}
+                className="text-sm bg-mint/10 text-mint-dark px-3 py-1.5 rounded-full font-medium hover:bg-mint hover:text-white hover:scale-105 transition-all border border-mint/20"
+              >
+                {item.name}
+              </button>
+            ))}
           </div>
         </div>
       </div>

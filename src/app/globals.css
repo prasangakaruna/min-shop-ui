@@ -85,6 +85,38 @@ body {
   animation-delay: 0.3s;
 }
 
+/* Enhanced Gradients */
+@keyframes gradient-shift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* Glassmorphism Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Enhanced Shadows */
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(79, 209, 199, 0.3);
+}
+
+.shadow-glow-lg {
+  box-shadow: 0 0 40px rgba(79, 209, 199, 0.4);
+}
+
 /* Professional Focus States */
 *:focus-visible {
   outline: 2px solid #4FD1C7;
