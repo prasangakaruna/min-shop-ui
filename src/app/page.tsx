@@ -1,6 +1,5 @@
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
-import StatsSection from '@/components/StatsSection';
 import BrowseCategories from '@/components/BrowseCategories';
 import CategoryProducts from '@/components/CategoryProducts';
 import FeaturedListings from '@/components/FeaturedListings';
@@ -19,7 +18,6 @@ export default function Home() {
       <Header />
       <Hero />
       <div className="border-t border-gray-100"></div>
-      <StatsSection />
       <BrowseCategories />
       <CategoryProducts />
       <SpecialOffers />
