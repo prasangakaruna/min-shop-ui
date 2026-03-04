@@ -83,7 +83,7 @@ export default function Hero() {
               <select 
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="appearance-none bg-white border-2 border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm font-medium text-gray-800"
+                className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm font-medium text-gray-800"
               >
                 <option value="all">All Categories</option>
                 <option value="vehicles">Vehicles</option>
