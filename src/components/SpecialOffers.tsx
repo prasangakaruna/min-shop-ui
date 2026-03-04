@@ -52,11 +52,28 @@ export default function SpecialOffers() {
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
-          <div className="inline-block bg-red-100 text-red-700 px-4 py-1.5 rounded-full text-xs font-semibold mb-4 border border-red-200 shadow-sm">
-            ⏰ LIMITED TIME OFFERS
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent"></div>
+            <div className="inline-flex items-center gap-2 bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold border border-red-200 shadow-sm">
+              <span className="w-1.5 h-1.5 bg-red-600 rounded-full animate-pulse"></span>
+              ⏰ LIMITED TIME
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent"></div>
           </div>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">Special Offers</h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">Don't miss out on these amazing deals and exclusive offers</p>
+          <div className="space-y-1.5">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight">
+              Special{' '}
+              <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">
+                  Offers
+                </span>
+                <span className="absolute bottom-1.5 left-0 right-0 h-2.5 bg-mint/20 -z-0 transform -skew-x-12"></span>
+              </span>
+            </h2>
+            <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Don't miss out on these amazing deals and exclusive offers
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

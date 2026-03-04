@@ -32,16 +32,30 @@ export default function Testimonials() {
   return (
     <section className="py-16 bg-white border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="inline-block bg-mint/10 text-mint-dark px-3 py-1 rounded-full text-xs font-semibold mb-3">
-            TESTIMONIALS
+        <div className="text-center mb-12">
+          <div className="flex items-center justify-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-mint/30 to-transparent"></div>
+            <div className="inline-flex items-center gap-2 bg-mint/10 text-mint-dark px-3 py-1 rounded-full text-xs font-bold border border-mint/20 shadow-sm">
+              <span className="w-1.5 h-1.5 bg-mint rounded-full animate-pulse"></span>
+              TESTIMONIALS
+            </div>
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-mint/30 to-transparent"></div>
           </div>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-            What Our Customers Say
-          </h2>
-          <p className="text-base text-gray-600 max-w-2xl mx-auto">
-            Real feedback from real customers who trust Mint Hub
-          </p>
+          <div className="space-y-1.5">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight">
+              What Our{' '}
+              <span className="relative inline-block">
+                <span className="relative z-10 bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">
+                  Customers
+                </span>
+                <span className="absolute bottom-1.5 left-0 right-0 h-2.5 bg-mint/20 -z-0 transform -skew-x-12"></span>
+              </span>
+              {' '}Say
+            </h2>
+            <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Real feedback from real customers who trust Mint Hub
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

@@ -64,23 +64,41 @@ export default function NewArrivals() {
     <section className="py-16 bg-white border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold mb-2">
-              NEW ARRIVALS
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-12 gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold border border-blue-200 shadow-sm">
+                <span className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></span>
+                NEW ARRIVALS
+              </div>
+              <div className="flex-1 h-px bg-gradient-to-r from-blue-400/30 to-transparent"></div>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-1">New Arrivals</h2>
-            <p className="text-base text-gray-600">Latest additions to our marketplace</p>
+            <div className="space-y-1.5">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight">
+                New{' '}
+                <span className="relative inline-block">
+                  <span className="relative z-10 bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">
+                    Arrivals
+                  </span>
+                  <span className="absolute bottom-1.5 left-0 right-0 h-2.5 bg-mint/20 -z-0 transform -skew-x-12"></span>
+                </span>
+              </h2>
+              <p className="text-base md:text-lg text-gray-600 max-w-2xl leading-relaxed">
+                Latest additions to our marketplace
+              </p>
+            </div>
           </div>
-          <Link
-            href="/products"
-            className="text-mint font-semibold hover:text-mint-dark transition-colors flex items-center space-x-1"
-          >
-            <span>View All</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+          <div className="flex-shrink-0">
+            <Link
+              href="/products"
+              className="inline-flex items-center space-x-2 group bg-white border-2 border-mint/30 text-mint-dark px-5 py-2.5 rounded-xl font-semibold hover:bg-mint hover:text-white hover:border-mint transition-all duration-300 shadow-md hover:shadow-xl"
+            >
+              <span>View All</span>
+              <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
         </div>
 
         {/* Listing Cards */}

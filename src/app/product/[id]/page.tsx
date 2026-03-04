@@ -10,6 +10,42 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
+  const similarProducts = [
+    {
+      id: '1',
+      title: 'Premium Wireless Earbuds',
+      image: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&q=80',
+      price: '$199.00',
+      originalPrice: '$249.00',
+      rating: 4.7,
+      badge: 'New',
+    },
+    {
+      id: '2',
+      title: 'Studio Quality Headphones',
+      image: 'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=800&q=80',
+      price: '$349.00',
+      rating: 4.8,
+      badge: 'Popular',
+    },
+    {
+      id: '3',
+      title: 'Bluetooth Speaker Pro',
+      image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=800&q=80',
+      price: '$179.00',
+      originalPrice: '$229.00',
+      rating: 4.6,
+    },
+    {
+      id: '4',
+      title: 'Gaming Headset with Mic',
+      image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80',
+      price: '$159.00',
+      rating: 4.5,
+      badge: 'Sale',
+    },
+  ];
+
   const product = {
     id: params.id,
     title: 'Pro Wireless ANC Headphones',
@@ -146,14 +182,14 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               <div className="flex items-center border border-gray-300 rounded-lg">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-4 py-2 hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 text-black hover:bg-gray-100 transition-colors"
                 >
                   -
                 </button>
-                <span className="px-6 py-2 border-x border-gray-300">{quantity}</span>
+                <span className="px-6 text-black py-2 border-x border-gray-300">{quantity}</span>
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="px-4 py-2 hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 text-black hover:bg-gray-100 transition-colors"
                 >
                   +
                 </button>
@@ -175,6 +211,73 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
             </div>
           </div>
         </div>
+
+        {/* Similar Products Section */}
+        <section className="mt-16 mb-12">
+          <div className="mb-8">
+            <div className="inline-block bg-mint/10 text-mint-dark px-3 py-1 rounded-full text-xs font-semibold mb-2">
+              YOU MAY ALSO LIKE
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Similar Products</h2>
+            <p className="text-base text-gray-600">Products you might be interested in</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {similarProducts.map((item) => (
+              <Link
+                key={item.id}
+                href={`/product/${item.id}`}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100 hover:border-mint/30"
+              >
+                {/* Image */}
+                <div className="relative h-48 overflow-hidden">
+                  <Image
+                    src={item.image}
+                    alt={item.title}
+                    fill
+                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                  {item.badge && (
+                    <div className="absolute top-3 left-3">
+                      <span className="bg-mint text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                        {item.badge}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                  <h3 className="text-base font-bold text-gray-900 mb-2 hover:text-mint transition-colors line-clamp-2">
+                    {item.title}
+                  </h3>
+                  <div className="flex items-center space-x-1 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                      <svg
+                        key={i}
+                        className={`w-3 h-3 ${i < Math.floor(item.rating) ? 'text-yellow-400' : 'text-gray-300'}`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                    ))}
+                    <span className="text-xs text-gray-600 ml-1">({item.rating})</span>
+                  </div>
+                  <div className="flex items-center space-x-2 mb-3">
+                    <span className="text-xl font-bold text-mint">{item.price}</span>
+                    {item.originalPrice && (
+                      <span className="text-sm text-gray-400 line-through">{item.originalPrice}</span>
+                    )}
+                  </div>
+                  <button className="w-full bg-mint text-white py-2 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-sm hover:shadow-md text-center text-sm">
+                    View Details
+                  </button>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       </main>
 
       <Footer />
