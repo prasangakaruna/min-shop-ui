@@ -1,14 +1,21 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
-import Image from 'next/image';
+import { getStorefrontCart, getImageDisplayUrl, type StorefrontCart } from '@/lib/api';
 
-export default function PaymentPage() {
+function PaymentPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const storeIdParam = searchParams?.get('store_id');
+  const storeId = storeIdParam ? parseInt(storeIdParam, 10) : NaN;
+  const effectiveStoreId = !isNaN(storeId) && storeId > 0 ? storeId : null;
+
+  const { status } = useSession();
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -17,7 +24,46 @@ export default function PaymentPage() {
   const [saveCard, setSaveCard] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
-  
+
+  const [cart, setCart] = useState<StorefrontCart | null>(null);
+  const [cartLoading, setCartLoading] = useState(true);
+  const [cartError, setCartError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      const returnUrl = `/checkout/payment${searchParams?.toString() ? `?${searchParams.toString()}` : ''}`;
+      router.replace(`/login?callbackUrl=${encodeURIComponent(returnUrl)}`);
+    }
+  }, [status, router, searchParams]);
+
+  useEffect(() => {
+    if (status !== 'authenticated' || effectiveStoreId == null) {
+      setCartLoading(false);
+      setCart(null);
+      return;
+    }
+    setCartLoading(true);
+    setCartError(null);
+    getStorefrontCart(effectiveStoreId)
+      .then(setCart)
+      .catch((e) => {
+        setCartError(e instanceof Error ? e.message : 'Failed to load cart');
+        setCart(null);
+      })
+      .finally(() => setCartLoading(false));
+  }, [status, effectiveStoreId]);
+
+  if (status === 'loading' || status === 'unauthenticated') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-10 h-10 border-2 border-mint border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-600">{status === 'unauthenticated' ? 'Redirecting to sign in...' : 'Loading...'}</p>
+        </div>
+      </div>
+    );
+  }
+
   // Format card number with spaces
   const formatCardNumber = (value: string) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
@@ -59,34 +105,23 @@ export default function PaymentPage() {
     // Simulate payment processing
     setTimeout(() => {
       setIsProcessing(false);
-      // Redirect to confirmation page
-      router.push('/checkout/confirmation?orderId=ORD-' + Date.now());
+      // Redirect to confirmation page (include store_id so confirmation can fetch order)
+      const params = new URLSearchParams({ orderId: 'ORD-' + Date.now() });
+      if (effectiveStoreId != null) params.set('store_id', String(effectiveStoreId));
+      router.push('/checkout/confirmation?' + params.toString());
     }, 2000);
   };
 
-  const cartItems = [
-    {
-      id: '1',
-      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
-      name: 'Pro Wireless ANC Headphones',
-      quantity: 1,
-      price: '$299.00',
-    },
-    {
-      id: '2',
-      image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80',
-      name: 'Bluetooth Portable Speaker',
-      quantity: 2,
-      price: '$79.99',
-    },
-  ];
+  const lines = cart?.lines ?? [];
+  const subtotal = lines.reduce((sum, l) => sum + parseFloat(l.price) * l.quantity, 0);
+  const subtotalFormatted = `$${subtotal.toFixed(2)}`;
+  const shipping = 0;
+  const tax = 0;
+  const total = subtotal + shipping + tax;
+  const totalFormatted = `$${total.toFixed(2)}`;
 
-  const summary = {
-    subtotal: '$458.98',
-    shipping: '$15.00',
-    tax: '$37.47',
-    total: '$511.45',
-  };
+  const showOrderSummary = status === 'authenticated' && !cartLoading && effectiveStoreId != null;
+  const orderSummaryEmpty = showOrderSummary && (cartError != null || (cart != null && lines.length === 0));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -340,55 +375,95 @@ export default function PaymentPage() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sticky top-24">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Order Summary</h2>
-              
-              {/* Cart Items */}
-              <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
-                {cartItems.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-3 pb-4 border-b border-gray-100 last:border-0">
-                    <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200">
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate mb-1">{item.name}</p>
-                      <p className="text-xs text-gray-500">Quantity: {item.quantity}</p>
-                      <p className="text-sm font-bold text-mint mt-1">{item.price}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
 
-              {/* Summary */}
-              <div className="space-y-3 mb-6 pt-4 border-t-2 border-gray-200">
-                <div className="flex justify-between text-gray-600 text-sm">
-                  <span>Subtotal</span>
-                  <span className="font-medium">{summary.subtotal}</span>
+              {cartLoading ? (
+                <div className="space-y-4 mb-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center space-x-3 pb-4 border-b border-gray-100">
+                      <div className="w-20 h-20 rounded-xl bg-gray-200 animate-pulse flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+                        <div className="h-3 bg-gray-100 rounded animate-pulse w-1/4" />
+                        <div className="h-4 bg-gray-200 rounded animate-pulse w-1/3" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex justify-between text-gray-600 text-sm">
-                  <span>Shipping</span>
-                  <span className="font-medium">{summary.shipping}</span>
+              ) : orderSummaryEmpty ? (
+                <div className="py-6 text-center">
+                  <p className="text-gray-600 mb-2">{cartError ?? 'Your cart is empty.'}</p>
+                  <Link
+                    href={effectiveStoreId != null ? `/cart?store_id=${effectiveStoreId}` : '/cart'}
+                    className="text-mint font-medium hover:underline"
+                  >
+                    Back to Cart
+                  </Link>
                 </div>
-                <div className="flex justify-between text-gray-600 text-sm">
-                  <span>Tax</span>
-                  <span className="font-medium">{summary.tax}</span>
-                </div>
-                <div className="border-t-2 border-gray-200 pt-4 mt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-lg text-gray-900">Total</span>
-                    <span className="font-bold text-mint text-2xl">{summary.total}</span>
+              ) : (
+                <>
+                  {/* Cart Items from API */}
+                  <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
+                    {lines.map((line) => (
+                      <div key={line.id} className="flex items-center space-x-3 pb-4 border-b border-gray-100 last:border-0">
+                        <div className="relative w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-100">
+                          {line.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={getImageDisplayUrl(line.image_url)}
+                              alt={line.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling;
+                                if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-full h-full flex items-center justify-center text-gray-400 text-xs"
+                            style={{ display: line.image_url ? 'none' : 'flex' }}
+                          >
+                            No image
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate mb-1">{line.title}</p>
+                          <p className="text-xs text-gray-500">Quantity: {line.quantity}</p>
+                          <p className="text-sm font-bold text-mint mt-1">${(parseFloat(line.price) * line.quantity).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              </div>
+
+                  {/* Summary */}
+                  <div className="space-y-3 mb-6 pt-4 border-t-2 border-gray-200">
+                    <div className="flex justify-between text-gray-600 text-sm">
+                      <span>Subtotal</span>
+                      <span className="font-medium">{subtotalFormatted}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600 text-sm">
+                      <span>Shipping</span>
+                      <span className="font-medium">{shipping > 0 ? `$${shipping.toFixed(2)}` : '—'}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600 text-sm">
+                      <span>Tax</span>
+                      <span className="font-medium">{tax > 0 ? `$${tax.toFixed(2)}` : '—'}</span>
+                    </div>
+                    <div className="border-t-2 border-gray-200 pt-4 mt-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-lg text-gray-900">Total</span>
+                        <span className="font-bold text-mint text-2xl">{totalFormatted}</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <button
                 onClick={handleSubmit}
-                disabled={isProcessing}
+                disabled={isProcessing || orderSummaryEmpty || cartLoading}
                 className={`w-full bg-gradient-to-r from-mint to-mint-dark text-white py-4 rounded-xl font-bold hover:from-mint-dark hover:to-mint transition-all shadow-lg hover:shadow-xl mb-4 flex items-center justify-center gap-2 ${
-                  isProcessing ? 'opacity-75 cursor-not-allowed' : ''
+                  isProcessing || orderSummaryEmpty || cartLoading ? 'opacity-75 cursor-not-allowed' : ''
                 }`}
               >
                 {isProcessing ? (
@@ -404,7 +479,7 @@ export default function PaymentPage() {
                 )}
               </button>
               <Link
-                href="/cart"
+                href={effectiveStoreId != null ? `/cart?store_id=${effectiveStoreId}` : '/cart'}
                 className="block text-center text-mint hover:text-mint-dark transition-colors font-medium text-sm"
               >
                 ← Back to Cart
@@ -434,5 +509,22 @@ export default function PaymentPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function PaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin w-10 h-10 border-2 border-mint border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-gray-600">Loading payment…</p>
+          </div>
+        </div>
+      }
+    >
+      <PaymentPageInner />
+    </Suspense>
   );
 }

@@ -93,6 +93,8 @@ export default function ProfilePage() {
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
             <li><Link href="/" className="hover:text-mint transition-colors">Home</Link></li>
             <li>/</li>
+            <li><Link href="/dashboard" className="hover:text-mint transition-colors">Dashboard</Link></li>
+            <li>/</li>
             <li className="text-gray-800 font-medium">Profile</li>
           </ol>
         </nav>

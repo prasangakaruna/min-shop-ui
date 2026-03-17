@@ -1,76 +1,63 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useStorefront } from '@/context/StorefrontContext';
 
-const categories = [
-  {
-    title: 'Vehicles',
-    listings: '2,450+ Listings',
-    image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
-    link: '/vehicles',
-    icon: '🚗',
-    color: 'from-blue-500/20 to-blue-600/20',
-  },
-  {
-    title: 'Real Estate',
-    listings: '1,120+ Listings',
-    image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
-    link: '/real-estate',
-    icon: '🏠',
-    color: 'from-purple-500/20 to-purple-600/20',
-  },
-  {
-    title: 'Home Electronics',
-    listings: '5,800+ Listings',
-    image: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&q=80',
-    link: '/electronics',
-    icon: '📱',
-    color: 'from-mint/20 to-mint-dark/20',
-  },
-  {
-    title: 'Groceries',
-    listings: '1,240+ Listings',
-    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
-    link: '/groceries',
-    icon: '🛒',
-    color: 'from-green-500/20 to-green-600/20',
-  },
-  {
-    title: 'Fashion',
-    listings: '3,200+ Listings',
-    image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80',
-    link: '/products?category=fashion',
-    icon: '👔',
-    color: 'from-pink-500/20 to-pink-600/20',
-  },
-  {
-    title: 'Furniture',
-    listings: '1,890+ Listings',
-    image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
-    link: '/products?category=furniture',
-    icon: '🪑',
-    color: 'from-amber-500/20 to-amber-600/20',
-  },
-  {
-    title: 'Sports & Outdoors',
-    listings: '980+ Listings',
-    image: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80',
-    link: '/products?category=sports',
-    icon: '⚽',
-    color: 'from-orange-500/20 to-orange-600/20',
-  },
-  {
-    title: 'Books & Media',
-    listings: '2,100+ Listings',
-    image: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=800&q=80',
-    link: '/products?category=books',
-    icon: '📚',
-    color: 'from-indigo-500/20 to-indigo-600/20',
-  },
-];
+const CATEGORY_IMAGES: Record<string, string> = {
+  vehicles: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
+  'real estate': 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
+  electronics: 'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800&q=80',
+  groceries: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80',
+  fashion: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80',
+  furniture: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80',
+  default: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80',
+};
 
-export default function BrowseCategories() {
+const CATEGORY_COLORS: Record<string, string> = {
+  vehicles: 'from-blue-500/20 to-blue-600/20',
+  'real estate': 'from-purple-500/20 to-purple-600/20',
+  electronics: 'from-mint/20 to-mint-dark/20',
+  groceries: 'from-green-500/20 to-green-600/20',
+  fashion: 'from-pink-500/20 to-pink-600/20',
+  default: 'from-gray-500/20 to-gray-600/20',
+};
+
+interface BrowseCategoriesProps {
+  categories?: { title: string; count: number; link: string }[];
+  loading?: boolean;
+}
+
+function deriveCategoriesFromProducts(products: { category: string | null }[]): { title: string; count: number; link: string }[] {
+  const map = new Map<string, number>();
+  products.forEach((p) => {
+    const cat = (p.category && p.category.trim()) || 'Other';
+    map.set(cat, (map.get(cat) ?? 0) + 1);
+  });
+  return Array.from(map.entries())
+    .map(([title, count]) => ({ title, count, link: `/products?category=${encodeURIComponent(title)}` }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export default function BrowseCategories({ categories: propCategories, loading: propLoading }: BrowseCategoriesProps = {}) {
+  const storefront = useStorefront();
+  const derived = useMemo(
+    () => (storefront ? deriveCategoriesFromProducts(storefront.products) : []),
+    [storefront?.products]
+  );
+  const propCategoriesSafe = propCategories ?? derived;
+  const loading = propLoading ?? storefront?.loading ?? false;
+
+  const categories = useMemo(() => {
+    return propCategoriesSafe.map((c) => ({
+      title: c.title,
+      listings: `${c.count} Listing${c.count !== 1 ? 's' : ''}`,
+      image: CATEGORY_IMAGES[c.title.toLowerCase()] ?? CATEGORY_IMAGES.default,
+      link: c.link,
+      icon: '📦',
+      color: CATEGORY_COLORS[c.title.toLowerCase()] ?? CATEGORY_COLORS.default,
+    }));
+  }, [propCategoriesSafe]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardsPerView, setCardsPerView] = useState(4);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -98,7 +85,7 @@ export default function BrowseCategories() {
     const maxIndex = Math.max(0, categories.length - cardsPerView);
     setCanScrollLeft(currentIndex > 0);
     setCanScrollRight(currentIndex < maxIndex);
-  }, [currentIndex, cardsPerView]);
+  }, [currentIndex, cardsPerView, categories.length]);
 
   const scrollToIndex = (index: number) => {
     const maxIndex = Math.max(0, categories.length - cardsPerView);
@@ -166,6 +153,19 @@ export default function BrowseCategories() {
 
         {/* Category Slider */}
         <div className="relative">
+          {loading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-56 rounded-2xl bg-gray-100 animate-pulse" />
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
+              <p className="text-gray-600">No categories yet. Products will appear here once stores add them.</p>
+              <Link href="/products" className="mt-4 inline-block text-mint font-medium hover:underline">View all products</Link>
+            </div>
+          ) : (
+          <>
           {/* Navigation Arrows */}
           {canScrollLeft && (
             <button
@@ -284,6 +284,8 @@ export default function BrowseCategories() {
               </svg>
             </Link>
           </div>
+          </>
+          )}
         </div>
       </div>
     </section>

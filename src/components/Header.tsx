@@ -1,14 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useSession, signIn, signOut } from 'next-auth/react';
+import { getCartCount, CART_UPDATED_EVENT } from '@/lib/api';
+
+const USER_TYPE_COOKIE = 'USER_TYPE';
+const USER_TYPE_TO_REGISTER = 'USER_TYPE_TO_REGISTER';
+
+function getCookie(name: string): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function clearUserTypeCookies() {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${USER_TYPE_COOKIE}=; path=/; max-age=0`;
+  document.cookie = `${USER_TYPE_TO_REGISTER}=; path=/; max-age=0`;
+}
 
 export default function Header() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cartCount, setCartCountState] = useState(0);
+
+  useEffect(() => {
+    setCartCountState(getCartCount());
+    const handler = () => setCartCountState(getCartCount());
+    window.addEventListener(CART_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(CART_UPDATED_EVENT, handler);
+  }, []);
+
+  const handleProfileClick = () => {
+    if (status !== 'authenticated') {
+      // Not logged in: redirect to Keycloak login
+      void signIn('keycloak', { callbackUrl: '/auth/after-login', redirect: true });
+      return;
+    }
+    setUserMenuOpen((open) => !open);
+  };
+
+  const handleSignOut = async () => {
+    clearUserTypeCookies();
+    await signOut({ redirect: false });
+    window.location.href = '/api/auth/keycloak-logout?callbackUrl=' + encodeURIComponent('/');
+  };
+
+  const handleAccountClick = () => {
+    const userType = getCookie(USER_TYPE_COOKIE);
+    setUserMenuOpen(false);
+    if (userType === 'store_admin') {
+      router.push('/admin/account');
+    } else {
+      router.push('/dashboard');
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +80,7 @@ export default function Header() {
                 src="/logo.webp"
                 alt="Mint Hub Logo"
                 fill
+                sizes="80px"
                 className="object-contain"
                 priority
               />
@@ -49,6 +102,7 @@ export default function Header() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search assets (e.g. 2024 Electric SUV)"
                 className="block w-full pl-10 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+                suppressHydrationWarning
               />
             </form>
           </div>
@@ -75,28 +129,79 @@ export default function Header() {
 
           {/* Actions */}
           <div className="flex items-center space-x-3">
-            <Link 
-              href="/checkout/payment" 
+            <Link
+              href="/cart"
               className="relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-200 group"
-              aria-label="Shopping cart"
+              aria-label={cartCount > 0 ? `Shopping cart (${cartCount} items)` : 'Shopping cart'}
             >
               <svg className="w-6 h-6 text-gray-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-mint text-white rounded-full text-xs font-bold flex items-center justify-center shadow-md">
-                3
-              </span>
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center bg-mint text-white text-xs font-bold rounded-full">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
+              )}
             </Link>
-            <Link
-              href="/profile"
-              className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-200"
-              aria-label="User profile"
-            >
-              <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </Link>
-            
+
+            {/* Profile menu */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={handleProfileClick}
+                className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-200"
+                aria-label="User profile"
+                suppressHydrationWarning
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </button>
+
+              {status === 'authenticated' && userMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    aria-hidden
+                    onClick={() => setUserMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-56 z-20 rounded-xl bg-white shadow-lg border border-gray-200 py-1">
+                    <div className="px-4 py-2.5 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {session?.user?.name ?? 'Signed in user'}
+                      </p>
+                      {session?.user?.email && (
+                        <p className="mt-0.5 text-xs text-gray-500 truncate">
+                          {session.user.email}
+                        </p>
+                      )}
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-mint/10"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      Dashboard
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleAccountClick}
+                      className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-mint/10"
+                    >
+                      Account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-mint/10"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

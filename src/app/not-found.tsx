@@ -39,10 +39,10 @@ export default function NotFound() {
                 </Link>
                 <span className="text-gray-300">•</span>
                 <Link
-                  href="/profile"
+                  href="/dashboard"
                   className="text-mint hover:text-mint-dark font-medium text-sm"
                 >
-                  Profile
+                  Dashboard
                 </Link>
                 <span className="text-gray-300">•</span>
                 <Link

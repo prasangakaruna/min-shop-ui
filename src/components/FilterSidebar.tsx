@@ -190,7 +190,7 @@ export default function FilterSidebar({ category }: FilterSidebarProps) {
       </div>
 
       {/* Clear Filters Button */}
-      <button className="w-full bg-white border-2 border-mint text-mint py-2 rounded-lg font-medium hover:bg-mint/10 transition-colors">
+      <button type="button" className="w-full bg-white border-2 border-mint text-mint py-2 rounded-lg font-medium hover:bg-mint/10 transition-colors" suppressHydrationWarning>
         Clear Filters
       </button>
     </aside>

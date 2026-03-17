@@ -1,121 +1,179 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { getStorefrontOrder, type StorefrontOrder } from '@/lib/api';
+
+function formatOrderDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatAddress(addr: Record<string, unknown> | null): string[] {
+  if (!addr || typeof addr !== 'object') return [];
+  const lines: string[] = [];
+  const first = [addr.first_name, addr.last_name].filter(Boolean).join(' ');
+  if (first) lines.push(first);
+  const a1 = addr.address1 ?? addr.address;
+  if (a1) lines.push(String(a1));
+  const city = addr.city;
+  const province = addr.province_code ?? addr.province ?? addr.state;
+  const zip = addr.zip ?? addr.postal_code;
+  if (city || province || zip) {
+    lines.push([city, province, zip].filter(Boolean).join(', '));
+  }
+  if (addr.phone) lines.push(String(addr.phone));
+  return lines;
+}
 
 function ConfirmationContent() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('orderId') || 'ORD-2024-001234';
+  const orderId = searchParams.get('orderId');
+  const storeIdParam = searchParams.get('store_id');
+  const storeId = storeIdParam ? parseInt(storeIdParam, 10) : NaN;
+  const effectiveStoreId = !isNaN(storeId) && storeId > 0 ? storeId : null;
 
-  // Mock order data - in real app, fetch from API using orderId
-  const order = {
-    id: orderId,
-    date: new Date().toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    }),
-    items: [
-      {
-        id: '1',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
-        name: 'Pro Wireless ANC Headphones',
-        quantity: 1,
-        price: '$299.00',
-      },
-      {
-        id: '2',
-        image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80',
-        name: 'Bluetooth Portable Speaker',
-        quantity: 2,
-        price: '$79.99',
-      },
-    ],
-    shipping: {
-      name: 'John Doe',
-      address: '123 Main Street',
-      city: 'Los Angeles',
-      state: 'CA',
-      zip: '90001',
-      phone: '+1 (555) 123-4567',
-    },
-    payment: {
-      method: 'Credit Card',
-      last4: '4242',
-      total: '$511.45',
-    },
-    estimatedDelivery: '3-5 business days',
-  };
+  const [order, setOrder] = useState<StorefrontOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!orderId?.trim()) {
+      setLoading(false);
+      setError('Order ID is required.');
+      return;
+    }
+    if (effectiveStoreId == null) {
+      setLoading(false);
+      setError('Store is required. Use the link from your checkout email or go back to the store.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    getStorefrontOrder(effectiveStoreId, orderId.trim())
+      .then(setOrder)
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load order.');
+        setOrder(null);
+      })
+      .finally(() => setLoading(false));
+  }, [orderId, effectiveStoreId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex justify-center items-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-mint mb-4" />
+            <p className="text-gray-600">Loading order confirmation...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Order not found</h1>
+            <p className="text-gray-600 mb-6">{error ?? 'We could not load this order.'}</p>
+            {orderId && (
+              <p className="text-sm text-gray-500 mb-6">Order reference: <span className="font-mono">{orderId}</span></p>
+            )}
+            <Link
+              href="/products"
+              className="inline-flex items-center justify-center px-6 py-3 bg-mint text-white rounded-xl font-semibold hover:bg-mint-dark transition-all"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const shippingLines = formatAddress(order.shipping_address);
+  const orderDate = formatOrderDate(order.created_at);
+  const totalFormatted = typeof order.total === 'string' && order.total.startsWith('$') ? order.total : `$${Number(order.total).toFixed(2)}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Success Icon and Message */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6 animate-bounce">
             <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Order Confirmed!
-          </h1>
-          <p className="text-xl text-gray-600 mb-2">
-            Thank you for your purchase
-          </p>
-          <p className="text-gray-500">
-            Your order has been received and is being processed
-          </p>
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">Order Confirmed!</h1>
+          <p className="text-xl text-gray-600 mb-2">Thank you for your purchase</p>
+          <p className="text-gray-500">Your order has been received and is being processed</p>
         </div>
 
-        {/* Order Details Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 lg:p-8 mb-8">
           <div className="flex items-center justify-between mb-6 pb-6 border-b-2 border-gray-200">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Details</h2>
-              <p className="text-sm text-gray-600">Order ID: <span className="font-semibold text-gray-900">{order.id}</span></p>
+              <p className="text-sm text-gray-600">
+                Order ID: <span className="font-semibold text-gray-900">{order.number}</span>
+              </p>
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-600">Order Date</p>
-              <p className="font-semibold text-gray-900">{order.date}</p>
+              <p className="font-semibold text-gray-900">{orderDate}</p>
             </div>
           </div>
 
-          {/* Order Items */}
           <div className="mb-8">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Items Ordered</h3>
             <div className="space-y-4">
-              {order.items.map((item) => (
-                <div key={item.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
-                  <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      className="object-cover"
-                    />
+              {(order.line_items ?? []).map((item) => {
+                const priceStr = typeof item.price === 'string' && item.price.startsWith('$') ? item.price : `$${Number(item.price).toFixed(2)}`;
+                const totalStr = typeof item.total === 'string' && item.total.startsWith('$') ? item.total : `$${Number(item.total).toFixed(2)}`;
+                return (
+                  <div key={item.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
+                    <div className="w-20 h-20 rounded-lg bg-gray-200 flex-shrink-0 flex items-center justify-center border border-gray-200">
+                      <span className="text-gray-400 text-xs">No image</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900 mb-1">{item.title}</h4>
+                      <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">{priceStr} × {item.quantity}</p>
+                      <p className="font-bold text-mint text-lg">{totalStr}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-gray-900 mb-1">{item.name}</h4>
-                    <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-mint text-lg">{item.price}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          {/* Order Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Shipping Address */}
             <div className="bg-gray-50 rounded-xl p-5">
               <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <svg className="w-5 h-5 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,30 +182,28 @@ function ConfirmationContent() {
                 Shipping Address
               </h3>
               <div className="text-sm text-gray-700 space-y-1">
-                <p className="font-semibold">{order.shipping.name}</p>
-                <p>{order.shipping.address}</p>
-                <p>{order.shipping.city}, {order.shipping.state} {order.shipping.zip}</p>
-                <p className="mt-2">{order.shipping.phone}</p>
+                {shippingLines.length > 0 ? (
+                  shippingLines.map((line, i) => <p key={i}>{line}</p>)
+                ) : (
+                  <p className="text-gray-500">No shipping address provided</p>
+                )}
               </div>
             </div>
 
-            {/* Payment Info */}
             <div className="bg-gray-50 rounded-xl p-5">
               <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <svg className="w-5 h-5 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
-                Payment Method
+                Payment
               </h3>
               <div className="text-sm text-gray-700 space-y-1">
-                <p className="font-semibold">{order.payment.method}</p>
-                <p>•••• •••• •••• {order.payment.last4}</p>
-                <p className="mt-2 text-lg font-bold text-mint">Total: {order.payment.total}</p>
+                <p className="font-semibold capitalize">{order.financial_status}</p>
+                <p className="mt-2 text-lg font-bold text-mint">Total: {totalFormatted}</p>
               </div>
             </div>
           </div>
 
-          {/* Delivery Estimate */}
           <div className="bg-mint/10 border border-mint/20 rounded-xl p-5">
             <div className="flex items-start gap-3">
               <svg className="w-6 h-6 text-mint flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,14 +211,13 @@ function ConfirmationContent() {
               </svg>
               <div>
                 <h4 className="font-semibold text-gray-900 mb-1">Estimated Delivery</h4>
-                <p className="text-gray-700">{order.estimatedDelivery}</p>
+                <p className="text-gray-700">3–5 business days</p>
                 <p className="text-sm text-gray-600 mt-2">You will receive a tracking number via email once your order ships.</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
           <Link
             href={`/order/${order.id}`}
@@ -181,9 +236,8 @@ function ConfirmationContent() {
           </Link>
         </div>
 
-        {/* What's Next Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 lg:p-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">What's Next?</h3>
+          <h3 className="text-2xl font-bold text-gray-900 mb-6">What&apos;s Next?</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="w-16 h-16 bg-mint/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -192,7 +246,7 @@ function ConfirmationContent() {
                 </svg>
               </div>
               <h4 className="font-semibold text-gray-900 mb-2">Confirmation Email</h4>
-              <p className="text-sm text-gray-600">You'll receive an order confirmation email shortly with all the details.</p>
+              <p className="text-sm text-gray-600">You&apos;ll receive an order confirmation email shortly with all the details.</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-mint/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -201,7 +255,7 @@ function ConfirmationContent() {
                 </svg>
               </div>
               <h4 className="font-semibold text-gray-900 mb-2">Order Processing</h4>
-              <p className="text-sm text-gray-600">We're preparing your order and will notify you when it ships.</p>
+              <p className="text-sm text-gray-600">We&apos;re preparing your order and will notify you when it ships.</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-mint/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -210,7 +264,7 @@ function ConfirmationContent() {
                 </svg>
               </div>
               <h4 className="font-semibold text-gray-900 mb-2">Track Your Order</h4>
-              <p className="text-sm text-gray-600">Use your order ID to track the status of your shipment.</p>
+              <p className="text-sm text-gray-600">Use your order number <span className="font-mono">{order.number}</span> to track the status of your shipment.</p>
             </div>
           </div>
         </div>
@@ -223,14 +277,16 @@ function ConfirmationContent() {
 
 export default function ConfirmationPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-mint mb-4"></div>
-          <p className="text-gray-600">Loading order confirmation...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-mint mb-4" />
+            <p className="text-gray-600">Loading order confirmation...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <ConfirmationContent />
     </Suspense>
   );

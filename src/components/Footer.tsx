@@ -62,7 +62,7 @@ export default function Footer() {
           <div>
             <h3 className="font-bold text-gray-800 mb-4 text-sm uppercase tracking-wider">Resources</h3>
             <ul className="space-y-3">
-              <li><Link href="/profile" className="text-gray-600 hover:text-mint transition-colors text-sm">My Account</Link></li>
+              <li><Link href="/dashboard" className="text-gray-600 hover:text-mint transition-colors text-sm">My Account</Link></li>
               <li><Link href="/profile/orders" className="text-gray-600 hover:text-mint transition-colors text-sm">Order History</Link></li>
               <li><Link href="/profile/settings" className="text-gray-600 hover:text-mint transition-colors text-sm">Settings</Link></li>
               <li><Link href="#" className="text-gray-600 hover:text-mint transition-colors text-sm">Help Center</Link></li>
@@ -81,11 +81,13 @@ export default function Footer() {
                 placeholder="Your email"
                 required
                 className="flex-1 px-4 py-2.5 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-mint focus:border-transparent text-sm"
+                suppressHydrationWarning
               />
-              <button 
+              <button
                 type="submit"
                 className="bg-mint text-white px-4 py-2.5 rounded-r-lg hover:bg-mint-dark transition-colors flex items-center justify-center"
                 aria-label="Subscribe to newsletter"
+                suppressHydrationWarning
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

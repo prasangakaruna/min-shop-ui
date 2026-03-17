@@ -1,176 +1,255 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import FilterSidebar from '@/components/FilterSidebar';
 import Pagination from '@/components/Pagination';
+import {
+  getStorefrontProducts,
+  getImageDisplayUrl,
+  addStorefrontCartLine,
+  setCartTokenForStore,
+  setCartCount,
+  type StorefrontProduct,
+} from '@/lib/api';
 
-const products = [
-  {
-    id: '1',
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
-    title: 'Pro Wireless ANC Headphones',
-    category: 'AUDIO & HEADPHONES',
-    price: '$299.00',
-    rating: 4.9,
-    badge: 'TOP SELLER',
+const PER_PAGE = 24;
+const LAST_CART_STORE_KEY = 'mint_cart_store_id';
+
+function toCardProps(
+  p: StorefrontProduct,
+  opts?: { onAddToCart?: (storeId: number, variantId: number) => void; addingVariantId?: number | null }
+) {
+  const firstVariant = p.variants?.[0];
+  const imageUrl = p.image_urls?.length ? p.image_urls[0] : p.image_url ?? '';
+  return {
+    id: String(p.id),
+    image: getImageDisplayUrl(imageUrl) || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80',
+    title: p.title,
+    category: p.category ?? '',
+    price: p.price,
+    originalPrice: firstVariant?.compare_at_price ?? undefined,
+    rating: undefined,
+    badge: null as string | null,
     badgeColor: 'mint' as const,
-  },
-  {
-    id: '2',
-    image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&q=80',
-    title: 'Lumix X1 Mirrorless Camera',
-    category: 'CAMERAS & PHOTOGRAPHY',
-    price: '$1,499.00',
-    rating: 4.7,
-    badge: null,
-  },
-  {
-    id: '3',
-    image: 'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&q=80',
-    title: 'Aura Smart Voice Assistant',
-    category: 'SMART HOME',
-    price: '$89.00',
-    originalPrice: '$129.00',
-    rating: 4.5,
-    badge: 'NEW ARRIVAL',
-    badgeColor: 'blue' as const,
-  },
-  {
-    id: '4',
-    image: 'https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=800&q=80',
-    title: 'Tactile RGB Gaming Keyboard',
-    category: 'GAMING',
-    price: '$159.00',
-    rating: 4.8,
-    badge: null,
-  },
-  {
-    id: '5',
-    image: 'https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?w=800&q=80',
-    title: 'Ultra-Sync HDMI 2.1 Cable',
-    category: 'CABLES & ADAPTERS',
-    price: '$24.99',
-    rating: 4.9,
-    badge: null,
-  },
-  {
-    id: '6',
-    image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=800&q=80',
-    title: '34" Curved UltraWide Monitor',
-    category: 'MONITORS',
-    price: '$549.00',
-    rating: 4.6,
-    badge: null,
-  },
-  {
-    id: '7',
-    image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&q=80',
-    title: 'Wireless Charging Pad',
-    category: 'ACCESSORIES',
-    price: '$39.99',
-    rating: 4.7,
-    badge: 'BESTSELLER',
-    badgeColor: 'mint' as const,
-  },
-  {
-    id: '8',
-    image: 'https://images.unsplash.com/photo-1580910051074-3eb694886505?w=800&q=80',
-    title: 'Bluetooth Portable Speaker',
-    category: 'AUDIO & HEADPHONES',
-    price: '$79.99',
-    rating: 4.8,
-    badge: null,
-  },
-  {
-    id: '9',
-    image: 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&q=80',
-    title: '4K Action Camera',
-    category: 'CAMERAS & PHOTOGRAPHY',
-    price: '$199.00',
-    rating: 4.6,
-    badge: 'SALE 15%',
-    badgeColor: 'red' as const,
-  },
-];
+    storeId: p.store_id,
+    productVariantId: firstVariant?.id,
+    onAddToCart: opts?.onAddToCart,
+    addToCartLoading: opts?.addingVariantId != null && opts.addingVariantId === firstVariant?.id,
+  };
+}
 
-export default function ProductsPage() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState('newest');
-  const itemsPerPage = 9;
-  const totalPages = Math.ceil(products.length / itemsPerPage);
+function ProductsPageInner() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category') ?? '';
+  const pageParam = searchParams.get('page');
+  const searchParam = searchParams.get('search') ?? '';
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentProducts = products.slice(startIndex, endIndex);
+  const [products, setProducts] = useState<StorefrontProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [addingVariantId, setAddingVariantId] = useState<number | null>(null);
+
+  const handleAddToCart = useCallback(
+    async (storeId: number, productVariantId: number) => {
+      setAddingVariantId(productVariantId);
+      try {
+        const cart = await addStorefrontCartLine(storeId, productVariantId, 1);
+        if (cart.cart_token) setCartTokenForStore(storeId, cart.cart_token);
+        if (typeof window !== 'undefined') localStorage.setItem(LAST_CART_STORE_KEY, String(storeId));
+        const total = (cart.lines ?? []).reduce((sum, l) => sum + l.quantity, 0);
+        setCartCount(total);
+        window.location.href = `/cart?store_id=${storeId}`;
+      } catch {
+        setAddingVariantId(null);
+      }
+    },
+    []
+  );
+
+  const currentPage = Math.max(1, parseInt(pageParam ?? '1', 10) || 1);
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+
+  const setPage = useCallback(
+    (page: number) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (page <= 1) params.delete('page');
+      else params.set('page', String(page));
+      window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+    },
+    [searchParams]
+  );
+
+  const setCategory = useCallback(
+    (category: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('page');
+      if (category) params.set('category', category);
+      else params.delete('category');
+      window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+    },
+    [searchParams]
+  );
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    getStorefrontProducts({
+      page: currentPage,
+      per_page: PER_PAGE,
+      category: categoryParam || undefined,
+      search: searchParam || undefined,
+    })
+      .then((res) => {
+        setProducts(res.data);
+        setTotal(res.total);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Failed to load products');
+        setProducts([]);
+        setTotal(0);
+      })
+      .finally(() => setLoading(false));
+  }, [currentPage, categoryParam, searchParam]);
+
+  const startIndex = total === 0 ? 0 : (currentPage - 1) * PER_PAGE + 1;
+  const endIndex = Math.min(currentPage * PER_PAGE, total);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumbs */}
         <nav className="mb-6">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><a href="/" className="hover:text-mint">Home</a></li>
+            <li>
+              <Link href="/" className="hover:text-mint">
+                Home
+              </Link>
+            </li>
             <li>/</li>
             <li className="text-gray-800">Products</li>
           </ol>
         </nav>
 
-        {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">Products</h1>
-          <p className="text-gray-600">1,240 Results</p>
+          {loading ? (
+            <p className="text-gray-600">Loading…</p>
+          ) : error ? (
+            <p className="text-red-600">{error}</p>
+          ) : (
+            <p className="text-gray-600">{total} Result{total !== 1 ? 's' : ''}</p>
+          )}
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar */}
           <div className="lg:w-64 flex-shrink-0">
-            <FilterSidebar />
+            <FilterSidebar category={categoryParam} />
           </div>
 
-          {/* Main Content */}
           <div className="flex-1">
-            {/* Sort and View Options */}
-            <div className="flex items-center justify-between mb-6">
-              <p className="text-gray-600">
-                Showing {startIndex + 1}-{Math.min(endIndex, products.length)} of {products.length} products
-              </p>
-              <div className="flex items-center space-x-4">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-mint focus:border-transparent"
-                >
-                  <option value="newest">Newest Arrivals</option>
-                  <option value="popular">Most Popular</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                </select>
+            {!loading && !error && (
+              <div className="flex items-center justify-between mb-6">
+                <p className="text-gray-600">
+                  Showing {startIndex}-{endIndex} of {total} products
+                </p>
+                <div className="flex items-center space-x-4">
+                  <select
+                    className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-mint focus:border-transparent"
+                    defaultValue="newest"
+                    aria-label="Sort"
+                  >
+                    <option value="newest">Newest Arrivals</option>
+                    <option value="popular">Most Popular</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Product Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {currentProducts.map((product) => (
-                <ProductCard key={product.id} {...product} />
-              ))}
-            </div>
-
-            {/* Pagination */}
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {[...Array(PER_PAGE)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-lg shadow overflow-hidden animate-pulse">
+                    <div className="h-48 bg-gray-200" />
+                    <div className="p-4 space-y-3">
+                      <div className="h-3 bg-gray-200 rounded w-1/4" />
+                      <div className="h-5 bg-gray-200 rounded w-3/4" />
+                      <div className="h-6 bg-gray-200 rounded w-1/3" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className="py-12 text-center text-gray-600">
+                <p className="mb-4">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="text-mint font-medium hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : products.length === 0 ? (
+              <div className="py-12 text-center text-gray-600">
+                <p className="mb-4">No products found.</p>
+                <Link href="/products" className="text-mint font-medium hover:underline">
+                  View all products
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      {...toCardProps(product, {
+                        onAddToCart: handleAddToCart,
+                        addingVariantId,
+                      })}
+                    />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                  />
+                )}
+              </>
+            )}
           </div>
         </div>
       </main>
 
       <Footer />
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50">
+          <Header />
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <p className="text-gray-600">Loading products…</p>
+          </main>
+          <Footer />
+        </div>
+      }
+    >
+      <ProductsPageInner />
+    </Suspense>
   );
 }
