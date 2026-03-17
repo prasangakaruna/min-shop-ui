@@ -54,6 +54,19 @@ export default function AdminSettingsPage() {
     plan: 'basic' as string,
     is_active: true,
     plan_price: 0,
+    business_entity: '',
+    business_country: '',
+    contact_phone: '',
+    contact_address: '',
+    currency_display: 'Sri Lankan Rupee (LKR Rs)',
+    backup_region: 'Sri Lanka',
+    unit_system: 'metric',
+    default_weight_unit: 'kg',
+    timezone: '',
+    order_id_prefix: '#',
+    order_id_suffix: '',
+    order_processing_mode: 'manual' as 'auto_all' | 'auto_gift_cards' | 'manual',
+    order_auto_archive: true,
   });
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
 
@@ -70,12 +83,32 @@ export default function AdminSettingsPage() {
         const plan = data.plan ?? 'basic';
         const defaultPrice = DEFAULT_PLAN_PRICES[plan] ?? DEFAULT_PLAN_PRICES.basic;
         const customPrice = data.settings?.plan_price;
+        const settings = data.settings ?? {};
+        const op = (settings.order_processing ?? {}) as {
+          mode?: 'auto_all' | 'auto_gift_cards' | 'manual';
+          auto_archive?: boolean;
+        };
         setForm({
           name: data.name ?? '',
           email: data.email ?? '',
           plan,
           is_active: data.is_active ?? true,
           plan_price: typeof customPrice === 'number' ? customPrice : defaultPrice,
+          business_entity: (settings.business_entity as string | undefined) ?? '',
+          business_country: (settings.business_country as string | undefined) ?? '',
+          contact_phone: (settings.contact_phone as string | undefined) ?? '',
+          contact_address: (settings.contact_address as string | undefined) ?? '',
+          currency_display:
+            (settings.currency_display as string | undefined) ?? 'Sri Lankan Rupee (LKR Rs)',
+          backup_region: (settings.backup_region as string | undefined) ?? 'Sri Lanka',
+          unit_system: (settings.unit_system as string | undefined) ?? 'metric',
+          default_weight_unit:
+            (settings.default_weight_unit as string | undefined) ?? 'kg',
+          timezone: (settings.timezone as string | undefined) ?? '',
+          order_id_prefix: (settings.order_id_prefix as string | undefined) ?? '#',
+          order_id_suffix: (settings.order_id_suffix as string | undefined) ?? '',
+          order_processing_mode: op.mode ?? 'manual',
+          order_auto_archive: op.auto_archive ?? true,
         });
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load store'))
@@ -91,13 +124,39 @@ export default function AdminSettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const body: { name: string; email: string | null; plan: string; is_active: boolean; settings?: { plan_price: number } } = {
+      const settingsPayload: Record<string, unknown> = {
+        business_entity: form.business_entity || null,
+        business_country: form.business_country || null,
+        contact_phone: form.contact_phone || null,
+        contact_address: form.contact_address || null,
+        currency_display: form.currency_display,
+        backup_region: form.backup_region,
+        unit_system: form.unit_system,
+        default_weight_unit: form.default_weight_unit,
+        timezone: form.timezone || null,
+        order_id_prefix: form.order_id_prefix || null,
+        order_id_suffix: form.order_id_suffix || null,
+        order_processing: {
+          mode: form.order_processing_mode,
+          auto_archive: form.order_auto_archive,
+        },
+      };
+      if (isSuperAdmin) {
+        settingsPayload.plan_price = form.plan_price;
+      }
+      const body: {
+        name: string;
+        email: string | null;
+        plan: string;
+        is_active: boolean;
+        settings?: Record<string, unknown>;
+      } = {
         name: form.name,
         email: form.email || null,
         plan: form.plan,
         is_active: form.is_active,
       };
-      if (isSuperAdmin) body.settings = { plan_price: form.plan_price };
+      body.settings = settingsPayload;
       const updated = await apiRequest<StoreSummary>('/store', {
         method: 'PATCH',
         token,
@@ -145,7 +204,7 @@ export default function AdminSettingsPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 py-8">
+      <main className="mx-auto max-w-5xl px-6 py-8">
         {error && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-200">
@@ -156,22 +215,82 @@ export default function AdminSettingsPage() {
         )}
 
         {loading ? (
-          <div className="space-y-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 animate-pulse rounded-xl bg-gray-100" />
-                  <div className="h-5 w-32 animate-pulse rounded bg-gray-100" />
-                </div>
-                <div className="mt-5 space-y-4">
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-gray-100" />
-                  <div className="h-11 w-full animate-pulse rounded-xl bg-gray-100" />
+          <div className="flex gap-8">
+            <div className="hidden w-56 shrink-0 md:block">
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                <div className="h-9 w-32 animate-pulse rounded bg-gray-100" />
+                <div className="mt-4 space-y-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-8 w-full animate-pulse rounded bg-gray-100" />
+                  ))}
                 </div>
               </div>
-            ))}
+            </div>
+            <div className="flex-1 space-y-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 animate-pulse rounded-xl bg-gray-100" />
+                    <div className="h-5 w-32 animate-pulse rounded bg-gray-100" />
+                  </div>
+                  <div className="mt-5 space-y-4">
+                    <div className="h-11 w-full animate-pulse rounded-xl bg-gray-100" />
+                    <div className="h-11 w-full animate-pulse rounded-xl bg-gray-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="flex gap-8">
+            {/* Settings sub-navigation */}
+            <aside className="hidden w-56 shrink-0 md:block">
+              <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+                <div className="px-2 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Settings
+                  </p>
+                </div>
+                <nav className="mt-1 space-y-0.5 text-sm">
+                  {[
+                    'General',
+                    'Plan',
+                    'Billing',
+                    'Users',
+                    'Payments',
+                    'Checkout',
+                    'Customer accounts',
+                    'Shipping and delivery',
+                    'Taxes and duties',
+                    'Locations',
+                    'Apps',
+                    'Sales channels',
+                    'Domains',
+                    'Customer events',
+                    'Notifications',
+                    'Metafields and metaobjects',
+                    'Languages',
+                    'Customer privacy',
+                    'Policies',
+                  ].map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`flex w-full items-center rounded-lg px-2.5 py-2 text-left ${
+                        item === 'General'
+                          ? 'bg-gray-100 font-medium text-gray-900'
+                          : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+            </aside>
+
+            {/* Main settings content */}
+            <form onSubmit={handleSubmit} className="flex-1 space-y-6">
             {/* Store status */}
             <section
               className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${
@@ -257,7 +376,7 @@ export default function AdminSettingsPage() {
               </div>
             )}
 
-            {/* Store details */}
+            {/* Business details */}
             <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-4">
                 <div className="flex items-center gap-3">
@@ -265,12 +384,50 @@ export default function AdminSettingsPage() {
                     <IconStore className="h-5 w-5 text-gray-600" />
                   </div>
                   <div>
-                    <h2 className="text-base font-semibold text-gray-900">Store details</h2>
-                    <p className="text-sm text-gray-500">Name, contact, and URL info.</p>
+                    <h2 className="text-base font-semibold text-gray-900">General</h2>
+                    <p className="text-sm text-gray-500">Business details used for payments, markets, and apps.</p>
                   </div>
                 </div>
               </div>
-              <div className="p-6 space-y-5">
+              <div className="space-y-5 p-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Business name
+                  </label>
+                  <input
+                    type="text"
+                    value={form.business_entity}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, business_entity: e.target.value }))
+                    }
+                    placeholder="My Store – entity"
+                    className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Country / region
+                  </label>
+                  <input
+                    type="text"
+                    value={form.business_country}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, business_country: e.target.value }))
+                    }
+                    placeholder="Sri Lanka"
+                    className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Store contact details */}
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-4">
+                <h2 className="text-base font-semibold text-gray-900">Store contact details</h2>
+                <p className="text-sm text-gray-500">How customers can reach your store.</p>
+              </div>
+              <div className="space-y-5 p-6">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700">Store name</label>
                   <input
@@ -292,6 +449,36 @@ export default function AdminSettingsPage() {
                     placeholder="store@example.com"
                     className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
                   />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Phone number
+                    </label>
+                    <input
+                      type="tel"
+                      value={form.contact_phone}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, contact_phone: e.target.value }))
+                      }
+                      placeholder="+94 71 234 5678"
+                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Store address
+                    </label>
+                    <input
+                      type="text"
+                      value={form.contact_address}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, contact_address: e.target.value }))
+                      }
+                      placeholder="Sri Lanka"
+                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                  </div>
                 </div>
                 {store && (
                   <div className="flex flex-wrap gap-2 rounded-xl bg-gray-50 px-4 py-3">
@@ -407,6 +594,229 @@ export default function AdminSettingsPage() {
               </div>
             </section>
 
+            {/* Store defaults */}
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-4">
+                <h2 className="text-base font-semibold text-gray-900">Store defaults</h2>
+                <p className="text-sm text-gray-500">
+                  Region, units, and order ID format used across your store.
+                </p>
+              </div>
+              <div className="grid gap-6 p-6 md:grid-cols-2">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Currency display
+                    </label>
+                    <input
+                      type="text"
+                      value={form.currency_display}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, currency_display: e.target.value }))
+                      }
+                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      To manage the currencies customers see, go to Markets.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Backup region
+                    </label>
+                    <input
+                      type="text"
+                      value={form.backup_region}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, backup_region: e.target.value }))
+                      }
+                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Unit system
+                      </label>
+                      <select
+                        value={form.unit_system}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, unit_system: e.target.value }))
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                      >
+                        <option value="metric">Metric system</option>
+                        <option value="imperial">Imperial system</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Default weight unit
+                      </label>
+                      <input
+                        type="text"
+                        value={form.default_weight_unit}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            default_weight_unit: e.target.value,
+                          }))
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Time zone
+                    </label>
+                    <input
+                      type="text"
+                      value={form.timezone}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, timezone: e.target.value }))
+                      }
+                      placeholder="(GMT+05:30) Sri Jayawardenepura"
+                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Order ID format</h3>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Shown on the order page, customer pages, and notifications.
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600">
+                          Prefix
+                        </label>
+                        <input
+                          type="text"
+                          value={form.order_id_prefix}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, order_id_prefix: e.target.value }))
+                          }
+                          className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600">
+                          Suffix
+                        </label>
+                        <input
+                          type="text"
+                          value={form.order_id_suffix}
+                          onChange={(e) =>
+                            setForm((f) => ({ ...f, order_id_suffix: e.target.value }))
+                          }
+                          className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                        />
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Your order ID will appear as {form.order_id_prefix}1001
+                      {form.order_id_suffix}, {form.order_id_prefix}1002
+                      {form.order_id_suffix}, ...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Order processing */}
+            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-4">
+                <h2 className="text-base font-semibold text-gray-900">Order processing</h2>
+                <p className="text-sm text-gray-500">
+                  Choose how orders are fulfilled and archived.
+                </p>
+              </div>
+              <div className="space-y-6 p-6 text-sm text-gray-700">
+                <div>
+                  <p className="mb-2 text-sm font-medium text-gray-900">
+                    After an order has been paid
+                  </p>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="order_processing_mode"
+                        value="auto_all"
+                        checked={form.order_processing_mode === 'auto_all'}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            order_processing_mode: e.target.value as
+                              | 'auto_all'
+                              | 'auto_gift_cards'
+                              | 'manual',
+                          }))
+                        }
+                        className="h-4 w-4 border-gray-300 text-mint focus:ring-mint/40"
+                      />
+                      <span>Automatically fulfill the order&apos;s line items</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="order_processing_mode"
+                        value="auto_gift_cards"
+                        checked={form.order_processing_mode === 'auto_gift_cards'}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            order_processing_mode: e.target.value as
+                              | 'auto_all'
+                              | 'auto_gift_cards'
+                              | 'manual',
+                          }))
+                        }
+                        className="h-4 w-4 border-gray-300 text-mint focus:ring-mint/40"
+                      />
+                      <span>Automatically fulfill only the gift cards of the order</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="order_processing_mode"
+                        value="manual"
+                        checked={form.order_processing_mode === 'manual'}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            order_processing_mode: e.target.value as
+                              | 'auto_all'
+                              | 'auto_gift_cards'
+                              | 'manual',
+                          }))
+                        }
+                        className="h-4 w-4 border-gray-300 text-mint focus:ring-mint/40"
+                      />
+                      <span>Don&apos;t fulfill any of the order&apos;s line items automatically</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="border-t border-gray-100 pt-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={form.order_auto_archive}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, order_auto_archive: e.target.checked }))
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-mint focus:ring-mint/40"
+                    />
+                    <span>Automatically archive the order when it&apos;s fulfilled and paid</span>
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    The order will be removed from your list of open orders.
+                  </p>
+                </div>
+              </div>
+            </section>
+
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-white px-6 py-4 shadow-sm">
               <button
@@ -431,6 +841,7 @@ export default function AdminSettingsPage() {
               </Link>
             </div>
           </form>
+          </div>
         )}
       </main>
     </div>

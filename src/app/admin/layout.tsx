@@ -46,6 +46,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (storeLoading) return;
@@ -205,18 +206,52 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               {menuItems.map((item) => {
                 const isActiveTop =
                   pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
+                const isExpanded =
+                  expandedSections[item.href] !== undefined
+                    ? expandedSections[item.href]
+                    : isActiveTop || !item.children;
                 return (
                   <div key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        isActiveTop ? 'bg-mint text-white' : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      {item.icon && <span className="text-lg">{item.icon}</span>}
-                      {item.label}
-                    </Link>
-                    {item.children && (
+                    <div className="flex items-center justify-between">
+                      <Link
+                        href={item.href}
+                        className={`flex flex-1 items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          isActiveTop ? 'bg-mint text-white' : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {item.icon && <span className="text-lg">{item.icon}</span>}
+                        {item.label}
+                      </Link>
+                      {item.children && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSections((prev) => ({
+                              ...prev,
+                              [item.href]: !isExpanded,
+                            }))
+                          }
+                          className="ml-1 mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+                        >
+                          <svg
+                            className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M7 5L12 10L7 15"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    {item.children && isExpanded && (
                       <div className="mt-0.5 mb-1 space-y-0.5 pl-8">
                         {item.children.map((child) => {
                           const isActiveChild =

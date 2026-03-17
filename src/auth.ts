@@ -13,6 +13,8 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     access_token?: string;
+    refresh_token?: string;
+    access_token_expires?: number;
     isSuperAdmin?: boolean;
   }
 }
@@ -52,6 +54,45 @@ const keycloakIssuer = (process.env.KEYCLOAK_ISSUER ?? 'http://localhost:9091/re
 // Only send client_secret if client is confidential; for public client leave KEYCLOAK_CLIENT_SECRET unset
 const keycloakClientSecret = process.env.KEYCLOAK_CLIENT_SECRET || undefined;
 
+async function refreshAccessToken(token: JWT): Promise<JWT> {
+  if (!token.refresh_token) return token;
+  try {
+    const url = `${keycloakIssuer}/protocol/openid-connect/token`;
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: process.env.KEYCLOAK_CLIENT_ID ?? 'mint-ecommerce',
+      refresh_token: token.refresh_token,
+    });
+    if (keycloakClientSecret) {
+      body.set('client_secret', keycloakClientSecret);
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    if (!res.ok) {
+      return token;
+    }
+    const refreshed = (await res.json()) as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_in?: number;
+    };
+    if (!refreshed.access_token) return token;
+    const payload = decodeJwtPayload(refreshed.access_token);
+    token.access_token = refreshed.access_token;
+    if (refreshed.refresh_token) token.refresh_token = refreshed.refresh_token;
+    if (typeof refreshed.expires_in === 'number') {
+      token.access_token_expires = Math.floor(Date.now() / 1000) + refreshed.expires_in;
+    }
+    token.isSuperAdmin = hasSuperAdminRole(payload);
+    return token;
+  } catch {
+    return token;
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret,
   providers: [
@@ -69,8 +110,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.access_token_expires = account.expires_at;
         const payload = decodeJwtPayload(account.access_token);
         (token as JWT).isSuperAdmin = hasSuperAdminRole(payload);
+        return token;
       }
-      return token;
+      const expiresAt = token.access_token_expires;
+      if (expiresAt && typeof expiresAt === 'number') {
+        const now = Math.floor(Date.now() / 1000);
+        // Refresh if token will expire in the next 60 seconds
+        if (now > expiresAt - 60) {
+          token = await refreshAccessToken(token as JWT);
+        }
+      }
+      return token as JWT;
     },
     async session({ session, token }) {
       if (session) {

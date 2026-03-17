@@ -112,6 +112,21 @@ export interface Me {
 
 export interface StoreSettings {
   plan_price?: number;
+  currency_display?: string;
+  backup_region?: string;
+  unit_system?: 'metric' | 'imperial';
+  default_weight_unit?: string;
+  timezone?: string | null;
+  order_id_prefix?: string | null;
+  order_id_suffix?: string | null;
+  business_entity?: string | null;
+  business_country?: string | null;
+  contact_phone?: string | null;
+  contact_address?: string | null;
+  order_processing?: {
+    mode?: 'auto_all' | 'auto_gift_cards' | 'manual';
+    auto_archive?: boolean;
+  };
 }
 
 export interface StoreSummary {
