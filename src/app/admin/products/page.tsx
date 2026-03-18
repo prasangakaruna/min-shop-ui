@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, type Product, type ProductsResponse } from '@/lib/api';
+import Toast from '@/components/Toast';
+
+type PosIntegrationConfig = {
+  enabled?: boolean;
+  auto_sync?: boolean;
+};
 
 function ProductRowSkeleton() {
   return (
@@ -30,6 +36,9 @@ export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+  const [pos, setPos] = useState<PosIntegrationConfig | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
@@ -88,7 +97,77 @@ export default function AdminProductsPage() {
       .finally(() => setLoading(false));
   }, [token, currentStore, page, search, statusFilter]);
 
+  // Load POS integration config for this store
+  useEffect(() => {
+    if (!token || !currentStore) return;
+    apiRequest<PosIntegrationConfig>('/store/pos-integration', { token, storeId: currentStore.id })
+      .then((cfg) => setPos(cfg ?? {}))
+      .catch(() => setPos(null));
+  }, [token, currentStore?.id]);
+
+  // Auto-sync integrated products when enabled
+  useEffect(() => {
+    if (!token || !currentStore) return;
+    if (!pos?.enabled || !pos?.auto_sync) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const runSync = async () => {
+      if (syncing) return;
+      setSyncing(true);
+      try {
+        const res = await apiRequest<{ imported: number; created?: number; updated?: number; message?: string }>(
+          '/store/pos-integration/import-products',
+          { method: 'POST', token, storeId: currentStore.id }
+        );
+        if (cancelled) return;
+        if ((res.updated ?? 0) > 0 || (res.created ?? 0) > 0) {
+          setToast({
+            type: 'success',
+            message: `Synced POS products (created ${res.created ?? 0}, updated ${res.updated ?? 0}).`,
+          });
+          // Refresh current table page
+          const query: Record<string, string | number> = { page, per_page: 20 };
+          if (search) query.search = search;
+          if (statusFilter) query.status = statusFilter;
+          const refreshed = await apiRequest<ProductsResponse>('/store/products', { token, storeId: currentStore.id, query });
+          if (!cancelled) {
+            setProducts((refreshed as ProductsResponse).data ?? []);
+            setTotal((refreshed as ProductsResponse).total ?? 0);
+            setLastPage((refreshed as ProductsResponse).last_page ?? 1);
+          }
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setToast({ type: 'warning', message: e instanceof Error ? e.message : 'Auto sync failed' });
+        }
+      } finally {
+        if (!cancelled) setSyncing(false);
+      }
+    };
+
+    // Initial sync on entry
+    void runSync();
+    // Periodic sync every 2 minutes
+    timer = setInterval(runSync, 2 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+    };
+  }, [token, currentStore?.id, pos?.enabled, pos?.auto_sync, page, search, statusFilter, syncing]);
+
   const runSearch = () => { setSearch(searchInput); setPage(1); };
+
+  // Live search: debounce input so API is called automatically while typing
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -186,6 +265,7 @@ export default function AdminProductsPage() {
 
   return (
     <div className="min-h-full">
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {/* Page header */}
       <div className="border-b border-gray-200 bg-white px-6 py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

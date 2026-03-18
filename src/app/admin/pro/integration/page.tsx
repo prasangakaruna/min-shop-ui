@@ -16,6 +16,7 @@ type IntegrationConfig = {
   base_url?: string | null;
   api_key?: string | null;
   enabled?: boolean;
+  auto_sync?: boolean;
 };
 
 export default function ProIntegrationOverviewPage() {
@@ -81,13 +82,13 @@ export default function ProIntegrationOverviewPage() {
     setImportResult(null);
     setError(null);
     try {
-      const res = await apiRequest<{ imported: number; message?: string }>(
+      const res = await apiRequest<{ imported: number; created?: number; updated?: number; message?: string }>(
         '/store/pos-integration/import-products',
         { method: 'POST', token, storeId: selectedStoreId }
       );
       const successMsg =
         res.imported > 0
-          ? `Success: imported ${res.imported} product${res.imported === 1 ? '' : 's'} into this store.`
+          ? `Success: synced ${res.imported} product${res.imported === 1 ? '' : 's'} (created ${res.created ?? 0}, updated ${res.updated ?? 0}).`
           : res.message ?? 'No products were imported.';
       setImportResult(successMsg);
       setTimeout(() => messageAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
@@ -101,6 +102,25 @@ export default function ProIntegrationOverviewPage() {
   };
 
   const selectedStore = stores.find((s) => s.id === selectedStoreId) ?? null;
+
+  const handleToggleAutoSync = async (value: boolean) => {
+    if (!token || !selectedStoreId) return;
+    setError(null);
+    try {
+      const updated = await apiRequest<IntegrationConfig>('/store/pos-integration', {
+        method: 'PATCH',
+        token,
+        storeId: selectedStoreId,
+        body: { auto_sync: value },
+      });
+      setIntegration(updated ?? { ...(integration ?? {}), auto_sync: value });
+      setImportResult(value ? 'Auto sync enabled. Mint will keep integrated products up to date.' : 'Auto sync disabled.');
+      setTimeout(() => messageAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update auto sync');
+      setTimeout(() => messageAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    }
+  };
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -208,6 +228,24 @@ export default function ProIntegrationOverviewPage() {
                 >
                   {integration?.enabled ? 'Enabled' : 'Disabled'}
                 </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-700">Auto sync integrated products</p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    When enabled, Mint will periodically import new items and inventory changes for POS-integrated products.
+                  </p>
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(integration?.auto_sync)}
+                    onChange={(e) => handleToggleAutoSync(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-mint focus:ring-mint/40"
+                    disabled={!integration?.enabled}
+                  />
+                  {integration?.auto_sync ? 'On' : 'Off'}
+                </label>
               </div>
               <p className="text-xs text-gray-500">
                 This configuration is stored securely for this store and will be used by future
