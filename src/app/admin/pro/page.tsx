@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { apiRequest, type StoreListResponse, type Order } from '@/lib/api';
+import { apiRequest, type StoreListResponse, type Order, type StoreSummary } from '@/lib/api';
 
 type StoreSummaryLite = {
   id: number;
@@ -46,15 +46,53 @@ export default function ProAdminDashboard() {
   const [integration, setIntegration] = useState<{ base_url?: string; api_key?: string; enabled?: boolean }>({});
   const [testStatus, setTestStatus] = useState<string | null>(null);
 
+  const isStoreOnboardingComplete = (store: StoreSummary): boolean => {
+    const s = store.settings ?? {};
+    if (s.onboarding_completed) return true;
+    const ob = s.onboarding ?? {};
+    return Boolean(
+      (store.name ?? '').trim() &&
+        (s.business_country ?? '').toString().trim() &&
+        (ob.store_category ?? '').toString().trim() &&
+        (ob.business_stage === 'new' || ob.business_stage === 'existing') &&
+        Array.isArray(ob.sell_types) &&
+        ob.sell_types.length > 0 &&
+        Array.isArray(ob.sell_places) &&
+        ob.sell_places.length > 0
+    );
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const done = window.localStorage.getItem('mint_admin_onboarding_completed_v1') === 'true';
-    if (!done) {
-      router.replace('/admin/onboarding');
+    if (done) {
+      setOnboardingChecked(true);
       return;
     }
-    setOnboardingChecked(true);
-  }, [router]);
+    // Incognito/new browser: accept server onboarding flag from any owned store.
+    if (!token) return;
+    let cancelled = false;
+    apiRequest<StoreListResponse>('/me/stores', { token, query: { per_page: 1 } })
+      .then(async (res) => {
+        if (cancelled) return;
+        const storeId = res.data?.[0]?.id;
+        if (!storeId) {
+          router.replace('/admin/onboarding');
+          return;
+        }
+        const store = await apiRequest<StoreSummary>('/store', { token, storeId });
+        if (isStoreOnboardingComplete(store)) {
+          window.localStorage.setItem('mint_admin_onboarding_completed_v1', 'true');
+          setOnboardingChecked(true);
+        } else {
+          router.replace('/admin/onboarding');
+        }
+      })
+      .catch(() => router.replace('/admin/onboarding'));
+    return () => {
+      cancelled = true;
+    };
+  }, [router, token]);
 
   useEffect(() => {
     if (!token) return;

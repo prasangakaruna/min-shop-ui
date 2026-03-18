@@ -2,6 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useStore } from "@/context/StoreContext";
+import { apiRequest, type StoreSummary } from "@/lib/api";
+import Toast from "@/components/Toast";
 
 const ONBOARDING_KEY = "mint_admin_onboarding_completed_v1";
 
@@ -30,6 +34,8 @@ interface OnboardingState {
   sellPlaces: SellPlace[];
 }
 
+type MainCategory = { id: string; name: string };
+
 const initialState: OnboardingState = {
   storeName: "",
   country: "",
@@ -39,10 +45,37 @@ const initialState: OnboardingState = {
   sellPlaces: [],
 };
 
+function isStoreOnboardingComplete(store: StoreSummary): boolean {
+  const s = store.settings ?? {};
+  if (s.onboarding_completed) return true;
+  const ob = s.onboarding ?? {};
+  return Boolean(
+    (store.name ?? "").trim() &&
+      (s.business_country ?? "").toString().trim() &&
+      (ob.store_category ?? "").toString().trim() &&
+      (ob.business_stage === "new" || ob.business_stage === "existing") &&
+      Array.isArray(ob.sell_types) &&
+      ob.sell_types.length > 0 &&
+      Array.isArray(ob.sell_places) &&
+      ob.sell_places.length > 0
+  );
+}
+
 export default function AdminOnboardingPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const { currentStore } = useStore();
+  const token = (session as { access_token?: string } | null)?.access_token ?? null;
   const [step, setStep] = useState(1);
   const [state, setState] = useState<OnboardingState>(initialState);
+  const [bootLoading, setBootLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [storeSnapshot, setStoreSnapshot] = useState<StoreSummary | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+  const [mainCategories, setMainCategories] = useState<MainCategory[]>([]);
+  const [mainCategoriesLoading, setMainCategoriesLoading] = useState(false);
+  const [mainCategoriesError, setMainCategoriesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -50,25 +83,166 @@ export default function AdminOnboardingPage() {
     if (done) router.replace("/admin");
   }, [router]);
 
-  const goNext = () => {
+  // Prefill from backend store settings (and honor server onboarding flag)
+  useEffect(() => {
+    if (!token || !currentStore) {
+      setBootLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setBootLoading(true);
+    setError(null);
+    apiRequest<StoreSummary>("/store", { token, storeId: currentStore.id })
+      .then((store) => {
+        if (cancelled) return;
+        setStoreSnapshot(store);
+        if (isStoreOnboardingComplete(store)) {
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(ONBOARDING_KEY, "true");
+          }
+          router.replace("/admin");
+          return;
+        }
+
+        const settings = store.settings ?? {};
+        const onboarding = settings.onboarding ?? {};
+        setState((prev) => ({
+          ...prev,
+          storeName: store.name ?? prev.storeName,
+          country: (settings.business_country as string | undefined) ?? prev.country,
+          category: (onboarding.store_category as string | null | undefined) ?? prev.category,
+          businessStage: (onboarding.business_stage as BusinessStage | null | undefined) ?? prev.businessStage,
+          sellTypes: (onboarding.sell_types as SellType[] | null | undefined) ?? prev.sellTypes,
+          sellPlaces: (onboarding.sell_places as SellPlace[] | null | undefined) ?? prev.sellPlaces,
+        }));
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load onboarding");
+      })
+      .finally(() => {
+        if (!cancelled) setBootLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentStore?.id, router]);
+
+  // Load main categories from API for step 1 dropdown
+  useEffect(() => {
+    if (!token || !currentStore) return;
+    let cancelled = false;
+    setMainCategoriesLoading(true);
+    setMainCategoriesError(null);
+    apiRequest<MainCategory[]>("/store/product-categories", {
+      token,
+      storeId: currentStore.id,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setMainCategories(res ?? []);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setMainCategoriesError(e instanceof Error ? e.message : "Failed to load categories");
+        setMainCategories([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMainCategoriesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentStore?.id]);
+
+  const persistToApi = async (opts?: { completed?: boolean }): Promise<StoreSummary | null> => {
+    if (!token || !currentStore || !storeSnapshot) return null;
+    setSaving(true);
+    setError(null);
+    try {
+      const body: {
+        name: string;
+        email: string | null;
+        plan: string;
+        is_active: boolean;
+        settings: Record<string, unknown>;
+      } = {
+        name: state.storeName.trim() || storeSnapshot.name || currentStore.name,
+        email: storeSnapshot.email ?? null,
+        plan: storeSnapshot.plan,
+        is_active: storeSnapshot.is_active,
+        settings: {
+          ...(storeSnapshot.settings ?? {}),
+          business_country: state.country || null,
+          onboarding: {
+            store_category: state.category || null,
+            business_stage: state.businessStage ?? null,
+            sell_types: state.sellTypes,
+            sell_places: state.sellPlaces,
+          },
+          ...(opts?.completed
+            ? { onboarding_completed: true, onboarding_completed_at: new Date().toISOString() }
+            : {}),
+        },
+      };
+      await apiRequest<StoreSummary>("/store", {
+        method: "PATCH",
+        token,
+        storeId: currentStore.id,
+        body,
+      });
+      // refresh snapshot so future saves merge correctly
+      const refreshed = await apiRequest<StoreSummary>("/store", { token, storeId: currentStore.id });
+      setStoreSnapshot(refreshed);
+      return refreshed;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const goNext = async () => {
     if (step === 1 && (!state.storeName.trim() || !state.country || !state.category)) return;
     if (step === 2 && !state.businessStage) return;
     if (step === 3 && state.sellTypes.length === 0) return;
     if (step === 4 && state.sellPlaces.length === 0) return;
 
     if (step < 4) {
+      // Save progress on each step transition (don’t advance if save fails)
+      try {
+        await persistToApi();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save");
+        return;
+      }
       setStep((s) => s + 1);
       return;
     }
 
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(ONBOARDING_KEY, "true");
-      window.localStorage.setItem(
-        "mint_admin_onboarding_answers_v1",
-        JSON.stringify(state)
-      );
+    try {
+      const refreshed = await persistToApi({ completed: true });
+      const confirmed = refreshed ? isStoreOnboardingComplete(refreshed) : false;
+
+      if (typeof window !== "undefined") {
+        // Always set local flag so onboarding is truly "once" per device.
+        // Server-side confirmation is preferred, but some backends may not echo custom settings back immediately.
+        window.localStorage.setItem(ONBOARDING_KEY, "true");
+        window.localStorage.setItem("mint_admin_onboarding_answers_v1", JSON.stringify(state));
+      }
+
+      if (confirmed) {
+        setToast({ type: "success", message: "Setup complete. Welcome to Mint Admin." });
+      } else {
+        setToast({
+          type: "warning",
+          message:
+            "Saved successfully, but the server didn’t confirm completion yet. You can continue — we won’t show this again on this device.",
+        });
+      }
+
+      setTimeout(() => router.replace("/admin"), confirmed ? 700 : 900);
+    } catch (e) {
+      setToast({ type: "error", message: e instanceof Error ? e.message : "Failed to finish onboarding" });
+      setError(e instanceof Error ? e.message : "Failed to finish onboarding");
     }
-    router.replace("/admin");
   };
 
   const goBack = () => {
@@ -97,6 +271,14 @@ export default function AdminOnboardingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-mint/5 to-white flex items-center justify-center px-4 py-10">
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+          duration={toast.type === "warning" ? 5000 : 3000}
+        />
+      )}
       <div className="w-full max-w-5xl grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] items-stretch">
         <div className="rounded-3xl bg-white shadow-xl shadow-mint/10 border border-gray-200/80">
           <div className="px-6 sm:px-10 pt-6 sm:pt-8">
@@ -118,27 +300,65 @@ export default function AdminOnboardingPage() {
             </div>
           </div>
           <div className="px-6 sm:px-10 pb-8 sm:pb-10">
-            {step === 1 && (
-              <StepOne state={state} setState={setState} goNext={goNext} goBack={goBack} />
+            {error && (
+              <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
             )}
-            {step === 2 && (
-              <StepTwo state={state} setState={setState} goNext={goNext} goBack={goBack} />
-            )}
-            {step === 3 && (
-              <StepThree
-                state={state}
-                toggleSellType={toggleSellType}
-                goNext={goNext}
-                goBack={goBack}
-              />
-            )}
-            {step === 4 && (
-              <StepFour
-                state={state}
-                toggleSellPlace={toggleSellPlace}
-                goNext={goNext}
-                goBack={goBack}
-              />
+            {!currentStore ? (
+              <div className="py-10 text-center">
+                <p className="text-sm font-medium text-gray-900">Select a store</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  Choose a store from the header to complete onboarding.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.replace("/admin")}
+                  className="mt-6 inline-flex items-center gap-2 rounded-xl bg-mint px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-mint-dark"
+                >
+                  ← Back to Admin
+                </button>
+              </div>
+            ) : bootLoading ? (
+              <div className="py-10 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full border-2 border-mint border-t-transparent animate-spin" />
+              </div>
+            ) : (
+              <>
+                {step === 1 && (
+                  <StepOne
+                    state={state}
+                    setState={setState}
+                    goNext={goNext}
+                    goBack={goBack}
+                    saving={saving}
+                    mainCategories={mainCategories}
+                    mainCategoriesLoading={mainCategoriesLoading}
+                    mainCategoriesError={mainCategoriesError}
+                  />
+                )}
+                {step === 2 && (
+                  <StepTwo state={state} setState={setState} goNext={goNext} goBack={goBack} saving={saving} />
+                )}
+                {step === 3 && (
+                  <StepThree
+                    state={state}
+                    toggleSellType={toggleSellType}
+                    goNext={goNext}
+                    goBack={goBack}
+                    saving={saving}
+                  />
+                )}
+                {step === 4 && (
+                  <StepFour
+                    state={state}
+                    toggleSellPlace={toggleSellPlace}
+                    goNext={goNext}
+                    goBack={goBack}
+                    saving={saving}
+                  />
+                )}
+              </>
             )}
           </div>
         </div>
@@ -186,6 +406,11 @@ export default function AdminOnboardingPage() {
           </p>
         </div>
       </div>
+      {saving && (
+        <div className="fixed bottom-4 right-4 rounded-2xl border border-white/20 bg-gray-900/80 px-4 py-2 text-xs font-medium text-white backdrop-blur">
+          Saving…
+        </div>
+      )}
     </div>
   );
 }
@@ -194,14 +419,38 @@ interface StepPropsBase {
   state: OnboardingState;
   goNext: () => void;
   goBack: () => void;
+  saving?: boolean;
 }
 
 interface StepOneProps extends StepPropsBase {
   setState: React.Dispatch<React.SetStateAction<OnboardingState>>;
+  mainCategories: MainCategory[];
+  mainCategoriesLoading: boolean;
+  mainCategoriesError: string | null;
 }
 
-function StepOne({ state, setState, goNext, goBack }: StepOneProps) {
-  const disabled = !state.storeName.trim() || !state.country || !state.category;
+function StepOne({
+  state,
+  setState,
+  goNext,
+  goBack,
+  saving,
+  mainCategories,
+  mainCategoriesLoading,
+  mainCategoriesError,
+}: StepOneProps) {
+  const disabled = !state.storeName.trim() || !state.country || !state.category || Boolean(saving);
+
+  const fallbackCategories: MainCategory[] = [
+    { id: "fashion", name: "Fashion & apparel" },
+    { id: "electronics", name: "Electronics" },
+    { id: "grocery", name: "Grocery / everyday essentials" },
+    { id: "home", name: "Home & furniture" },
+    { id: "services", name: "Services" },
+    { id: "other", name: "Other" },
+  ];
+
+  const categoriesToShow = mainCategories.length > 0 ? mainCategories : fallbackCategories;
 
   return (
     <div className="space-y-7">
@@ -274,13 +523,19 @@ function StepOne({ state, setState, goNext, goBack }: StepOneProps) {
               className="block w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm shadow-sm bg-white focus:border-mint focus:ring-mint"
             >
               <option value="">Select a category</option>
-              <option value="fashion">Fashion & apparel</option>
-              <option value="electronics">Electronics</option>
-              <option value="grocery">Grocery / everyday essentials</option>
-              <option value="home">Home & furniture</option>
-              <option value="services">Services</option>
-              <option value="other">Other</option>
+              {mainCategoriesLoading && <option value="">Loading categories…</option>}
+              {!mainCategoriesLoading &&
+                categoriesToShow.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
+            {mainCategoriesError && (
+              <p className="mt-1 text-xs text-amber-700">
+                Using default categories (API error: {mainCategoriesError})
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -314,8 +569,8 @@ interface StepTwoProps extends StepPropsBase {
   setState: React.Dispatch<React.SetStateAction<OnboardingState>>;
 }
 
-function StepTwo({ state, setState, goNext, goBack }: StepTwoProps) {
-  const disabled = !state.businessStage;
+function StepTwo({ state, setState, goNext, goBack, saving }: StepTwoProps) {
+  const disabled = !state.businessStage || Boolean(saving);
 
   const base =
     "flex flex-col items-start rounded-2xl border px-4 py-3 text-left text-sm ";
@@ -399,8 +654,8 @@ interface StepThreeProps extends StepPropsBase {
   toggleSellType: (v: SellType) => void;
 }
 
-function StepThree({ state, toggleSellType, goNext, goBack }: StepThreeProps) {
-  const disabled = state.sellTypes.length === 0;
+function StepThree({ state, toggleSellType, goNext, goBack, saving }: StepThreeProps) {
+  const disabled = state.sellTypes.length === 0 || Boolean(saving);
 
   return (
     <div className="space-y-6">
@@ -482,8 +737,8 @@ interface StepFourProps extends StepPropsBase {
   toggleSellPlace: (v: SellPlace) => void;
 }
 
-function StepFour({ state, toggleSellPlace, goNext, goBack }: StepFourProps) {
-  const disabled = state.sellPlaces.length === 0;
+function StepFour({ state, toggleSellPlace, goNext, goBack, saving }: StepFourProps) {
+  const disabled = state.sellPlaces.length === 0 || Boolean(saving);
 
   return (
     <div className="space-y-6">

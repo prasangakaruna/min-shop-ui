@@ -263,9 +263,9 @@ export default function ProApiSettingsPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">System Health</p>
                       <p className="mt-2 text-2xl font-bold text-gray-900">
-                        {stats?.system_health_percent ?? 99.98}%
+                      {stats?.system_health_percent == null ? '—' : `${stats.system_health_percent}%`}
                       </p>
-                      <p className="mt-1 text-sm text-emerald-600">{stats?.uptime_trend ?? '+0.02% Uptime (30d)'}</p>
+                    <p className="mt-1 text-sm text-gray-500">{stats?.uptime_trend ?? '—'}</p>
                     </div>
                     <span className="h-3 w-3 rounded-full bg-emerald-500" aria-hidden />
                   </div>
@@ -275,9 +275,9 @@ export default function ProApiSettingsPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">API Requests</p>
                       <p className="mt-2 text-2xl font-bold text-gray-900">
-                        {stats ? formatRequests(stats.api_requests_total) : '1.24M'}
+                      {stats ? formatRequests(stats.api_requests_total) : '—'}
                       </p>
-                      <p className="mt-1 text-sm text-emerald-600">{stats?.api_requests_trend ?? '+12.5% vs last month'}</p>
+                    <p className="mt-1 text-sm text-gray-500">{stats?.api_requests_trend ?? '—'}</p>
                     </div>
                     <IconChart className="h-8 w-8 text-gray-300" />
                   </div>
@@ -286,8 +286,8 @@ export default function ProApiSettingsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Active Webhooks</p>
-                      <p className="mt-2 text-2xl font-bold text-gray-900">{stats?.active_webhooks ?? 14}</p>
-                      <p className="mt-1 text-sm text-gray-500">{stats?.webhooks_integrations_label ?? '4 integrations connected'}</p>
+                    <p className="mt-2 text-2xl font-bold text-gray-900">{stats ? stats.active_webhooks : '—'}</p>
+                    <p className="mt-1 text-sm text-gray-500">{stats?.webhooks_integrations_label ?? '—'}</p>
                     </div>
                     <IconWebhook className="h-8 w-8 text-gray-300" />
                   </div>

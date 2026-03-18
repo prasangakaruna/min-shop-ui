@@ -123,6 +123,14 @@ export interface StoreSettings {
   business_country?: string | null;
   contact_phone?: string | null;
   contact_address?: string | null;
+  onboarding?: {
+    store_category?: string | null;
+    business_stage?: 'new' | 'existing' | null;
+    sell_types?: string[] | null;
+    sell_places?: string[] | null;
+  };
+  onboarding_completed?: boolean;
+  onboarding_completed_at?: string | null;
   order_processing?: {
     mode?: 'auto_all' | 'auto_gift_cards' | 'manual';
     auto_archive?: boolean;
@@ -151,12 +159,13 @@ export interface StoreListResponse {
 
 /** GET /store/api-keys/stats */
 export interface ApiKeysStats {
-  system_health_percent: number;
-  uptime_trend: string;
+  system_health_percent: number | null;
+  uptime_trend: string | null;
   api_requests_total: number;
-  api_requests_trend: string;
+  api_requests_trend: string | null;
   active_webhooks: number;
   webhooks_integrations_label: string;
+  active_api_keys?: number;
 }
 
 /** GET /store/api-keys list item */

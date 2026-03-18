@@ -124,6 +124,22 @@ const IconCustomers = () => (
 
 const ONBOARDING_KEY = 'mint_admin_onboarding_completed_v1';
 
+function isStoreOnboardingComplete(store: StoreSummary): boolean {
+  const s = store.settings ?? {};
+  if (s.onboarding_completed) return true;
+  const ob = s.onboarding ?? {};
+  return Boolean(
+    (store.name ?? '').trim() &&
+      (s.business_country ?? '').toString().trim() &&
+      (ob.store_category ?? '').toString().trim() &&
+      (ob.business_stage === 'new' || ob.business_stage === 'existing') &&
+      Array.isArray(ob.sell_types) &&
+      ob.sell_types.length > 0 &&
+      Array.isArray(ob.sell_places) &&
+      ob.sell_places.length > 0
+  );
+}
+
 export default function AdminDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -153,12 +169,29 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const done = window.localStorage.getItem(ONBOARDING_KEY) === 'true';
-    if (!done) {
-      router.replace('/admin/onboarding');
+    if (done) {
+      setOnboardingChecked(true);
       return;
     }
-    setOnboardingChecked(true);
-  }, [router]);
+    // If localStorage is empty (new browser/incognito), fall back to server flag.
+    // We only know the store once StoreContext is ready.
+    if (!token || !currentStore) return;
+    let cancelled = false;
+    apiRequest<StoreSummary>('/store', { token, storeId: currentStore.id })
+      .then((store) => {
+        if (cancelled) return;
+        if (isStoreOnboardingComplete(store)) {
+          window.localStorage.setItem(ONBOARDING_KEY, 'true');
+          setOnboardingChecked(true);
+        } else {
+          router.replace('/admin/onboarding');
+        }
+      })
+      .catch(() => router.replace('/admin/onboarding'));
+    return () => {
+      cancelled = true;
+    };
+  }, [router, token, currentStore?.id]);
 
   useEffect(() => {
     if (!token || !currentStore) {
