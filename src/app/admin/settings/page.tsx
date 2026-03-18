@@ -286,6 +286,25 @@ export default function AdminSettingsPage() {
                     </button>
                   ))}
                 </nav>
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Integrations
+                  </p>
+                  <nav className="mt-1 space-y-0.5 text-sm">
+                    <Link
+                      href="/admin/settings/api"
+                      className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    >
+                      API Settings
+                    </Link>
+                    <button
+                      type="button"
+                      className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50"
+                    >
+                      Webhooks
+                    </button>
+                  </nav>
+                </div>
               </div>
             </aside>
 

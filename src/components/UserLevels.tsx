@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 const levels = [
   {
@@ -17,9 +18,16 @@ const levels = [
     icon: '🏬',
     accent: 'from-emerald-200/60 to-emerald-50',
     description:
-      'Open a Mint store in minutes and manage products, inventory, and orders from one simple workspace.',
-    highlights: ['Product & inventory management', 'Customer & order timelines', 'Discounts and promotions'],
-    primaryAction: 'Open a store',
+      'Run your own Mint store end‑to‑end — from adding products to managing orders, customers, and payouts.',
+    highlights: [
+      'Add and edit products with images, prices, and stock',
+      'Inventory tracking and bulk updates',
+      'Order list, order details, and manual order creation',
+      'Customer list with profiles and timelines',
+      'Store settings, plans, and store on/off control',
+      'Basic analytics and finance summaries with exports',
+    ],
+    primaryAction: 'View seller tools',
   },
   {
     title: 'Pro & Admin',
@@ -27,8 +35,13 @@ const levels = [
     icon: '📊',
     accent: 'from-sky-200/60 to-sky-50',
     description:
-      'Get a birds‑eye view across stores, finances, and teams with advanced reporting and controls.',
-    highlights: ['Multi‑store finance overview', 'Team roles & permissions', 'Deep performance insights'],
+      'Get a birds‑eye view across stores, finances, and teams with advanced reporting and admin‑level controls.',
+    highlights: [
+      'Multi‑store overview for revenue, orders, and performance',
+      'Cross‑store finance and payout reports',
+      'Team‑ready views for operations and support',
+      'Deeper analytics across products, customers, and channels',
+    ],
     primaryAction: 'View admin tools',
   },
 ];
@@ -81,13 +94,23 @@ export default function UserLevels() {
                 ))}
               </ul>
 
-              <button
-                type="button"
-                className="relative inline-flex items-center gap-1.5 text-[13px] font-semibold text-mint hover:text-mint-dark mt-auto"
-              >
-                <span>{level.primaryAction}</span>
-                <span aria-hidden="true">→</span>
-              </button>
+              {level.title === 'Pro & Admin' ? (
+                <Link
+                  href="/admin/pro"
+                  className="relative inline-flex items-center gap-1.5 text-[13px] font-semibold text-mint hover:text-mint-dark mt-auto"
+                >
+                  <span>{level.primaryAction}</span>
+                  <span aria-hidden="true">→</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="relative inline-flex items-center gap-1.5 text-[13px] font-semibold text-mint hover:text-mint-dark mt-auto"
+                >
+                  <span>{level.primaryAction}</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              )}
             </div>
           ))}
         </div>

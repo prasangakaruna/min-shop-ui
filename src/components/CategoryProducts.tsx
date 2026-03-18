@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
 import ProductImage from '@/components/ProductImage';
 import type { StorefrontProduct } from '@/lib/storefrontApi';
+import { formatCategoryLabel } from '@/lib/categories';
 
 interface CategoryProductsProps {
   products?: StorefrontProduct[];
@@ -82,7 +83,7 @@ export default function CategoryProducts({ products: propProducts, loading: prop
                     selectedCategory === cat ? 'bg-mint text-white' : 'text-gray-700 hover:bg-mint/10'
                   }`}
                 >
-                  {cat}
+                  {formatCategoryLabel(cat)}
                 </button>
               ))}
             </div>
@@ -90,7 +91,7 @@ export default function CategoryProducts({ products: propProducts, loading: prop
 
           <div className="flex-1">
             <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">{displayCategory}</h3>
+              <h3 className="text-xl font-bold text-gray-900">{formatCategoryLabel(displayCategory)}</h3>
               <Link
                 href={`/products?category=${encodeURIComponent(displayCategory)}`}
                 className="text-sm font-medium text-mint hover:underline"

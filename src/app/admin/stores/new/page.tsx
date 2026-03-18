@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -43,6 +43,9 @@ export default function NewStorePage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [storeCategories, setStoreCategories] = useState<{ id: string; name: string }[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const canGoNextFromStep1 =
     name.trim() && phone.trim() && country && city.trim() && category;
@@ -50,6 +53,19 @@ export default function NewStorePage() {
     businessStage && sellTypes.length > 0;
   const canSubmit =
     sellPlaces.length > 0 && !loading;
+
+  useEffect(() => {
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    apiRequest<{ id: string; name: string }[]>('/product-categories')
+      .then((res) => {
+        setStoreCategories(res ?? []);
+      })
+      .catch((e) =>
+        setCategoriesError(e instanceof Error ? e.message : 'Failed to load categories')
+      )
+      .finally(() => setCategoriesLoading(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -230,20 +246,29 @@ export default function NewStorePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Store category <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint bg-white"
-                      required
-                    >
-                      <option value="">Select a category</option>
-                      <option value="fashion">Fashion & apparel</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="grocery">Grocery / everyday essentials</option>
-                      <option value="home">Home & furniture</option>
-                      <option value="services">Services</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <div className="space-y-1.5">
+                      <select
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint bg-white"
+                        required
+                      >
+                        <option value="">Select a category</option>
+                        {storeCategories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                      {categoriesLoading && (
+                        <p className="text-xs text-gray-500">Loading categories…</p>
+                      )}
+                      {categoriesError && (
+                        <p className="text-xs text-red-600">
+                          {categoriesError}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

@@ -42,7 +42,7 @@ export default function AfterLoginPage() {
     (async () => {
       try {
         const typeToRegister = getCookie(USER_TYPE_COOKIE);
-        if (typeToRegister === 'customer' || typeToRegister === 'store_admin') {
+        if (typeToRegister === 'customer' || typeToRegister === 'store_admin' || typeToRegister === 'pro_admin') {
           try {
             await apiRequest<Me>('/me/sync', { method: 'POST', token, body: { user_type: typeToRegister } });
           } catch {
@@ -63,6 +63,8 @@ export default function AfterLoginPage() {
         setCookie(USER_TYPE_PERSIST, userType);
         if (userType === 'store_admin') {
           router.replace('/admin');
+        } else if (userType === 'pro_admin') {
+          router.replace('/admin/pro');
         } else {
           router.replace('/dashboard');
         }

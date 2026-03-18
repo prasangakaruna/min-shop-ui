@@ -41,6 +41,10 @@ export default function CustomerDashboardPage() {
       router.replace('/admin');
       return;
     }
+    if (userType === 'pro_admin') {
+      router.replace('/admin/pro');
+      return;
+    }
     setChecked(true);
   }, [session, status, router]);
 

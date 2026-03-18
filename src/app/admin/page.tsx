@@ -143,6 +143,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const match = document.cookie.match(/(?:^|;\s*)USER_TYPE=([^;]+)/);
+    const userType = match ? decodeURIComponent(match[1]) : null;
+    if (userType === 'pro_admin') {
+      router.replace('/admin/pro');
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const done = window.localStorage.getItem(ONBOARDING_KEY) === 'true';
     if (!done) {
       router.replace('/admin/onboarding');

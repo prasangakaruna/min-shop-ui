@@ -33,6 +33,17 @@ const menuItems: MenuItem[] = [
   { href: '/admin/customers', label: 'Customers', icon: '👥' },
   { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
   { href: '/admin/statistics', label: 'Analytics', icon: '📈' },
+  {
+    href: '/admin/pro',
+    label: 'Pro & Admin',
+    icon: '📊',
+    children: [
+      { href: '/admin/pro', label: 'Overview' },
+      { href: '/admin/pro/api-settings', label: 'API Settings' },
+      { href: '/admin/pro/integration', label: 'Integration' },
+    ],
+  },
+  { href: '/admin/pro/api-settings', label: 'API Settings', icon: '🔑' },
   { href: '/admin/finance', label: 'Finance', icon: '💰' },
 ];
 
@@ -47,6 +58,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  const [userType, setUserType] = useState<string | null>(null);
 
   useEffect(() => {
     if (storeLoading) return;
@@ -59,6 +71,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       router.replace('/admin');
     }
   }, [storeLoading, stores.length, pathname, router]);
+
+  useEffect(() => {
+    const type = getCookie(USER_TYPE_COOKIE);
+    if (type) setUserType(type);
+  }, []);
 
   return (
     <>
@@ -202,80 +219,136 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               sidebarOpen ? 'translate-x-0' : '-translate-x-full'
             } fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transition-transform duration-200 lg:translate-x-0 pt-4 pb-6`}
           >
-            <nav className="space-y-0.5 px-3">
-              {menuItems.map((item) => {
-                const isActiveTop =
-                  pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(item.href));
-                const isExpanded =
-                  expandedSections[item.href] !== undefined
-                    ? expandedSections[item.href]
-                    : isActiveTop || !item.children;
-                return (
-                  <div key={item.href}>
-                    <div className="flex items-center justify-between">
-                      <Link
-                        href={item.href}
-                        className={`flex flex-1 items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                          isActiveTop ? 'bg-mint text-white' : 'text-gray-700 hover:bg-gray-100'
-                        }`}
-                      >
-                        {item.icon && <span className="text-lg">{item.icon}</span>}
-                        {item.label}
-                      </Link>
-                      {item.children && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedSections((prev) => ({
-                              ...prev,
-                              [item.href]: !isExpanded,
-                            }))
-                          }
-                          className="ml-1 mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                          aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
-                        >
-                          <svg
-                            className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                            viewBox="0 0 20 20"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M7 5L12 10L7 15"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                    {item.children && isExpanded && (
-                      <div className="mt-0.5 mb-1 space-y-0.5 pl-8">
-                        {item.children.map((child) => {
-                          const isActiveChild =
-                            pathname === child.href || pathname?.startsWith(child.href + '/');
-                          return (
+            <nav className="flex h-full flex-col justify-between">
+              <div className="space-y-1 px-3">
+                {menuItems
+                  .filter((item) => {
+                    if (item.href === '/admin/pro' && userType !== 'pro_admin') return false;
+                    if (item.href === '/admin/pro/api-settings' && userType !== 'pro_admin') return false;
+                    return true;
+                  })
+                  .map((item) => {
+                    const targetHref =
+                      userType === 'pro_admin' && item.href === '/admin' ? '/admin/pro' : item.href;
+                    const isAdminSection =
+                      item.href === '/admin/settings' ||
+                      item.href === '/admin/statistics' ||
+                      item.href === '/admin/pro' ||
+                      item.href === '/admin/finance';
+                    const isActiveTop =
+                      pathname === targetHref ||
+                      (targetHref !== '/admin' && pathname?.startsWith(targetHref));
+                    const isExpanded =
+                      expandedSections[item.href] !== undefined
+                        ? expandedSections[item.href]
+                        : isActiveTop || !item.children;
+
+                    if (item.href === '/admin/settings') {
+                      return (
+                        <React.Fragment key={item.href}>
+                          <div className="mt-4 mb-1 px-3 text-[11px] font-semibold tracking-[0.18em] text-gray-400 uppercase">
+                            Administration
+                          </div>
+                          <div className="flex items-center justify-between">
                             <Link
-                              key={child.href}
-                              href={child.href}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                isActiveChild
+                              href={targetHref}
+                              className={`flex flex-1 items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                                isActiveTop
                                   ? 'bg-mint/10 text-mint'
-                                  : 'text-gray-600 hover:bg-gray-100'
+                                  : 'text-gray-700 hover:bg-gray-50'
                               }`}
                             >
-                              <span className="text-gray-400">↳</span>
-                              {child.label}
+                              {item.icon && <span className="text-lg">{item.icon}</span>}
+                              {item.label}
                             </Link>
-                          );
-                        })}
+                          </div>
+                        </React.Fragment>
+                      );
+                    }
+
+                    return (
+                      <div key={item.href}>
+                        <div className="flex items-center justify-between">
+                          <Link
+                            href={targetHref}
+                            className={`flex flex-1 items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                              isActiveTop
+                                ? 'bg-mint/10 text-mint'
+                                : isAdminSection
+                                  ? 'text-gray-700 hover:bg-gray-50'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {item.icon && <span className="text-lg">{item.icon}</span>}
+                            {item.label}
+                          </Link>
+                          {item.children && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedSections((prev) => ({
+                                  ...prev,
+                                  [item.href]: !isExpanded,
+                                }))
+                              }
+                              className="ml-1 mr-2 inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                              aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+                            >
+                              <svg
+                                className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M7 5L12 10L7 15"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        {item.children && isExpanded && (
+                          <div className="mt-0.5 mb-1 space-y-0.5 pl-8">
+                            {item.children.map((child) => {
+                              const isActiveChild =
+                                pathname === child.href || pathname?.startsWith(child.href + '/');
+                              return (
+                                <Link
+                                  key={child.href}
+                                  href={child.href}
+                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                    isActiveChild
+                                      ? 'bg-mint/10 text-mint'
+                                      : 'text-gray-600 hover:bg-gray-100'
+                                  }`}
+                                >
+                                  <span className="text-gray-300">↳</span>
+                                  {child.label}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+              </div>
+
+              <div className="mt-6 px-3 hidden lg:block">
+                <div className="rounded-2xl border border-mint/20 bg-mint/5 px-4 py-3 text-xs text-gray-700">
+                  <p className="font-semibold text-gray-900 mb-1">Upgrade to Enterprise</p>
+                  <p className="text-[11px] text-gray-500">
+                    Get advanced multi‑store control and custom reporting.
+                  </p>
+                  <button className="mt-2 inline-flex items-center justify-center rounded-full bg-mint px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-mint-dark">
+                    Learn more
+                  </button>
+                </div>
+              </div>
             </nav>
           </aside>
 
@@ -362,13 +435,13 @@ function AdminGuard({ children, token }: { children: React.ReactNode; token: str
       router.replace('/dashboard');
       return;
     }
-    if (userType === 'store_admin') {
+    if (userType === 'store_admin' || userType === 'pro_admin') {
       setChecking(false);
       return;
     }
     apiRequest<Me>('/me', { token })
       .then((me) => {
-        if (me.user_type === 'store_admin') {
+        if (me.user_type === 'store_admin' || me.user_type === 'pro_admin') {
           setChecking(false);
         } else if (me.user_type == null) {
           router.replace('/auth/choose-type');

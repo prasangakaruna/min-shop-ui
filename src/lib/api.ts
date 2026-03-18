@@ -99,7 +99,7 @@ export async function uploadProductImage(
 }
 
 // Response types matching API (see routes/api.php and docs)
-export type UserType = 'customer' | 'store_admin';
+export type UserType = 'customer' | 'store_admin' | 'pro_admin';
 
 export interface Me {
   id: number;
@@ -147,6 +147,38 @@ export interface StoreListResponse {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+/** GET /store/api-keys/stats */
+export interface ApiKeysStats {
+  system_health_percent: number;
+  uptime_trend: string;
+  api_requests_total: number;
+  api_requests_trend: string;
+  active_webhooks: number;
+  webhooks_integrations_label: string;
+}
+
+/** GET /store/api-keys list item */
+export interface StoreApiKeyItem {
+  id: number;
+  name: string;
+  key_prefix: string;
+  key_suffix?: string | null;
+  status: string;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+/** POST /store/api-keys response (full key returned once) */
+export interface StoreApiKeyCreated {
+  id: number;
+  name: string;
+  key: string;
+  key_prefix: string;
+  key_suffix?: string | null;
+  status: string;
+  created_at: string;
 }
 
 export interface ProductVariant {
