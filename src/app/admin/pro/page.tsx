@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { apiRequest, type StoreListResponse, type Order, type StoreSummary } from '@/lib/api';
+import { fetchActiveSubscription } from '@/lib/subscription';
 
 type StoreSummaryLite = {
   id: number;
@@ -40,6 +41,7 @@ export default function ProAdminDashboard() {
     >
   >({});
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [proAccessState, setProAccessState] = useState<'loading' | 'ok' | 'blocked'>('loading');
   const [integrationStore, setIntegrationStore] = useState<StoreSummaryLite | null>(null);
   const [integrationLoading, setIntegrationLoading] = useState(false);
   const [integrationError, setIntegrationError] = useState<string | null>(null);
@@ -93,6 +95,32 @@ export default function ProAdminDashboard() {
       cancelled = true;
     };
   }, [router, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    // Wait until the admin onboarding redirect is finished.
+    if (!onboardingChecked) return;
+
+    let cancelled = false;
+    setProAccessState('loading');
+
+    fetchActiveSubscription({ token, ownerType: 'user' })
+      .then((sub) => {
+        if (cancelled) return;
+        const ok = Boolean(sub && sub.status === 'active' && sub.plan_code === 'pro');
+        setProAccessState(ok ? 'ok' : 'blocked');
+        if (!ok) router.replace('/admin/pro/plans');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProAccessState('blocked');
+        router.replace('/admin/pro/plans');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, onboardingChecked, router]);
 
   useEffect(() => {
     if (!token) return;
@@ -241,6 +269,21 @@ export default function ProAdminDashboard() {
     );
   }
 
+  if (proAccessState === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 rounded-full border-2 border-mint border-t-transparent animate-spin" />
+          <p className="text-sm text-gray-500">Checking your Pro access…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (proAccessState === 'blocked') {
+    return null;
+  }
+
   const totalRevenue = Object.values(metrics).reduce((sum, m) => sum + m.revenue, 0);
   const totalOrders = Object.values(metrics).reduce((sum, m) => sum + m.orders, 0);
 
@@ -272,6 +315,12 @@ export default function ProAdminDashboard() {
               className="inline-flex items-center rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:border-mint hover:text-mint"
             >
               Go to store dashboard
+            </Link>
+            <Link
+              href="/admin/pro/plans"
+              className="inline-flex items-center rounded-full border border-mint/40 bg-mint/10 px-4 py-2 text-xs font-semibold text-mint hover:bg-mint/20"
+            >
+              Plans &amp; billing
             </Link>
             <span className="inline-flex items-center rounded-full border border-mint/40 bg-mint/10 px-4 py-2 text-xs font-semibold text-mint">
               Super admin workspace

@@ -15,9 +15,12 @@ import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import { StorefrontProvider } from '@/context/StorefrontContext';
 
-export default function Home() {
+export default function Home({ searchParams }: { searchParams?: { store?: string | string[] } }) {
+  const raw = searchParams?.store;
+  const storeSlug = Array.isArray(raw) ? raw[0] : raw ?? null;
+
   return (
-    <StorefrontProvider>
+    <StorefrontProvider storeSlug={storeSlug}>
       <main className="min-h-screen">
         <Header />
         <Hero />
@@ -25,7 +28,7 @@ export default function Home() {
         {/* <MarketplaceStoresAndProducts /> */}
         <BrowseCategories />
         <CategoryProducts />
-        <SpecialOffers />
+        <SpecialOffers storeSlug={storeSlug} />
         <FeaturedListings />
         <TopSellers />
         <NewArrivals />

@@ -48,6 +48,7 @@ function ProductsPageInner() {
   const categoryParam = searchParams.get('category') ?? '';
   const pageParam = searchParams.get('page');
   const searchParam = searchParams.get('search') ?? '';
+  const storeParam = searchParams.get('store') ?? '';
 
   const [products, setProducts] = useState<StorefrontProduct[]>([]);
   const [total, setTotal] = useState(0);
@@ -104,6 +105,7 @@ function ProductsPageInner() {
       per_page: PER_PAGE,
       category: categoryParam || undefined,
       search: searchParam || undefined,
+      store: storeParam || undefined,
     })
       .then((res) => {
         setProducts(res.data);
@@ -115,7 +117,7 @@ function ProductsPageInner() {
         setTotal(0);
       })
       .finally(() => setLoading(false));
-  }, [currentPage, categoryParam, searchParam]);
+  }, [currentPage, categoryParam, searchParam, storeParam]);
 
   const startIndex = total === 0 ? 0 : (currentPage - 1) * PER_PAGE + 1;
   const endIndex = Math.min(currentPage * PER_PAGE, total);
@@ -128,7 +130,7 @@ function ProductsPageInner() {
         <nav className="mb-6">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
             <li>
-              <Link href="/" className="hover:text-mint">
+              <Link href={storeParam ? `/?store=${encodeURIComponent(storeParam)}` : '/'} className="hover:text-mint">
                 Home
               </Link>
             </li>

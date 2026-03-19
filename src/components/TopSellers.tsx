@@ -15,6 +15,7 @@ export default function TopSellers({ products: propProducts, loading: propLoadin
   const storefront = useStorefront();
   const products = propProducts ?? (storefront ? storefront.products.slice(0, 4) : []);
   const loading = propLoading ?? storefront?.loading ?? false;
+  const storeSlug = storefront?.storeSlug ?? null;
   if (loading) {
     return (
       <section className="py-16 bg-gray-50 border-t border-gray-100">
@@ -40,7 +41,10 @@ export default function TopSellers({ products: propProducts, loading: propLoadin
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">Top Sellers</h2>
             <p className="mt-2 text-gray-600">Best performing products</p>
           </div>
-          <Link href="/products" className="inline-flex items-center gap-2 text-mint font-semibold hover:underline">
+          <Link
+            href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
+            className="inline-flex items-center gap-2 text-mint font-semibold hover:underline"
+          >
             View All <span className="text-lg">→</span>
           </Link>
         </div>

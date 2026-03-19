@@ -40,7 +40,13 @@ const offers = [
   },
 ];
 
-export default function SpecialOffers() {
+export default function SpecialOffers({ storeSlug }: { storeSlug?: string | null }) {
+  const withStore = (href: string) => {
+    if (!storeSlug) return href;
+    const joiner = href.includes('?') ? '&' : '?';
+    return `${href}${joiner}store=${encodeURIComponent(storeSlug)}`;
+  };
+
   return (
     <section className="py-16 bg-gray-50 relative overflow-hidden border-t border-gray-100">
       {/* Background Pattern */}
@@ -80,7 +86,7 @@ export default function SpecialOffers() {
           {offers.map((offer) => (
             <Link
               key={offer.id}
-              href={offer.link}
+              href={withStore(offer.link)}
               className="relative group overflow-hidden rounded-2xl bg-white shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30 hover:-translate-y-1"
             >
               {/* Image Background */}
@@ -125,7 +131,7 @@ export default function SpecialOffers() {
         {/* View All Offers Button */}
         <div className="text-center mt-10">
           <Link 
-            href="/products" 
+            href={withStore('/products')}
             className="inline-flex items-center space-x-2 bg-mint text-white px-8 py-3 rounded-xl font-semibold hover:bg-mint-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
           >
             <span>View All Offers</span>

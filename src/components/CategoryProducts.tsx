@@ -16,6 +16,7 @@ export default function CategoryProducts({ products: propProducts, loading: prop
   const storefront = useStorefront();
   const products = propProducts ?? storefront?.products ?? [];
   const loading = propLoading ?? storefront?.loading ?? false;
+  const storeSlug = storefront?.storeSlug ?? null;
   const byCategory = useMemo(() => {
     const map = new Map<string, StorefrontProduct[]>();
     products.forEach((p) => {
@@ -57,7 +58,12 @@ export default function CategoryProducts({ products: propProducts, loading: prop
       <section className="py-16 bg-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-gray-600">No products to show by category yet.</p>
-          <Link href="/products" className="mt-4 inline-block text-mint font-medium hover:underline">View all products</Link>
+            <Link
+              href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
+              className="mt-4 inline-block text-mint font-medium hover:underline"
+            >
+              View all products
+            </Link>
         </div>
       </section>
     );
@@ -93,7 +99,7 @@ export default function CategoryProducts({ products: propProducts, loading: prop
             <div className="mb-6 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">{formatCategoryLabel(displayCategory)}</h3>
               <Link
-                href={`/products?category=${encodeURIComponent(displayCategory)}`}
+                href={storeSlug ? `/products?category=${encodeURIComponent(displayCategory)}&store=${encodeURIComponent(storeSlug)}` : `/products?category=${encodeURIComponent(displayCategory)}`}
                 className="text-sm font-medium text-mint hover:underline"
               >
                 View all

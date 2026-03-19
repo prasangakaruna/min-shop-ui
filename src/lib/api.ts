@@ -261,6 +261,10 @@ export async function getStorefrontProducts(options?: {
   per_page?: number;
   category?: string;
   search?: string;
+  /** Store slug (query param `store`). */
+  store?: string;
+  /** Store id (query param `store_id`). */
+  storeId?: number;
 }): Promise<{ data: StorefrontProduct[]; total: number }> {
   const base = getBaseUrl();
   if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set. Set it in .env.local to your API base (e.g. http://localhost:8000/api).');
@@ -269,6 +273,8 @@ export async function getStorefrontProducts(options?: {
   if (options?.per_page != null) params.set('per_page', String(options.per_page));
   if (options?.category) params.set('category', options.category);
   if (options?.search) params.set('search', options.search);
+  if (options?.store) params.set('store', options.store);
+  if (options?.storeId != null) params.set('store_id', String(options.storeId));
   const url = `${base}/storefront/products${params.toString() ? `?${params}` : ''}`;
   const res = await fetch(url, {
     headers: { Accept: 'application/json' },

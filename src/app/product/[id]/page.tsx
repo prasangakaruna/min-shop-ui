@@ -55,7 +55,7 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!product) return;
-    getStorefrontProducts({ per_page: 4, category: product.category ?? undefined })
+    getStorefrontProducts({ per_page: 4, category: product.category ?? undefined, storeId: product.store_id })
       .then(({ data }) => setSimilarProducts(data.filter((p) => p.id !== product.id).slice(0, 4)))
       .catch(() => setSimilarProducts([]));
   }, [product?.id, product?.category]);
@@ -127,9 +127,23 @@ export default function ProductDetailPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <nav className="mb-6">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><Link href="/" className="hover:text-mint">Home</Link></li>
+            <li>
+              <Link
+                href={product.store?.slug ? `/?store=${encodeURIComponent(product.store.slug)}` : '/'}
+                className="hover:text-mint"
+              >
+                Home
+              </Link>
+            </li>
             <li>/</li>
-            <li><Link href="/" className="hover:text-mint">Products</Link></li>
+            <li>
+              <Link
+                href={product.store?.slug ? `/products?store=${encodeURIComponent(product.store.slug)}` : '/products'}
+                className="hover:text-mint"
+              >
+                Products
+              </Link>
+            </li>
             <li>/</li>
             <li className="text-gray-800 truncate max-w-[200px]">{product.title}</li>
           </ol>

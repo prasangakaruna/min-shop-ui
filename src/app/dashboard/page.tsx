@@ -21,6 +21,7 @@ const shortcuts = [
   { href: '/profile/wishlist', label: 'Wishlist', icon: '❤️', description: 'Your saved items' },
   { href: '/profile/addresses', label: 'Addresses', icon: '📍', description: 'Shipping & billing addresses' },
   { href: '/profile/payment-methods', label: 'Payment Methods', icon: '💳', description: 'Cards and payment options' },
+  { href: '/dashboard/billing/plan', label: 'Billing & Plan', icon: '💎', description: 'Manage your subscription and renewals' },
   { href: '/profile', label: 'Profile', icon: '👤', description: 'Personal information' },
   { href: '/profile/settings', label: 'Settings', icon: '⚙️', description: 'Privacy and preferences' },
 ];

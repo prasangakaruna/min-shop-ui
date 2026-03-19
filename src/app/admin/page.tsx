@@ -685,8 +685,8 @@ export default function AdminDashboard() {
                       Open storefront →
                     </a>
                   )}
-                  <Link href="/admin/settings" className="text-sm font-medium text-gray-600 hover:text-mint">
-                    Settings →
+                  <Link href="/admin/settings/plan" className="text-sm font-medium text-gray-600 hover:text-mint">
+                    Plans &amp; billing →
                   </Link>
                 </div>
               </div>

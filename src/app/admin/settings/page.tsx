@@ -3,8 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, type StoreSummary } from '@/lib/api';
+import { PlanSelector } from '@/components/PlanSelector';
 
 const DEFAULT_PLAN_PRICES: Record<string, number> = {
   basic: 9,
@@ -12,20 +14,10 @@ const DEFAULT_PLAN_PRICES: Record<string, number> = {
   premium: 99,
 };
 
-const PLAN_STEP = 5;
-
 function IconStore({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.75c0 .415.336.75.75.75z" />
-    </svg>
-  );
-}
-
-function IconCreditCard({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
     </svg>
   );
 }
@@ -40,9 +32,15 @@ function IconCheck({ className }: { className?: string }) {
 
 export default function AdminSettingsPage() {
   const { data: session } = useSession();
-  const { currentStore } = useStore();
+  const { currentStore, loading: storesLoading } = useStore();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
-  const isSuperAdmin = (session as { isSuperAdmin?: boolean } | null)?.isSuperAdmin ?? false;
+
+  const searchParams = useSearchParams();
+  const activeSection = searchParams.get('section');
+  const showPlanSection = activeSection === 'plan';
+  const pageSubtitle = showPlanSection
+    ? 'Choose and manage your store plan with flexible billing options.'
+    : 'Manage your store details, status, and defaults.';
 
   const [store, setStore] = useState<StoreSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,9 +113,6 @@ export default function AdminSettingsPage() {
       .finally(() => setLoading(false));
   }, [token, currentStore]);
 
-  const defaultPrice = DEFAULT_PLAN_PRICES[form.plan] ?? DEFAULT_PLAN_PRICES.basic;
-  const isCustomPrice = store && typeof store.settings?.plan_price === 'number';
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !currentStore) return;
@@ -141,9 +136,7 @@ export default function AdminSettingsPage() {
           auto_archive: form.order_auto_archive,
         },
       };
-      if (isSuperAdmin) {
-        settingsPayload.plan_price = form.plan_price;
-      }
+      settingsPayload.plan_price = form.plan_price;
       const body: {
         name: string;
         email: string | null;
@@ -171,9 +164,13 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const handleIncreasePrice = () => setForm((f) => ({ ...f, plan_price: Math.max(0, f.plan_price + PLAN_STEP) }));
-  const handleDecreasePrice = () => setForm((f) => ({ ...f, plan_price: Math.max(0, f.plan_price - PLAN_STEP) }));
-  const resetToDefaultPrice = () => setForm((f) => ({ ...f, plan_price: DEFAULT_PLAN_PRICES[f.plan] ?? DEFAULT_PLAN_PRICES.basic }));
+  if (storesLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin h-10 w-10 rounded-full border-2 border-mint border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!currentStore) {
     return (
@@ -193,14 +190,21 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-full bg-gray-50/60">
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-3xl px-6 py-6">
+    <div className="min-h-full bg-gradient-to-b from-gray-50 to-white">
+      <header className="border-b border-gray-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto max-w-5xl px-6 py-7">
           <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition hover:text-mint">
             ← Home
           </Link>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-gray-900">Store settings</h1>
-          <p className="mt-1 text-sm text-gray-500">Manage your store details, status, and plan.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Store settings</h1>
+            {showPlanSection && (
+              <span className="inline-flex items-center rounded-full bg-mint/10 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-mint">
+                PLAN
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-gray-500">{pageSubtitle}</p>
         </div>
       </header>
 
@@ -245,7 +249,7 @@ export default function AdminSettingsPage() {
           <div className="flex gap-8">
             {/* Settings sub-navigation */}
             <aside className="hidden w-56 shrink-0 md:block">
-              <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
+              <div className="sticky top-24 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
                 <div className="px-2 py-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                     Settings
@@ -272,19 +276,35 @@ export default function AdminSettingsPage() {
                     'Languages',
                     'Customer privacy',
                     'Policies',
-                  ].map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      className={`flex w-full items-center rounded-lg px-2.5 py-2 text-left ${
-                        item === 'General'
-                          ? 'bg-gray-100 font-medium text-gray-900'
-                          : 'text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                  ].map((item) => {
+                    const className = `flex w-full items-center rounded-lg px-2.5 py-2 text-left transition ${
+                      (item === 'General' && !showPlanSection) || (item === 'Plan' && showPlanSection)
+                        ? 'bg-mint/10 font-semibold text-mint'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`;
+
+                    if (item === 'General') {
+                      return (
+                        <Link key={item} href="/admin/settings" className={className}>
+                          {item}
+                        </Link>
+                      );
+                    }
+
+                    if (item === 'Plan') {
+                      return (
+                        <Link key={item} href="/admin/settings?section=plan" className={className}>
+                          {item}
+                        </Link>
+                      );
+                    }
+
+                    return (
+                      <button key={item} type="button" className={className}>
+                        {item}
+                      </button>
+                    );
+                  })}
                 </nav>
                 <div className="mt-4 border-t border-gray-100 pt-3">
                   <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -310,6 +330,17 @@ export default function AdminSettingsPage() {
 
             {/* Main settings content */}
             <form onSubmit={handleSubmit} className="flex-1 space-y-6">
+            {showPlanSection && (
+              <section className="bg-transparent">
+                <PlanSelector
+                  ownerType="user"
+                  ownerId={null}
+                  contextLabel="Pro & admin workspace"
+                />
+              </section>
+            )}
+            {!showPlanSection && (
+              <>
             {/* Store status */}
             <section
               className={`overflow-hidden rounded-2xl border bg-white shadow-sm ${
@@ -506,108 +537,6 @@ export default function AdminSettingsPage() {
                     <span className="text-gray-300">·</span>
                     <span className="text-xs font-medium text-gray-500">Domain</span>
                     <span className="text-xs text-gray-700 font-mono">{store.domain ?? '—'}</span>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {/* Plan & billing */}
-            <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <div className="border-b border-gray-100 bg-gray-50/80 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-mint/10">
-                    <IconCreditCard className="h-5 w-5 text-mint" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold text-gray-900">Plan & billing</h2>
-                    <p className="text-sm text-gray-500">
-                      {isSuperAdmin ? 'Plan tier and custom price (super admin only).' : 'Plan and current price. Custom pricing is for super admins only.'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="p-6 space-y-6">
-                <div>
-                  <label htmlFor="plan" className="block text-sm font-medium text-gray-700">Plan</label>
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {(['basic', 'standard', 'premium'] as const).map((plan) => (
-                      <button
-                        key={plan}
-                        type="button"
-                        onClick={() =>
-                          setForm((f) => ({
-                            ...f,
-                            plan,
-                            plan_price: isCustomPrice ? f.plan_price : (DEFAULT_PLAN_PRICES[plan] ?? 9),
-                          }))
-                        }
-                        className={`rounded-xl border-2 px-4 py-3 text-left text-sm font-medium transition ${
-                          form.plan === plan
-                            ? 'border-mint bg-mint/5 text-mint'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        <span className="capitalize">{plan}</span>
-                        <span className="mt-0.5 block text-xs font-normal text-gray-500">${DEFAULT_PLAN_PRICES[plan]}/mo default</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {isSuperAdmin ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Your price (super admin)</label>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50/50">
-                        <button
-                          type="button"
-                          onClick={handleDecreasePrice}
-                          className="flex h-11 w-11 items-center justify-center text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                          aria-label="Decrease price"
-                        >
-                          −
-                        </button>
-                        <span className="flex h-11 min-w-[5rem] items-center justify-center border-x border-gray-200 bg-white px-4 text-base font-semibold tabular-nums text-gray-900">
-                          ${form.plan_price}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleIncreasePrice}
-                          className="flex h-11 w-11 items-center justify-center text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                          aria-label="Increase price"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <span className="text-sm text-gray-500">/ month</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step={1}
-                        value={form.plan_price}
-                        onChange={(e) => setForm((f) => ({ ...f, plan_price: Math.max(0, Number(e.target.value) || 0) }))}
-                        className="w-20 rounded-xl border border-gray-200 px-3 py-2.5 text-center text-sm tabular-nums focus:border-mint focus:ring-2 focus:ring-mint/20"
-                      />
-                      {(isCustomPrice || form.plan_price !== defaultPrice) && (
-                        <button
-                          type="button"
-                          onClick={resetToDefaultPrice}
-                          className="text-sm font-medium text-mint hover:underline"
-                        >
-                          Reset to ${defaultPrice}
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">
-                      Default for {form.plan} is ${defaultPrice}/mo. Set a custom price for this store above.
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Price</label>
-                    <p className="text-base font-semibold text-gray-900">${form.plan_price} / month</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {isCustomPrice ? 'Custom price set by super admin.' : `Default for ${form.plan} plan.`}
-                    </p>
                   </div>
                 )}
               </div>
@@ -859,6 +788,8 @@ export default function AdminSettingsPage() {
                 Cancel
               </Link>
             </div>
+            </>
+            )}
           </form>
           </div>
         )}

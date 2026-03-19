@@ -15,6 +15,7 @@ export default function FeaturedListings({ products: propProducts, loading: prop
   const storefront = useStorefront();
   const products = propProducts ?? (storefront ? storefront.products.slice(0, 6) : []);
   const loading = propLoading ?? storefront?.loading ?? false;
+  const storeSlug = storefront?.storeSlug ?? null;
   if (loading) {
     return (
       <section className="py-16 bg-white border-t border-gray-100">
@@ -40,7 +41,10 @@ export default function FeaturedListings({ products: propProducts, loading: prop
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">Featured Listings</h2>
             <p className="mt-2 text-gray-600">Premium products from verified sellers</p>
           </div>
-          <Link href="/products" className="inline-flex items-center gap-2 text-mint font-semibold hover:underline">
+          <Link
+            href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
+            className="inline-flex items-center gap-2 text-mint font-semibold hover:underline"
+          >
             View All <span className="text-lg">→</span>
           </Link>
         </div>
@@ -73,7 +77,10 @@ export default function FeaturedListings({ products: propProducts, loading: prop
 
         {products.length >= 6 && (
           <div className="mt-12 text-center">
-            <Link href="/products" className="inline-block bg-mint text-white px-8 py-3 rounded-lg font-semibold hover:bg-mint-dark">
+            <Link
+              href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
+              className="inline-block bg-mint text-white px-8 py-3 rounded-lg font-semibold hover:bg-mint-dark"
+            >
               View All Listings
             </Link>
           </div>

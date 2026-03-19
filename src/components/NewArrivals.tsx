@@ -15,6 +15,7 @@ export default function NewArrivals({ products: propProducts, loading: propLoadi
   const storefront = useStorefront();
   const products = propProducts ?? (storefront ? storefront.products.slice(0, 6) : []);
   const loading = propLoading ?? storefront?.loading ?? false;
+  const storeSlug = storefront?.storeSlug ?? null;
   if (loading) {
     return (
       <section className="py-16 bg-white border-t border-gray-100">
@@ -40,7 +41,10 @@ export default function NewArrivals({ products: propProducts, loading: propLoadi
             <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">New Arrivals</h2>
             <p className="mt-2 text-gray-600">Latest additions to the marketplace</p>
           </div>
-          <Link href="/products" className="inline-flex items-center gap-2 text-mint font-semibold hover:underline">
+          <Link
+            href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
+            className="inline-flex items-center gap-2 text-mint font-semibold hover:underline"
+          >
             View All <span className="text-lg">→</span>
           </Link>
         </div>

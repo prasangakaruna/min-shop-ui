@@ -29,7 +29,10 @@ interface BrowseCategoriesProps {
   loading?: boolean;
 }
 
-function deriveCategoriesFromProducts(products: { category: string | null }[]): { title: string; count: number; link: string }[] {
+function deriveCategoriesFromProducts(
+  products: { category: string | null }[],
+  storeSlug?: string | null
+): { title: string; count: number; link: string }[] {
   const map = new Map<string, number>();
   products.forEach((p) => {
     const cat = (p.category && p.category.trim()) || 'Other';
@@ -40,16 +43,19 @@ function deriveCategoriesFromProducts(products: { category: string | null }[]): 
       title: formatCategoryLabel(rawId),
       // keep the original ID in the query so the backend filter still works
       count,
-      link: `/products?category=${encodeURIComponent(rawId)}`,
+      link: storeSlug
+        ? `/products?category=${encodeURIComponent(rawId)}&store=${encodeURIComponent(storeSlug)}`
+        : `/products?category=${encodeURIComponent(rawId)}`,
     }))
     .sort((a, b) => b.count - a.count);
 }
 
 export default function BrowseCategories({ categories: propCategories, loading: propLoading }: BrowseCategoriesProps = {}) {
   const storefront = useStorefront();
+  const storeSlug = storefront?.storeSlug ?? null;
   const derived = useMemo(
-    () => (storefront ? deriveCategoriesFromProducts(storefront.products) : []),
-    [storefront?.products]
+    () => (storefront ? deriveCategoriesFromProducts(storefront.products, storefront.storeSlug) : []),
+    [storefront?.products, storefront?.storeSlug]
   );
   const propCategoriesSafe = propCategories ?? derived;
   const loading = propLoading ?? storefront?.loading ?? false;
@@ -146,7 +152,7 @@ export default function BrowseCategories({ categories: propCategories, loading: 
           </div>
           <div className="flex-shrink-0">
             <Link 
-              href="/products" 
+              href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
               className="inline-flex items-center space-x-2 group bg-white border-2 border-mint/30 text-mint-dark px-5 py-2.5 rounded-xl font-semibold hover:bg-mint hover:text-white hover:border-mint transition-all duration-300 shadow-md hover:shadow-xl"
             >
               <span>View All</span>
@@ -168,7 +174,12 @@ export default function BrowseCategories({ categories: propCategories, loading: 
           ) : categories.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-12 text-center">
               <p className="text-gray-600">No categories yet. Products will appear here once stores add them.</p>
-              <Link href="/products" className="mt-4 inline-block text-mint font-medium hover:underline">View all products</Link>
+              <Link
+                href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
+                className="mt-4 inline-block text-mint font-medium hover:underline"
+              >
+                View all products
+              </Link>
             </div>
           ) : (
           <>
@@ -281,7 +292,7 @@ export default function BrowseCategories({ categories: propCategories, loading: 
           {/* View All Link */}
           <div className="text-center mt-10">
             <Link 
-              href="/products" 
+              href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
               className="inline-flex items-center space-x-2 bg-mint text-white px-8 py-3 rounded-xl font-semibold hover:bg-mint-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
             >
               <span>View All Categories</span>
