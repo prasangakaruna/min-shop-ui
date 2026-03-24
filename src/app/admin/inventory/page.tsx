@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, type Product, type ProductsResponse } from '@/lib/api';
+import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
 
 export default function InventoryPage() {
   const { data: session } = useSession();
@@ -16,6 +17,11 @@ export default function InventoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+
+  useEffect(() => {
+    const handle = setTimeout(() => setSearch(searchInput.trim()), 400);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   useEffect(() => {
     if (!token || !currentStore) {
@@ -73,36 +79,14 @@ export default function InventoryPage() {
         )}
 
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search products"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      setSearch(searchInput.trim());
-                    }
-                  }}
-                  className="w-64 rounded-lg border border-gray-200 px-3 py-2 pl-9 text-sm text-gray-700 focus:border-mint focus:ring-2 focus:ring-mint/20"
-                />
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 100-15 7.5 7.5 0 000 15z" />
-                  </svg>
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSearch(searchInput.trim())}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Search
-              </button>
-            </div>
+          <div className="border-b border-gray-100 px-4 py-3">
+            <AdminSearchFilters
+              searchValue={searchInput}
+              onSearchChange={setSearchInput}
+              onSearchSubmit={() => setSearch(searchInput.trim())}
+              showSearchButton
+              searchPlaceholder="Search products"
+            />
           </div>
 
           {loading ? (

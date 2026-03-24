@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, type Customer, type CustomersResponse } from '@/lib/api';
+import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
 
 export default function AdminCustomersPage() {
   const { data: session } = useSession();
@@ -69,18 +70,17 @@ export default function AdminCustomersPage() {
           >
             New customer
           </Link>
-          <input
-          type="search"
-          placeholder="Search by email or name..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="w-full sm:w-64 rounded-lg border border-gray-200 px-3 py-2 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
-        />
         </div>
       </div>
+
+      <AdminSearchFilters
+        searchValue={search}
+        onSearchChange={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+        searchPlaceholder="Search by email or name..."
+      />
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">

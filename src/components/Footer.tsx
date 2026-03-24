@@ -1,10 +1,92 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { storefrontRequest } from '@/lib/storefrontApi';
+import { getImageDisplayUrl } from '@/lib/api';
+
+type SocialLinks = {
+  facebook?: string | null;
+  instagram?: string | null;
+  x?: string | null;
+  twitter?: string | null;
+  linkedin?: string | null;
+  youtube?: string | null;
+  tiktok?: string | null;
+};
+
+type StoreBranding = {
+  company_description?: string | null;
+  company_logo_url?: string | null;
+  company_cover_image_url?: string | null;
+  social_links?: SocialLinks;
+};
 
 export default function Footer() {
+  const [branding, setBranding] = useState<StoreBranding | null>(null);
+  const [storeSlug, setStoreSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const fromQuery = new URLSearchParams(window.location.search).get('store');
+    if (fromQuery && fromQuery.trim() !== '') {
+      setStoreSlug(fromQuery.trim());
+      return;
+    }
+
+    // Fallback: parse subdomain from host (e.g. myshop.localhost -> "myshop")
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1') {
+      setStoreSlug(null);
+      return;
+    }
+    const parts = host.split('.').filter(Boolean);
+    if (parts.length < 2) {
+      setStoreSlug(null);
+      return;
+    }
+    const effectiveParts = parts[0] === 'www' && parts.length >= 3 ? parts.slice(1) : parts;
+    setStoreSlug(effectiveParts[0] ?? null);
+  }, []);
+
+  useEffect(() => {
+    if (!storeSlug) return;
+    let cancelled = false;
+
+    storefrontRequest<{ data: StoreBranding }>('/storefront/store-branding', { store_slug: storeSlug })
+      .then((res) => {
+        if (cancelled) return;
+        setBranding(res.data ?? null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBranding(null);
+      })
+      .finally(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [storeSlug]);
+
+  const logoUrl = branding?.company_logo_url ? getImageDisplayUrl(branding.company_logo_url) : '/logo.webp';
+  const description =
+    branding?.company_description?.trim() ||
+    'The ultimate destination for buying and selling high-value assets. We ensure every transaction is handled with the care and security you deserve.';
+
+  const social = branding?.social_links ?? {};
+  const socialItems: Array<{ key: keyof SocialLinks; label: string; href?: string | null }> = [
+    { key: 'facebook', label: 'Facebook', href: social.facebook ?? null },
+    { key: 'instagram', label: 'Instagram', href: social.instagram ?? null },
+    { key: 'x', label: 'X', href: social.x ?? null },
+    { key: 'twitter', label: 'Twitter', href: social.twitter ?? null },
+    { key: 'linkedin', label: 'LinkedIn', href: social.linkedin ?? null },
+    { key: 'youtube', label: 'YouTube', href: social.youtube ?? null },
+    { key: 'tiktok', label: 'TikTok', href: social.tiktok ?? null },
+  ];
+
+  const visibleSocial = socialItems.filter((i) => typeof i.href === 'string' && (i.href ?? '').trim() !== '');
+
   return (
     <footer className="bg-gray-50 border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -12,38 +94,79 @@ export default function Footer() {
           {/* Mint Hub Info */}
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center space-x-2 mb-4 group">
-              <div className="relative w-16 h-16 group-hover:scale-110 transition-transform duration-200">
-                <Image
-                  src="/logo.webp"
-                  alt="Mint Hub Logo"
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </div>
+              <img
+                src={logoUrl}
+                alt="Company logo"
+                className="h-16 w-16 object-contain group-hover:scale-110 transition-transform duration-200"
+              />
             </Link>
-            <p className="text-gray-600 mb-6 leading-relaxed">
-              The ultimate destination for buying and selling high-value assets. We ensure every transaction is handled with the care and security you deserve.
-            </p>
+            <p className="text-gray-600 mb-6 leading-relaxed">{description}</p>
             <div className="flex space-x-3">
-              <a 
-                href="#" 
-                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-mint hover:text-white hover:border-mint transition-all duration-200"
-                aria-label="Share on social media"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-                </svg>
-              </a>
-              <a 
-                href="#" 
-                className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-mint hover:text-white hover:border-mint transition-all duration-200"
-                aria-label="Visit our website"
-              >
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-              </a>
+              {visibleSocial.length === 0 ? (
+                <a
+                  href="#"
+                  className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-mint hover:text-white hover:border-mint transition-all duration-200"
+                  aria-label="Social links not configured"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657A9.003 9.003 0 0019 12a7.002 7.002 0 00-7-7 7.002 7.002 0 00-7 7 9.003 9.003 0 001.343 4.657" />
+                  </svg>
+                </a>
+              ) : (
+                visibleSocial.map((item) => (
+                  <a
+                    key={item.key}
+                    href={item.href ?? '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-mint hover:text-white hover:border-mint transition-all duration-200"
+                    aria-label={item.label}
+                  >
+                    {item.key === 'facebook' && (
+                      <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
+                      </svg>
+                    )}
+                    {item.key === 'instagram' && (
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="18" height="18" rx="4" ry="4" strokeWidth="2" />
+                        <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" strokeWidth="2" />
+                        <path d="M17.5 6.5h.01" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    )}
+                    {(item.key === 'x' || item.key === 'twitter') && (
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 20l8-11 3 4 5-6-1 2-4 6-3-4-7 10z"
+                        />
+                      </svg>
+                    )}
+                    {item.key === 'linkedin' && (
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 9h4v11H4z" />
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M10 9h4v2c.7-1.2 2-2 3.5-2 3 0 3.5 2 3.5 5v6h-4v-6c0-1.2 0-2-1.2-2-1.1 0-1.3.8-1.3 2v6h-4z" />
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 4a2 2 0 100 4 2 2 0 000-4z" />
+                      </svg>
+                    )}
+                    {item.key === 'youtube' && (
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M10 15l5-3-5-3v6z" />
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M21 12c0 4-1 7-9 7S3 16 3 12s1-7 9-7 9 3 9 7z" />
+                      </svg>
+                    )}
+                    {item.key === 'tiktok' && (
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M14 3v14a3 3 0 01-3 3 3 3 0 01-3-3c0-1.66 1.34-3 3-3 1 0 2 .5 3 1.5V3h3z" />
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M17 3h4" />
+                      </svg>
+                    )}
+                  </a>
+                ))
+              )}
             </div>
           </div>
 

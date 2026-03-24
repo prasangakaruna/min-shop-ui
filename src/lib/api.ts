@@ -74,6 +74,56 @@ export async function apiRequest<T>(
   return data as T;
 }
 
+/** Admin: DB-backed pages + collections for menu link picker */
+export type NavigationPageOption = {
+  id: number;
+  title: string;
+  handle: string;
+  url: string;
+  published: boolean;
+};
+
+export type NavigationCollectionOption = { name: string; url: string };
+
+export async function getStoreNavigationOptions(options: {
+  token: string;
+  storeId: number;
+}): Promise<{ pages: NavigationPageOption[]; collections: NavigationCollectionOption[] }> {
+  return apiRequest<{ pages: NavigationPageOption[]; collections: NavigationCollectionOption[] }>(
+    '/store/navigation-options',
+    { token: options.token, storeId: options.storeId }
+  );
+}
+
+/** Public store CMS page (About, Contact, …) */
+export type StorefrontPagePayload = {
+  data: { id: number; title: string; handle: string; body: string | null };
+  store: { id: number; name: string; slug: string };
+};
+
+export async function getStorefrontPage(
+  handle: string,
+  options: { storeSlug?: string; storeId?: number }
+): Promise<StorefrontPagePayload> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
+  const params = new URLSearchParams();
+  if (options.storeSlug) params.set('store', options.storeSlug);
+  else if (options.storeId != null) params.set('store_id', String(options.storeId));
+  const q = params.toString();
+  const url = `${base}/storefront/pages/${encodeURIComponent(handle)}${q ? `?${q}` : ''}`;
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err: ApiError = (data?.message && { message: data.message }) || { message: res.statusText };
+    const out = Object.assign(new Error(err.message) as Error & ApiError & { status: number }, err, {
+      status: res.status,
+    });
+    throw out;
+  }
+  return data as StorefrontPagePayload;
+}
+
 /** Upload a product image; returns the public URL. */
 export async function uploadProductImage(
   file: File,
@@ -96,6 +146,30 @@ export async function uploadProductImage(
     throw out;
   }
   return data as { url: string };
+}
+
+/** Upload a content library file (images, PDFs, video, etc.); registers entry in store content. */
+export async function uploadContentLibraryFile(
+  file: File,
+  options: { token: string; storeId: number }
+): Promise<{ data: { id: string; name: string; url: string; mime_type: string | null; size: number | null; created_at: string } }> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
+  const form = new FormData();
+  form.append('file', file);
+  const url = `${base}/store/content/upload-file`;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
+  headers['X-Store-Id'] = String(options.storeId);
+  const res = await fetch(url, { method: 'POST', headers, body: form });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err: ApiError = (data?.message && { message: data.message }) || { message: res.statusText };
+    if (data?.errors) err.errors = data.errors;
+    const out = Object.assign(new Error(err.message) as Error & ApiError, err);
+    throw out;
+  }
+  return data as { data: { id: string; name: string; url: string; mime_type: string | null; size: number | null; created_at: string } };
 }
 
 // Response types matching API (see routes/api.php and docs)
@@ -123,6 +197,19 @@ export interface StoreSettings {
   business_country?: string | null;
   contact_phone?: string | null;
   contact_address?: string | null;
+  // Storefront branding (subdomain storefront header/footer)
+  company_description?: string | null;
+  company_logo_url?: string | null;
+  company_cover_image_url?: string | null;
+  social_links?: {
+    facebook?: string | null;
+    instagram?: string | null;
+    x?: string | null; // twitter/x
+    twitter?: string | null;
+    linkedin?: string | null;
+    youtube?: string | null;
+    tiktok?: string | null;
+  };
   onboarding?: {
     store_category?: string | null;
     business_stage?: 'new' | 'existing' | null;
@@ -214,6 +301,8 @@ export interface Product {
   key_features?: string[];
   status: string;
   category: string | null;
+  /** Collection names from product metadata (admin / menu link picker). */
+  collections?: string[];
   variants: ProductVariant[];
 }
 

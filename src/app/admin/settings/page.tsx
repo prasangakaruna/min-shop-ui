@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest, type StoreSummary } from '@/lib/api';
+import { apiRequest, getImageDisplayUrl, uploadProductImage, type StoreSummary } from '@/lib/api';
 import { PlanSelector } from '@/components/PlanSelector';
+import { AdminBillingSection } from '@/components/AdminBillingSection';
+import { AdminCustomerAccountsSection } from '@/components/AdminCustomerAccountsSection';
+import { AdminLocationsSection } from '@/components/AdminLocationsSection';
 
 const DEFAULT_PLAN_PRICES: Record<string, number> = {
   basic: 9,
@@ -38,13 +41,24 @@ export default function AdminSettingsPage() {
   const searchParams = useSearchParams();
   const activeSection = searchParams.get('section');
   const showPlanSection = activeSection === 'plan';
-  const pageSubtitle = showPlanSection
-    ? 'Choose and manage your store plan with flexible billing options.'
-    : 'Manage your store details, status, and defaults.';
+  const showBillingSection = activeSection === 'billing';
+  const showCustomerAccountsSection = activeSection === 'customer-accounts';
+  const showLocationsSection = activeSection === 'locations';
+  const pageSubtitle = showBillingSection
+    ? 'Review upcoming charges and manage your payment method.'
+    : showCustomerAccountsSection
+      ? 'Configure customer authentication, returns, store credit, and customer account URL.'
+      : showLocationsSection
+        ? 'Configure where you sell and how in-person orders are handled.'
+    : showPlanSection
+      ? 'Choose and manage your store plan with flexible billing options.'
+      : 'Manage your store details, status, and defaults.';
 
   const [store, setStore] = useState<StoreSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
@@ -54,6 +68,16 @@ export default function AdminSettingsPage() {
     plan_price: 0,
     business_entity: '',
     business_country: '',
+    company_description: '',
+    company_logo_url: '',
+    company_cover_image_url: '',
+    social_facebook_url: '',
+    social_instagram_url: '',
+    social_x_url: '',
+    social_twitter_url: '',
+    social_linkedin_url: '',
+    social_youtube_url: '',
+    social_tiktok_url: '',
     contact_phone: '',
     contact_address: '',
     currency_display: 'Sri Lankan Rupee (LKR Rs)',
@@ -94,6 +118,16 @@ export default function AdminSettingsPage() {
           plan_price: typeof customPrice === 'number' ? customPrice : defaultPrice,
           business_entity: (settings.business_entity as string | undefined) ?? '',
           business_country: (settings.business_country as string | undefined) ?? '',
+          company_description: (settings.company_description as string | undefined) ?? '',
+          company_logo_url: (settings.company_logo_url as string | undefined) ?? '',
+          company_cover_image_url: (settings.company_cover_image_url as string | undefined) ?? '',
+          social_facebook_url: (settings.social_links?.facebook as string | undefined) ?? '',
+          social_instagram_url: (settings.social_links?.instagram as string | undefined) ?? '',
+          social_x_url: (settings.social_links?.x as string | undefined) ?? '',
+          social_twitter_url: (settings.social_links?.twitter as string | undefined) ?? '',
+          social_linkedin_url: (settings.social_links?.linkedin as string | undefined) ?? '',
+          social_youtube_url: (settings.social_links?.youtube as string | undefined) ?? '',
+          social_tiktok_url: (settings.social_links?.tiktok as string | undefined) ?? '',
           contact_phone: (settings.contact_phone as string | undefined) ?? '',
           contact_address: (settings.contact_address as string | undefined) ?? '',
           currency_display:
@@ -122,6 +156,18 @@ export default function AdminSettingsPage() {
       const settingsPayload: Record<string, unknown> = {
         business_entity: form.business_entity || null,
         business_country: form.business_country || null,
+        company_description: form.company_description || null,
+        company_logo_url: form.company_logo_url || null,
+        company_cover_image_url: form.company_cover_image_url || null,
+        social_links: {
+          facebook: form.social_facebook_url || null,
+          instagram: form.social_instagram_url || null,
+          x: form.social_x_url || null,
+          twitter: form.social_twitter_url || null,
+          linkedin: form.social_linkedin_url || null,
+          youtube: form.social_youtube_url || null,
+          tiktok: form.social_tiktok_url || null,
+        },
         contact_phone: form.contact_phone || null,
         contact_address: form.contact_address || null,
         currency_display: form.currency_display,
@@ -161,6 +207,34 @@ export default function AdminSettingsPage() {
       setError(e instanceof Error ? e.message : 'Failed to update');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (file: File | null) => {
+    if (!file || !token || !currentStore) return;
+    setError(null);
+    setLogoUploading(true);
+    try {
+      const uploaded = await uploadProductImage(file, { token, storeId: currentStore.id });
+      setForm((f) => ({ ...f, company_logo_url: uploaded.url }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to upload logo');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const handleCoverUpload = async (file: File | null) => {
+    if (!file || !token || !currentStore) return;
+    setError(null);
+    setCoverUploading(true);
+    try {
+      const uploaded = await uploadProductImage(file, { token, storeId: currentStore.id });
+      setForm((f) => ({ ...f, company_cover_image_url: uploaded.url }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to upload cover image');
+    } finally {
+      setCoverUploading(false);
     }
   };
 
@@ -278,7 +352,15 @@ export default function AdminSettingsPage() {
                     'Policies',
                   ].map((item) => {
                     const className = `flex w-full items-center rounded-lg px-2.5 py-2 text-left transition ${
-                      (item === 'General' && !showPlanSection) || (item === 'Plan' && showPlanSection)
+                      (item === 'General' &&
+                        !showPlanSection &&
+                        !showBillingSection &&
+                        !showCustomerAccountsSection &&
+                        !showLocationsSection) ||
+                      (item === 'Plan' && showPlanSection) ||
+                      (item === 'Billing' && showBillingSection) ||
+                      (item === 'Customer accounts' && showCustomerAccountsSection) ||
+                      (item === 'Locations' && showLocationsSection)
                         ? 'bg-mint/10 font-semibold text-mint'
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`;
@@ -294,6 +376,30 @@ export default function AdminSettingsPage() {
                     if (item === 'Plan') {
                       return (
                         <Link key={item} href="/admin/settings?section=plan" className={className}>
+                          {item}
+                        </Link>
+                      );
+                    }
+
+                    if (item === 'Billing') {
+                      return (
+                        <Link key={item} href="/admin/settings?section=billing" className={className}>
+                          {item}
+                        </Link>
+                      );
+                    }
+
+                    if (item === 'Customer accounts') {
+                      return (
+                        <Link key={item} href="/admin/settings?section=customer-accounts" className={className}>
+                          {item}
+                        </Link>
+                      );
+                    }
+
+                    if (item === 'Locations') {
+                      return (
+                        <Link key={item} href="/admin/settings?section=locations" className={className}>
                           {item}
                         </Link>
                       );
@@ -339,7 +445,22 @@ export default function AdminSettingsPage() {
                 />
               </section>
             )}
-            {!showPlanSection && (
+            {showBillingSection && (
+              <section className="bg-transparent">
+                <AdminBillingSection />
+              </section>
+            )}
+            {showCustomerAccountsSection && (
+              <section className="bg-transparent">
+                <AdminCustomerAccountsSection token={token} store={store} storeId={currentStore.id} />
+              </section>
+            )}
+            {showLocationsSection && (
+              <section className="bg-transparent">
+                <AdminLocationsSection token={token} store={store} storeId={currentStore.id} />
+              </section>
+            )}
+            {!showPlanSection && !showBillingSection && !showCustomerAccountsSection && !showLocationsSection && (
               <>
             {/* Store status */}
             <section
@@ -467,6 +588,150 @@ export default function AdminSettingsPage() {
                     placeholder="Sri Lanka"
                     className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
                   />
+                </div>
+
+                {/* Storefront branding */}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Company description
+                    </label>
+                    <textarea
+                      value={form.company_description}
+                      onChange={(e) => setForm((f) => ({ ...f, company_description: e.target.value }))}
+                      rows={4}
+                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                      placeholder="About your company / brand (shown on your subdomain storefront)."
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Company logo URL
+                      </label>
+                      <div className="mt-1.5 flex items-center gap-3">
+                        <label className="inline-flex cursor-pointer items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                          {logoUploading ? 'Uploading...' : 'Upload logo'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={logoUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              void handleLogoUpload(file);
+                              e.currentTarget.value = '';
+                            }}
+                          />
+                        </label>
+                        {form.company_logo_url ? (
+                          <img
+                            src={getImageDisplayUrl(form.company_logo_url)}
+                            alt="Logo preview"
+                            className="h-10 w-10 rounded-md border border-gray-200 object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      <input
+                        type="text"
+                        value={form.company_logo_url}
+                        onChange={(e) => setForm((f) => ({ ...f, company_logo_url: e.target.value }))}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                        placeholder="https://... or /storage/..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Company cover image URL
+                      </label>
+                      <div className="mt-1.5 flex items-center gap-3">
+                        <label className="inline-flex cursor-pointer items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                          {coverUploading ? 'Uploading...' : 'Upload cover'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={coverUploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              void handleCoverUpload(file);
+                              e.currentTarget.value = '';
+                            }}
+                          />
+                        </label>
+                        {form.company_cover_image_url ? (
+                          <img
+                            src={getImageDisplayUrl(form.company_cover_image_url)}
+                            alt="Cover preview"
+                            className="h-10 w-16 rounded-md border border-gray-200 object-cover"
+                          />
+                        ) : null}
+                      </div>
+                      <input
+                        type="text"
+                        value={form.company_cover_image_url}
+                        onChange={(e) => setForm((f) => ({ ...f, company_cover_image_url: e.target.value }))}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-mint focus:ring-2 focus:ring-mint/20"
+                        placeholder="https://... or /storage/..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Social media links</p>
+                  <p className="mt-1 text-xs text-gray-500">Add URLs for your social profiles (shown in the storefront footer).</p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <input
+                      type="text"
+                      value={form.social_facebook_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_facebook_url: e.target.value }))}
+                      placeholder="Facebook URL"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <input
+                      type="text"
+                      value={form.social_instagram_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_instagram_url: e.target.value }))}
+                      placeholder="Instagram URL"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <input
+                      type="text"
+                      value={form.social_x_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_x_url: e.target.value }))}
+                      placeholder="X (Twitter) URL"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <input
+                      type="text"
+                      value={form.social_twitter_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_twitter_url: e.target.value }))}
+                      placeholder="Twitter URL (optional)"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <input
+                      type="text"
+                      value={form.social_linkedin_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_linkedin_url: e.target.value }))}
+                      placeholder="LinkedIn URL"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <input
+                      type="text"
+                      value={form.social_youtube_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_youtube_url: e.target.value }))}
+                      placeholder="YouTube URL"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                    <input
+                      type="text"
+                      value={form.social_tiktok_url}
+                      onChange={(e) => setForm((f) => ({ ...f, social_tiktok_url: e.target.value }))}
+                      placeholder="TikTok URL"
+                      className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    />
+                  </div>
                 </div>
               </div>
             </section>

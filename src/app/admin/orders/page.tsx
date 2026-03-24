@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, type Order } from '@/lib/api';
+import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
 
 interface OrdersResponse {
   data: Order[];
@@ -26,6 +27,21 @@ export default function AdminOrdersPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+
+  const runSearch = () => {
+    setSearch(searchInput.trim());
+    setPage(1);
+  };
+
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   useEffect(() => {
     if (!token || !currentStore) {
@@ -36,6 +52,7 @@ export default function AdminOrdersPage() {
     setError(null);
     const query: Record<string, string | number> = { page, per_page: 20 };
     if (statusFilter) query.financial_status = statusFilter;
+    if (search) query.search = search;
     apiRequest<OrdersResponse>('/store/orders', { token, storeId: currentStore.id, query })
       .then((res) => {
         const list = (res as OrdersResponse).data ?? [];
@@ -45,7 +62,7 @@ export default function AdminOrdersPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load orders'))
       .finally(() => setLoading(false));
-  }, [token, currentStore, page, statusFilter]);
+  }, [token, currentStore, page, statusFilter, search]);
 
   if (!currentStore) {
     return (
@@ -92,7 +109,7 @@ export default function AdminOrdersPage() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
+      <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
         <div className="flex flex-wrap gap-2">
           {['', 'pending', 'paid', 'refunded', 'cancelled'].map((s) => (
             <button
@@ -107,6 +124,13 @@ export default function AdminOrdersPage() {
             </button>
           ))}
         </div>
+        <AdminSearchFilters
+          searchValue={searchInput}
+          onSearchChange={setSearchInput}
+          onSearchSubmit={runSearch}
+          showSearchButton
+          searchPlaceholder="Search by order # or customer email..."
+        />
       </div>
 
       {error && (

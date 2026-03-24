@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
@@ -30,6 +30,17 @@ const menuItems: MenuItem[] = [
       { href: '/admin/gift-cards', label: 'Gift cards' },
     ],
   },
+  {
+    href: '/admin/content',
+    label: 'Content',
+    icon: '📝',
+    children: [
+      { href: '/admin/content?section=metaobjects', label: 'Metaobjects' },
+      { href: '/admin/content/files', label: 'Files' },
+      { href: '/admin/content/menus', label: 'Menus' },
+      { href: '/admin/content?section=blog-posts', label: 'Blog posts' },
+    ],
+  },
   { href: '/admin/customers', label: 'Customers', icon: '👥' },
   { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
   { href: '/admin/statistics', label: 'Analytics', icon: '📈' },
@@ -49,9 +60,29 @@ const menuItems: MenuItem[] = [
 
 const SETUP_PATHS = ['/admin/setup', '/admin/stores/new'];
 
+/** Sidebar active state for Content children (pathname omits query string). */
+function isContentChildActive(
+  pathname: string | null | undefined,
+  searchParams: URLSearchParams,
+  childHref: string
+): boolean {
+  if (childHref === '/admin/content/files' || childHref.startsWith('/admin/content/files')) {
+    return pathname === '/admin/content/files' || pathname?.startsWith('/admin/content/files/') === true;
+  }
+  const qIdx = childHref.indexOf('?');
+  if (qIdx !== -1 && childHref.slice(0, qIdx) === '/admin/content') {
+    if (pathname !== '/admin/content') return false;
+    const want = new URLSearchParams(childHref.slice(qIdx + 1)).get('section') ?? 'metaobjects';
+    const current = searchParams.get('section') ?? 'metaobjects';
+    return current === want;
+  }
+  return pathname === childHref || pathname?.startsWith(`${childHref}/`) === true;
+}
+
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { stores, currentStore, setCurrentStore, loading: storeLoading, error: storeError } = useStore();
   const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -315,7 +346,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                           <div className="mt-0.5 mb-1 space-y-0.5 pl-8">
                             {item.children.map((child) => {
                               const isActiveChild =
-                                pathname === child.href || pathname?.startsWith(child.href + '/');
+                                item.href === '/admin/content'
+                                  ? isContentChildActive(pathname, searchParams, child.href)
+                                  : pathname === child.href || pathname?.startsWith(child.href + '/');
                               return (
                                 <Link
                                   key={child.href}
@@ -459,7 +492,17 @@ function AdminGuard({ children, token }: { children: React.ReactNode; token: str
       </div>
     );
   }
-  return <AdminLayoutInner>{children}</AdminLayoutInner>;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin w-8 h-8 border-2 border-mint border-t-transparent rounded-full" />
+        </div>
+      }
+    >
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </Suspense>
+  );
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
