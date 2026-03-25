@@ -5,7 +5,27 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest, uploadProductImage, getImageDisplayUrl, type Product, type ProductVariant } from '@/lib/api';
+import {
+  apiRequest,
+  uploadProductImage,
+  getImageDisplayUrl,
+  type Product,
+  type ProductVariant,
+} from '@/lib/api';
+import ProductOptionGroupsPanel, {
+  normalizeProductOptionGroups,
+} from '@/components/admin/ProductOptionGroupsPanel';
+
+function asVariantOptionsMap(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (v === null || v === undefined) continue;
+    const s = typeof v === 'string' ? v : String(v);
+    if (s.trim() !== '') out[k] = s.trim();
+  }
+  return out;
+}
 
 export default function EditProductPage() {
   const params = useParams();
@@ -36,9 +56,13 @@ export default function EditProductPage() {
     category: '',
     status: 'active',
   });
+  const [optionGroups, setOptionGroups] = useState(normalizeProductOptionGroups(undefined));
   const [variantQty, setVariantQty] = useState<Record<number, number>>({});
   const [variantPrice, setVariantPrice] = useState<Record<number, string>>({});
   const [variantCompareAtPrice, setVariantCompareAtPrice] = useState<Record<number, string>>({});
+  const [variantTitleEdit, setVariantTitleEdit] = useState<Record<number, string>>({});
+  const [variantSkuEdit, setVariantSkuEdit] = useState<Record<number, string>>({});
+  const [variantOptionsEdit, setVariantOptionsEdit] = useState<Record<number, Record<string, string>>>({});
   const [savingVariantId, setSavingVariantId] = useState<number | null>(null);
   const [newVariantForm, setNewVariantForm] = useState({
     price: '',
@@ -47,6 +71,7 @@ export default function EditProductPage() {
     sku: '',
     title: '',
   });
+  const [newVariantOptions, setNewVariantOptions] = useState<Record<string, string>>({});
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
   const [uploadingMultiple, setUploadingMultiple] = useState(false);
   const [dropZoneActive, setDropZoneActive] = useState(false);
@@ -123,6 +148,19 @@ export default function EditProductPage() {
         setVariantQty(qty);
         setVariantPrice(price);
         setVariantCompareAtPrice(compareAt);
+        setOptionGroups(normalizeProductOptionGroups(data.option_groups));
+        const titleEd: Record<number, string> = {};
+        const skuEd: Record<number, string> = {};
+        const optEd: Record<number, Record<string, string>> = {};
+        (data.variants ?? []).forEach((v) => {
+          titleEd[v.id] = v.title ?? '';
+          skuEd[v.id] = v.sku ?? '';
+          optEd[v.id] = asVariantOptionsMap(v.options);
+        });
+        setVariantTitleEdit(titleEd);
+        setVariantSkuEdit(skuEd);
+        setVariantOptionsEdit(optEd);
+        setNewVariantOptions({});
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Product not found'))
       .finally(() => setLoading(false));
@@ -148,14 +186,29 @@ export default function EditProductPage() {
             .filter(Boolean),
           category: form.category || undefined,
           status: form.status,
+          option_groups: optionGroups
+            .map((g) => ({
+              id: g.id,
+              name: g.name.trim(),
+              values: g.values
+                .filter((v) => v.label.trim() !== '')
+                .map((v) => ({ id: v.id, label: v.label.trim() })),
+            }))
+            .filter((g) => g.name !== ''),
         },
       });
       setProduct(updated);
+      setOptionGroups(normalizeProductOptionGroups(updated.option_groups));
 
       const priceTrim = newVariantForm.price.trim();
       if (priceTrim !== '') {
         const priceNum = parseFloat(priceTrim);
         if (!isNaN(priceNum) && priceNum >= 0) {
+          const newOpts: Record<string, string> = {};
+          for (const g of optionGroups) {
+            const v = (newVariantOptions[g.name] ?? '').trim();
+            if (v) newOpts[g.name] = v;
+          }
           const variant = await apiRequest<ProductVariant>(`/store/products/${id}/variants`, {
             method: 'POST',
             token,
@@ -166,6 +219,7 @@ export default function EditProductPage() {
               inventory_quantity: Math.max(0, parseInt(newVariantForm.inventoryQuantity, 10) || 0),
               sku: newVariantForm.sku.trim() || null,
               title: newVariantForm.title.trim() || null,
+              options: Object.keys(newOpts).length ? newOpts : undefined,
             },
           });
           setProduct((prev) =>
@@ -177,7 +231,11 @@ export default function EditProductPage() {
             ...prev,
             [variant.id]: variant.compare_at_price ? String(variant.compare_at_price) : '',
           }));
+          setVariantTitleEdit((prev) => ({ ...prev, [variant.id]: variant.title ?? '' }));
+          setVariantSkuEdit((prev) => ({ ...prev, [variant.id]: variant.sku ?? '' }));
+          setVariantOptionsEdit((prev) => ({ ...prev, [variant.id]: asVariantOptionsMap(variant.options) }));
           setNewVariantForm({ price: '', compareAtPrice: '', inventoryQuantity: '0', sku: '', title: '' });
+          setNewVariantOptions({});
         }
       }
     } catch (e) {
@@ -197,8 +255,26 @@ export default function EditProductPage() {
     setSavingVariantId(variant.id);
     setError('');
     try {
-      const body: { inventory_quantity: number; price?: number; compare_at_price?: number | null } = {
+      const optsMap = variantOptionsEdit[variant.id] ?? {};
+      const optionsPayload: Record<string, string> = {};
+      for (const g of optionGroups) {
+        const v = (optsMap[g.name] ?? '').trim();
+        if (v) optionsPayload[g.name] = v;
+      }
+      const titleVal = (variantTitleEdit[variant.id] ?? '').trim();
+      const skuVal = (variantSkuEdit[variant.id] ?? '').trim();
+      const body: {
+        inventory_quantity: number;
+        price?: number;
+        compare_at_price?: number | null;
+        title?: string | null;
+        sku?: string | null;
+        options?: Record<string, string> | null;
+      } = {
         inventory_quantity: qty,
+        title: titleVal === '' ? null : titleVal,
+        sku: skuVal === '' ? null : skuVal,
+        options: Object.keys(optionsPayload).length ? optionsPayload : null,
       };
       if (priceNum !== undefined && !isNaN(priceNum)) body.price = priceNum;
       if (compareNum !== undefined && !isNaN(compareNum)) body.compare_at_price = compareNum;
@@ -217,6 +293,9 @@ export default function EditProductPage() {
             v.id === variant.id
               ? {
                   ...v,
+                  title: titleVal === '' ? null : titleVal,
+                  sku: skuVal === '' ? null : skuVal,
+                  options: Object.keys(optionsPayload).length ? optionsPayload : null,
                   inventory_quantity: qty,
                   price: priceNum !== undefined && !isNaN(priceNum) ? String(priceNum) : v.price,
                   compare_at_price: body.compare_at_price != null ? String(body.compare_at_price) : v.compare_at_price,
@@ -303,7 +382,7 @@ export default function EditProductPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="border-b border-gray-200 bg-white px-6 py-4">
-        <div className="max-w-6xl mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <nav className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
               <Link href="/admin" className="hover:text-mint">Home</Link>
@@ -336,7 +415,7 @@ export default function EditProductPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -344,8 +423,32 @@ export default function EditProductPage() {
         )}
 
         <form onSubmit={handleSaveProduct} className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* Left column: visual preview */}
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-3 sticky top-20 z-40 hidden lg:flex items-center justify-end gap-3 bg-gray-50/95 backdrop-blur border border-gray-200 rounded-2xl p-2 shadow-sm">
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-mint px-5 py-2.5 text-sm font-medium text-white hover:bg-mint-dark disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Saving…
+                </>
+              ) : (
+                'Save changes'
+              )}
+            </button>
+            <Link
+              href={`/product/${product?.id ?? ''}${currentStore?.slug ? `?store=${encodeURIComponent(currentStore.slug)}` : ''}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              View as customer
+            </Link>
+          </div>
+          {/* Left column: storefront preview + product options */}
+          <div className="space-y-6 lg:col-span-1">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Storefront preview
@@ -380,6 +483,18 @@ export default function EditProductPage() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm lg:sticky lg:top-24 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto overscroll-contain">
+              <div className="px-2 py-2 border-b border-gray-100 mb-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Product</p>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">Options</p>
+                <p className="text-xs text-gray-500 mt-1 leading-snug">
+                  Drag groups and values to reorder. Use <span className="font-medium text-gray-700">Save changes</span>{' '}
+                  to persist. Map variants under <span className="font-medium text-gray-700">Pricing &amp; stock</span>.
+                </p>
+              </div>
+              <ProductOptionGroupsPanel embedded groups={optionGroups} onChange={setOptionGroups} />
             </div>
           </div>
 
@@ -607,7 +722,7 @@ export default function EditProductPage() {
                   </div>
                 </div>
               </div>
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="mt-5 flex flex-wrap gap-3 lg:hidden">
                 <button
                   type="submit"
                   disabled={saving}
@@ -644,7 +759,66 @@ export default function EditProductPage() {
                     const isOut = qty === 0;
                     return (
                       <li key={v.id} className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-                        <p className="font-medium text-gray-900 mb-3">{v.title || v.sku || `Variant #${v.id}`}</p>
+                        <p className="font-medium text-gray-900 mb-1">{v.title || v.sku || `Variant #${v.id}`}</p>
+                        <p className="text-xs text-gray-500 mb-3">ID {v.id}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label htmlFor={`vt-${v.id}`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                              Display title
+                            </label>
+                            <input
+                              id={`vt-${v.id}`}
+                              type="text"
+                              value={variantTitleEdit[v.id] ?? ''}
+                              onChange={(e) =>
+                                setVariantTitleEdit((prev) => ({ ...prev, [v.id]: e.target.value }))
+                              }
+                              placeholder="e.g. Navy / M"
+                              className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor={`vsku-${v.id}`} className="block text-sm font-medium text-gray-700 mb-1.5">
+                              SKU
+                            </label>
+                            <input
+                              id={`vsku-${v.id}`}
+                              type="text"
+                              value={variantSkuEdit[v.id] ?? ''}
+                              onChange={(e) =>
+                                setVariantSkuEdit((prev) => ({ ...prev, [v.id]: e.target.value }))
+                              }
+                              placeholder="Optional"
+                              className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                            />
+                          </div>
+                        </div>
+                        {optionGroups.length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                            {optionGroups.map((g) => (
+                              <div key={g.id}>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">{g.name}</label>
+                                <select
+                                  value={variantOptionsEdit[v.id]?.[g.name] ?? ''}
+                                  onChange={(e) =>
+                                    setVariantOptionsEdit((prev) => ({
+                                      ...prev,
+                                      [v.id]: { ...(prev[v.id] ?? {}), [g.name]: e.target.value },
+                                    }))
+                                  }
+                                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                                >
+                                  <option value="">— Select —</option>
+                                  {g.values.map((val) => (
+                                    <option key={val.id} value={val.label}>
+                                      {val.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                           <div>
                             <label htmlFor={`price-${v.id}`} className="block text-sm font-medium text-gray-700 mb-1.5">Price *</label>
@@ -747,6 +921,29 @@ export default function EditProductPage() {
                     />
                   </div>
                 </div>
+                {optionGroups.length > 0 && (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {optionGroups.map((g) => (
+                      <div key={g.id}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">{g.name}</label>
+                        <select
+                          value={newVariantOptions[g.name] ?? ''}
+                          onChange={(e) =>
+                            setNewVariantOptions((prev) => ({ ...prev, [g.name]: e.target.value }))
+                          }
+                          className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                        >
+                          <option value="">— Select —</option>
+                          {g.values.map((val) => (
+                            <option key={val.id} value={val.label}>
+                              {val.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label htmlFor="new-variant-sku" className="block text-sm font-medium text-gray-700 mb-1.5">SKU (optional)</label>

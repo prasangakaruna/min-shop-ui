@@ -13,12 +13,39 @@ import {
   setCartTokenForStore,
   setCartCount,
 } from '@/lib/api';
-import type { StorefrontProduct } from '@/lib/api';
+import type { StorefrontProduct, ProductVariant } from '@/lib/api';
 
 const LAST_CART_STORE_KEY = 'mint_cart_store_id';
 
 function setLastCartStoreId(storeId: number) {
   if (typeof window !== 'undefined') localStorage.setItem(LAST_CART_STORE_KEY, String(storeId));
+}
+
+function variantOptionsMap(v: ProductVariant): Record<string, string> {
+  const o = v.options;
+  if (!o || typeof o !== 'object') return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(o)) {
+    if (val === null || val === undefined) continue;
+    const s = typeof val === 'string' ? val : String(val);
+    if (s.trim()) out[k] = s.trim();
+  }
+  return out;
+}
+
+function findMatchingVariant(
+  variants: ProductVariant[] | undefined,
+  groupNames: { name: string }[],
+  selection: Record<string, string>
+): ProductVariant | undefined {
+  if (!variants?.length) return undefined;
+  if (!groupNames.length) return variants[0];
+  const allFilled = groupNames.every((g) => (selection[g.name] ?? '').trim() !== '');
+  if (!allFilled) return undefined;
+  return variants.find((v) => {
+    const vo = variantOptionsMap(v);
+    return groupNames.every((g) => vo[g.name] === selection[g.name]);
+  });
 }
 
 export default function ProductDetailPage() {
@@ -35,6 +62,7 @@ export default function ProductDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [addingToCart, setAddingToCart] = useState(false);
   const [addToCartMessage, setAddToCartMessage] = useState<string | null>(null);
+  const [optionSelection, setOptionSelection] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!idParam || isNaN(productId)) {
@@ -52,6 +80,32 @@ export default function ProductDetailPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Product not found'))
       .finally(() => setLoading(false));
   }, [productId, idParam]);
+
+  useEffect(() => {
+    if (!product) return;
+    const og = product.option_groups ?? [];
+    if (!og.length) {
+      setOptionSelection({});
+      return;
+    }
+    const v0 = product.variants?.[0];
+    const vo = v0 ? variantOptionsMap(v0) : {};
+    const init: Record<string, string> = {};
+    for (const g of og) {
+      init[g.name] = vo[g.name] ?? g.values[0]?.label ?? '';
+    }
+    setOptionSelection(init);
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!product) return;
+    const og = product.option_groups ?? [];
+    const dv = findMatchingVariant(product.variants, og, optionSelection);
+    if (!dv) return;
+    const max = dv.inventory_quantity ?? 0;
+    if (max <= 0) return;
+    setQuantity((q) => Math.min(q, max));
+  }, [optionSelection, product?.id, product?.variants, product?.option_groups]);
 
   useEffect(() => {
     if (!product) return;
@@ -93,17 +147,41 @@ export default function ProductDetailPage() {
   }
 
   const images = product.image_urls?.length ? product.image_urls : (product.image_url ? [product.image_url] : []);
+  const optionGroups = product.option_groups ?? [];
+  const activeVariant = findMatchingVariant(product.variants, optionGroups, optionSelection);
   const firstVariant = product.variants?.[0];
-  const compareAtPrice = firstVariant?.compare_at_price ?? null;
+  const displayVariant = optionGroups.length > 0 ? activeVariant : firstVariant;
+  const compareAtPrice = displayVariant?.compare_at_price ?? null;
+  const displayPrice = displayVariant?.price ?? product.price;
   const totalStock = product.variants?.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0) ?? 0;
-  const inStock = totalStock > 0;
+  const variantStock = displayVariant?.inventory_quantity ?? 0;
+  const inStock =
+    optionGroups.length > 0 ? variantStock > 0 && Boolean(displayVariant) : totalStock > 0;
+  const optionUnavailable =
+    optionGroups.length > 0 && activeVariant === undefined && optionGroups.every((g) => (optionSelection[g.name] ?? '').trim() !== '');
+
+  // Build "value is available" map from in-stock variants only.
+  // This prevents showing colors/sizes that never exist in an in-stock variant.
+  const inStockValueLabelsByGroup: Record<string, Set<string>> = {};
+  if (optionGroups.length > 0 && product.variants?.length) {
+    for (const g of optionGroups) inStockValueLabelsByGroup[g.name] = new Set<string>();
+    for (const v of product.variants) {
+      const qty = v.inventory_quantity ?? 0;
+      if (qty <= 0) continue;
+      const vo = variantOptionsMap(v);
+      for (const g of optionGroups) {
+        const label = vo[g.name];
+        if (label) inStockValueLabelsByGroup[g.name]?.add(label);
+      }
+    }
+  }
 
   const handleAddToCart = async () => {
-    if (!product || !firstVariant || !inStock) return;
+    if (!product || !displayVariant || !inStock) return;
     setAddingToCart(true);
     setAddToCartMessage(null);
     try {
-      const cart = await addStorefrontCartLine(product.store_id, firstVariant.id, quantity);
+      const cart = await addStorefrontCartLine(product.store_id, displayVariant.id, quantity);
       if (cart.cart_token) setCartTokenForStore(product.store_id, cart.cart_token);
       setLastCartStoreId(product.store_id);
       const total = (cart.lines ?? []).reduce((sum, l) => sum + l.quantity, 0);
@@ -192,11 +270,56 @@ export default function ProductDetailPage() {
             <h1 className="text-4xl font-bold text-gray-800 mb-4">{product.title}</h1>
 
             <div className="mb-6 flex items-center space-x-4">
-              <span className="text-4xl font-bold text-mint">${product.price}</span>
+              <span className="text-4xl font-bold text-mint">${displayPrice}</span>
               {compareAtPrice && (
                 <span className="text-2xl text-gray-500 line-through">${compareAtPrice}</span>
               )}
             </div>
+
+            {optionGroups.length > 0 && (
+              <div className="mb-6 space-y-4">
+                {optionGroups.map((g) => (
+                  <div key={g.id}>
+                    <p className="text-sm font-medium text-gray-800 mb-2">{g.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {g.values.map((val) => {
+                        const selected = optionSelection[g.name] === val.label;
+                        const labels = inStockValueLabelsByGroup[g.name];
+                        const hasAnyInStock = Boolean(labels && labels.size > 0);
+                        const isAvailable = !hasAnyInStock ? true : Boolean(labels?.has(val.label));
+                        const isDisabled = !isAvailable;
+                        return (
+                          <button
+                            key={val.id}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => {
+                              if (isDisabled) return;
+                              setOptionSelection((s) => ({
+                                ...s,
+                                [g.name]: val.label,
+                              }));
+                            }}
+                            className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+                              selected
+                                ? 'border-mint bg-mint/10 text-mint-dark'
+                                : isDisabled
+                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            {val.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {optionUnavailable && (
+                  <p className="text-sm text-amber-700">This combination is not available. Try another option.</p>
+                )}
+              </div>
+            )}
 
             {product.description && (
               <p className="text-gray-600 mb-6">{product.description}</p>
@@ -219,7 +342,17 @@ export default function ProductDetailPage() {
             )}
 
             <div className="mb-6">
-              {inStock ? (
+              {optionGroups.length > 0 ? (
+                displayVariant ? (
+                  inStock ? (
+                    <p className="text-green-600 font-medium">✓ In Stock ({variantStock} available)</p>
+                  ) : (
+                    <p className="text-red-600 font-medium">Out of Stock</p>
+                  )
+                ) : (
+                  <p className="text-gray-600 font-medium">Select options to see availability.</p>
+                )
+              ) : inStock ? (
                 <p className="text-green-600 font-medium">✓ In Stock ({totalStock} available)</p>
               ) : (
                 <p className="text-red-600 font-medium">Out of Stock</p>
@@ -254,7 +387,7 @@ export default function ProductDetailPage() {
             <div className="flex space-x-4">
               <button
                 type="button"
-                disabled={!inStock || addingToCart}
+                disabled={!inStock || addingToCart || (optionGroups.length > 0 && !displayVariant)}
                 onClick={handleAddToCart}
                 className="flex-1 bg-mint text-white py-3 rounded-lg font-medium hover:bg-mint-dark transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >

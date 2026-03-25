@@ -285,7 +285,20 @@ export interface ProductVariant {
   price: string;
   compare_at_price: string | null;
   inventory_quantity: number;
-  options: Record<string, unknown> | null;
+  /** Option map matching product option_definitions names, e.g. { Color: "Navy", Size: "M" } */
+  options: Record<string, string> | null;
+}
+
+/** Drag-ordered option groups (e.g. Color, Size) stored in product metadata. */
+export interface ProductOptionValue {
+  id: string;
+  label: string;
+}
+
+export interface ProductOptionGroup {
+  id: string;
+  name: string;
+  values: ProductOptionValue[];
 }
 
 export interface Product {
@@ -303,6 +316,8 @@ export interface Product {
   category: string | null;
   /** Collection names from product metadata (admin / menu link picker). */
   collections?: string[];
+  /** Ordered option groups for variants (admin drag-and-drop). */
+  option_groups?: ProductOptionGroup[];
   variants: ProductVariant[];
 }
 
@@ -312,6 +327,18 @@ export interface ProductsResponse {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+/** Distinct product categories for the current store (admin filters). */
+export async function getStoreProductCategories(options: {
+  token: string;
+  storeId: number;
+}): Promise<string[]> {
+  const res = await apiRequest<{ data: string[] }>('/store/product-categories', {
+    token: options.token,
+    storeId: options.storeId,
+  });
+  return res.data ?? [];
 }
 
 /** Product as returned by GET /storefront/products and /storefront/products/:id (no auth) */
@@ -326,6 +353,7 @@ export interface StorefrontProduct {
   key_features: string[];
   category: string | null;
   price: string;
+  option_groups?: ProductOptionGroup[];
   variants: ProductVariant[];
   store: { id: number; name: string; slug: string } | null;
 }

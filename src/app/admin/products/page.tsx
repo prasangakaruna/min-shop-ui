@@ -4,7 +4,13 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest, type Product, type ProductsResponse } from '@/lib/api';
+import {
+  apiRequest,
+  getImageDisplayUrl,
+  getStoreProductCategories,
+  type Product,
+  type ProductsResponse,
+} from '@/lib/api';
 import Toast from '@/components/Toast';
 import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
 
@@ -13,14 +19,73 @@ type PosIntegrationConfig = {
   auto_sync?: boolean;
 };
 
+function buildProductsQuery(
+  page: number,
+  search: string,
+  statusFilter: string,
+  categoryFilter: string,
+  stockFilter: string
+): Record<string, string | number> {
+  const query: Record<string, string | number> = { page, per_page: 20 };
+  if (search) query.search = search;
+  if (statusFilter) query.status = statusFilter;
+  if (categoryFilter) query.category = categoryFilter;
+  if (stockFilter) query.stock = stockFilter;
+  return query;
+}
+
+function csvEscape(value: string | number | null | undefined): string {
+  const s = value == null ? '' : String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function productPrimaryImage(p: Product): string {
+  const urls =
+    p.image_urls && p.image_urls.length > 0 ? p.image_urls : p.image_url ? [p.image_url] : [];
+  return urls[0] ?? '';
+}
+
+function downloadProductsCsvRows(products: Product[], filename: string) {
+  const header = ['ID', 'Title', 'Status', 'Category', 'Price', 'Stock units', 'Variants'];
+  const lines = [
+    header.join(','),
+    ...products.map((p) => {
+      const price = p.variants?.[0]?.price ?? '';
+      const stock =
+        p.variants?.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0) ?? 0;
+      return [
+        p.id,
+        csvEscape(p.title),
+        csvEscape(p.status),
+        csvEscape(p.category ?? ''),
+        csvEscape(price),
+        stock,
+        p.variants?.length ?? 0,
+      ].join(',');
+    }),
+  ];
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function ProductRowSkeleton() {
   return (
     <tr className="border-b border-gray-100">
       <td className="w-10 px-5 py-4"><div className="h-4 w-4 animate-pulse rounded bg-gray-100" /></td>
+      <td className="w-16 px-3 py-4">
+        <div className="h-12 w-12 animate-pulse rounded-lg bg-gray-100" />
+      </td>
       <td className="px-5 py-4">
         <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
         <div className="mt-1.5 h-3 w-24 animate-pulse rounded bg-gray-100" />
       </td>
+      <td className="px-5 py-4"><div className="h-4 w-20 animate-pulse rounded bg-gray-100" /></td>
       <td className="px-5 py-4"><div className="h-6 w-16 animate-pulse rounded-full bg-gray-100" /></td>
       <td className="px-5 py-4"><div className="h-4 w-14 animate-pulse rounded bg-gray-100" /></td>
       <td className="px-5 py-4"><div className="h-4 w-10 animate-pulse rounded bg-gray-100" /></td>
@@ -46,6 +111,9 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [stockFilter, setStockFilter] = useState('');
+  const [productCategories, setProductCategories] = useState<string[]>([]);
   const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState('');
@@ -70,6 +138,9 @@ export default function AdminProductsPage() {
       });
       setProducts((prev) => [created as Product, ...prev]);
       setTotal((t) => t + 1);
+      if (created.category) {
+        getStoreProductCategories({ token, storeId: currentStore.id }).then(setProductCategories).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to duplicate');
     } finally {
@@ -84,9 +155,7 @@ export default function AdminProductsPage() {
     }
     setLoading(true);
     setError(null);
-    const query: Record<string, string | number> = { page, per_page: 20 };
-    if (search) query.search = search;
-    if (statusFilter) query.status = statusFilter;
+    const query = buildProductsQuery(page, search, statusFilter, categoryFilter, stockFilter);
     apiRequest<ProductsResponse>('/store/products', { token, storeId: currentStore.id, query })
       .then((res) => {
         const data = (res as ProductsResponse).data ?? [];
@@ -96,7 +165,14 @@ export default function AdminProductsPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load products'))
       .finally(() => setLoading(false));
-  }, [token, currentStore, page, search, statusFilter]);
+  }, [token, currentStore, page, search, statusFilter, categoryFilter, stockFilter]);
+
+  useEffect(() => {
+    if (!token || !currentStore) return;
+    getStoreProductCategories({ token, storeId: currentStore.id })
+      .then(setProductCategories)
+      .catch(() => setProductCategories([]));
+  }, [token, currentStore?.id]);
 
   // Load POS integration config for this store
   useEffect(() => {
@@ -129,9 +205,7 @@ export default function AdminProductsPage() {
             message: `Synced POS products (created ${res.created ?? 0}, updated ${res.updated ?? 0}).`,
           });
           // Refresh current table page
-          const query: Record<string, string | number> = { page, per_page: 20 };
-          if (search) query.search = search;
-          if (statusFilter) query.status = statusFilter;
+          const query = buildProductsQuery(page, search, statusFilter, categoryFilter, stockFilter);
           const refreshed = await apiRequest<ProductsResponse>('/store/products', { token, storeId: currentStore.id, query });
           if (!cancelled) {
             setProducts((refreshed as ProductsResponse).data ?? []);
@@ -157,7 +231,7 @@ export default function AdminProductsPage() {
       cancelled = true;
       if (timer) clearInterval(timer);
     };
-  }, [token, currentStore?.id, pos?.enabled, pos?.auto_sync, page, search, statusFilter, syncing]);
+  }, [token, currentStore?.id, pos?.enabled, pos?.auto_sync, page, search, statusFilter, categoryFilter, stockFilter, syncing]);
 
   const runSearch = () => { setSearch(searchInput); setPage(1); };
 
@@ -197,9 +271,7 @@ export default function AdminProductsPage() {
       });
       setSelectedIds(new Set());
       setBulkStatus('');
-      const query: Record<string, string | number> = { page, per_page: 20 };
-      if (search) query.search = search;
-      if (statusFilter) query.status = statusFilter;
+      const query = buildProductsQuery(page, search, statusFilter, categoryFilter, stockFilter);
       const res = await apiRequest<ProductsResponse>('/store/products', { token, storeId: currentStore.id, query });
       setProducts((res as ProductsResponse).data ?? []);
       setTotal((res as ProductsResponse).total ?? 0);
@@ -224,9 +296,7 @@ export default function AdminProductsPage() {
       });
       setShowBulkDeleteConfirm(false);
       setSelectedIds(new Set());
-      const query: Record<string, string | number> = { page, per_page: 20 };
-      if (search) query.search = search;
-      if (statusFilter) query.status = statusFilter;
+      const query = buildProductsQuery(page, search, statusFilter, categoryFilter, stockFilter);
       const res = await apiRequest<ProductsResponse>('/store/products', { token, storeId: currentStore.id, query });
       setProducts((res as ProductsResponse).data ?? []);
       setTotal((res as ProductsResponse).total ?? 0);
@@ -263,6 +333,11 @@ export default function AdminProductsPage() {
     draft: 'bg-gray-100 text-gray-700',
     archived: 'bg-gray-100 text-gray-500',
   };
+
+  const pageActiveCount = !loading ? products.filter((p) => p.status === 'active').length : 0;
+  const pageOutCount = !loading ? products.filter((p) => totalStock(p) === 0).length : 0;
+  const pageLowCount = !loading ? products.filter((p) => isLowStock(p)).length : 0;
+  const storeQuery = currentStore?.slug ? `?store=${encodeURIComponent(currentStore.slug)}` : '';
 
   return (
     <div className="min-h-full">
@@ -306,6 +381,88 @@ export default function AdminProductsPage() {
             { value: 'archived', label: 'Archived' },
           ]}
         />
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="sr-only" htmlFor="admin-products-category">
+              Category
+            </label>
+            <select
+              id="admin-products-category"
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+            >
+              <option value="">All categories</option>
+              {productCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="admin-products-stock">
+              Stock
+            </label>
+            <select
+              id="admin-products-stock"
+              value={stockFilter}
+              onChange={(e) => {
+                setStockFilter(e.target.value);
+                setPage(1);
+              }}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+            >
+              <option value="">All inventory</option>
+              <option value="in_stock">In stock</option>
+              <option value="low_stock">Low stock (&lt;10)</option>
+              <option value="out_of_stock">Out of stock</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              downloadProductsCsvRows(
+                products,
+                `products-page-${page}-${new Date().toISOString().slice(0, 10)}.csv`
+              )
+            }
+            disabled={loading || products.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
+            </svg>
+            Export CSV (this page)
+          </button>
+        </div>
+
+        {!loading && products.length > 0 && (
+          <div className="flex flex-wrap gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 shadow-sm">
+            <span>
+              <span className="font-semibold text-gray-900">{products.length}</span> on this page
+            </span>
+            <span className="hidden sm:inline text-gray-300">·</span>
+            <span>
+              <span className="font-semibold text-emerald-700">{pageActiveCount}</span> active
+            </span>
+            <span className="hidden sm:inline text-gray-300">·</span>
+            <span>
+              <span className="font-semibold text-amber-700">{pageLowCount}</span> low stock
+            </span>
+            <span className="hidden sm:inline text-gray-300">·</span>
+            <span>
+              <span className="font-semibold text-red-700">{pageOutCount}</span> out of stock
+            </span>
+          </div>
+        )}
 
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -366,7 +523,11 @@ export default function AdminProductsPage() {
                       className="rounded border-gray-300 text-mint focus:ring-mint/20"
                     />
                   </th>
+                  <th className="w-14 px-3 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    <span className="sr-only">Image</span>
+                  </th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Product</th>
+                  <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Category</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Status</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Price</th>
                   <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Stock</th>
@@ -378,7 +539,7 @@ export default function AdminProductsPage() {
                   Array.from({ length: 8 }).map((_, i) => <ProductRowSkeleton key={i} />)
                 ) : products.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-5 py-16 text-center">
+                    <td colSpan={8} className="px-5 py-16 text-center">
                       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                         <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -405,6 +566,24 @@ export default function AdminProductsPage() {
                           className="rounded border-gray-300 text-mint focus:ring-mint/20"
                         />
                       </td>
+                      <td className="w-14 px-3 py-4 align-middle">
+                        <Link href={`/admin/products/edit/${p.id}`} className="block" aria-hidden tabIndex={-1}>
+                          <div className="h-12 w-12 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200/80">
+                            {productPrimaryImage(p) ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={getImageDisplayUrl(productPrimaryImage(p))}
+                                alt=""
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-400">
+                                —
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      </td>
                       <td className="px-5 py-4">
                         <Link href={`/admin/products/edit/${p.id}`} className="block">
                           <p className="font-medium text-gray-900 hover:text-mint">{p.title}</p>
@@ -413,6 +592,15 @@ export default function AdminProductsPage() {
                             {p.variants?.[0]?.sku && ` · ${p.variants[0].sku}`}
                           </p>
                         </Link>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-600">
+                        {p.category ? (
+                          <span className="line-clamp-2" title={p.category}>
+                            {p.category}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[p.status] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -427,7 +615,15 @@ export default function AdminProductsPage() {
                         {isLowStock(p) && <span className="ml-1 text-xs text-amber-600">Low</span>}
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Link
+                            href={`/product/${p.id}${storeQuery}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-mint hover:bg-mint/5"
+                          >
+                            View
+                          </Link>
                           <button
                             type="button"
                             onClick={() => handleDuplicate(p)}
