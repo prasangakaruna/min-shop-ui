@@ -27,6 +27,9 @@ export default function NewStorePage() {
   const { refreshStores, setCurrentStore } = useStore();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
 
+  const [createdStore, setCreatedStore] = useState<StoreSummary | null>(null);
+  const [showSubdomainHelp, setShowSubdomainHelp] = useState(false);
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const [name, setName] = useState('');
@@ -96,7 +99,8 @@ export default function NewStorePage() {
       if (store && typeof store === 'object' && 'id' in store) {
         setCurrentStore(store as StoreSummary);
       }
-      router.push('/admin');
+      setCreatedStore(store as StoreSummary);
+      setShowSubdomainHelp(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to create store');
     } finally {
@@ -106,6 +110,12 @@ export default function NewStorePage() {
 
   const toggleFromArray = (list: string[], value: string) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+
+  const storeUrl = createdStore?.domain ? `https://${createdStore.domain}` : null;
+  const rootDomain =
+    createdStore?.domain && createdStore.domain.includes('.')
+      ? createdStore.domain.split('.').slice(1).join('.')
+      : null;
 
   return (
     <div className="p-6">
@@ -453,6 +463,69 @@ export default function NewStorePage() {
           </div>
         </form>
       </div>
+
+      {showSubdomainHelp && createdStore && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Your store subdomain is ready</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              When DNS is connected, opening the store URL below will show only <span className="font-medium text-gray-900">{createdStore.name}</span>.
+            </p>
+
+            <div className="mt-4 rounded-xl bg-gray-50 border border-gray-100 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Store URL</p>
+              <p className="mt-1 break-words font-mono text-sm text-gray-800">{storeUrl}</p>
+              {rootDomain && (
+                <p className="mt-3 text-xs text-gray-500">
+                  Root domain: <span className="font-medium text-gray-700">{rootDomain}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-medium text-gray-900">DNS setup</p>
+              <p className="text-sm text-gray-600">
+                Create a wildcard DNS record for <span className="font-medium">{rootDomain ? `*.${rootDomain}` : 'your root domain'}</span> pointing to your app hosting. After propagation, open the Store URL.
+              </p>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSubdomainHelp(false)}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Not now
+              </button>
+              <a
+                href={storeUrl ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center rounded-xl bg-mint px-4 py-2.5 text-sm font-medium text-white hover:bg-mint-dark disabled:opacity-50"
+              >
+                Open store
+              </a>
+            </div>
+
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubdomainHelp(false);
+                  router.push('/admin');
+                }}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Continue in admin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
