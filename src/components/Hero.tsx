@@ -3,7 +3,11 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function Hero() {
+type HeroProps = {
+  variant?: 'default' | 'video';
+};
+
+export default function Hero({ variant = 'default' }: HeroProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -15,6 +19,58 @@ export default function Hero() {
     if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
     router.push(`/search?${params.toString()}`);
   };
+
+  if (variant === 'video') {
+    const primary = 'var(--sf-color-primary, #0f766e)';
+    const accent = 'var(--sf-color-accent, #99f6e4)';
+    return (
+      <section
+        className="relative h-[480px] md:h-[520px] overflow-hidden flex items-center"
+        style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
+        <div className="absolute inset-0 opacity-40 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80')] bg-cover bg-center" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col md:flex-row items-center justify-between gap-10">
+          <div className="max-w-xl text-white">
+            <p className="text-xs uppercase tracking-[0.2em] mb-3 opacity-80">Featured</p>
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">Motion in Minimal</h1>
+            <p className="text-slate-300 text-sm md:text-base mb-8">
+              Curated pieces for modern living. Tap play to see the story, or shop the collection.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                className="px-6 py-3 text-sm font-semibold bg-white text-slate-900 shadow-lg transition hover:bg-slate-100"
+                style={{ borderRadius: 'var(--sf-button-radius, 9999px)', borderWidth: 'var(--sf-button-border, 0)', borderStyle: 'solid', borderColor: primary }}
+              >
+                Explore Video
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/products')}
+                className="px-6 py-3 text-sm font-semibold border-2 border-white/80 text-white bg-transparent hover:bg-white/10"
+                style={{ borderRadius: 'var(--sf-button-radius, 9999px)' }}
+              >
+                Shop Now
+              </button>
+            </div>
+          </div>
+          <div className="flex-shrink-0">
+            <button
+              type="button"
+              className="w-24 h-24 rounded-full flex items-center justify-center shadow-2xl transition hover:scale-105"
+              style={{ backgroundColor: accent, color: primary }}
+              aria-label="Play video"
+            >
+              <svg className="w-10 h-10 ml-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="relative h-[500px] md:h-[550px] overflow-hidden">

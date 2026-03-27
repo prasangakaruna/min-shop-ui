@@ -4,6 +4,8 @@
  * Auth: Keycloak JWT via Authorization: Bearer <access_token>.
  */
 
+import type { StorefrontHomeTheme } from '@/lib/storefrontHomeTheme';
+
 const getBaseUrl = () =>
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || '';
 
@@ -184,6 +186,30 @@ export interface Me {
   user_type: UserType | null;
 }
 
+/** Pro admin home (`/admin/pro`) layout and copy — stored per store; only applies when that store is selected in the admin header. */
+export interface ProDashboardSettings {
+  title?: string | null;
+  subtitle?: string | null;
+  badge_label?: string | null;
+  /** When true, KPI numbers reflect only the selected store; when false, all owned stores. */
+  kpis_scope?: 'current_store' | 'all_stores';
+  show_top_kpis?: boolean;
+  show_kpi_total_revenue?: boolean;
+  show_kpi_total_orders?: boolean;
+  show_kpi_store_count?: boolean;
+  show_stores_table?: boolean;
+  /** Optional banner behind the hero (URL from upload). */
+  hero_image_url?: string | null;
+  /** Optional logo beside the hero title (URL from upload). */
+  header_logo_url?: string | null;
+  /** @deprecated Use Theme editor global colors; no longer shown in Customize Pro home. */
+  accent_color?: string | null;
+  /** Extra note shown on the page (plain text). */
+  custom_note?: string | null;
+  primary_action_label?: string | null;
+  primary_action_href?: string | null;
+}
+
 export interface StoreSettings {
   plan_price?: number;
   currency_display?: string;
@@ -222,6 +248,9 @@ export interface StoreSettings {
     mode?: 'auto_all' | 'auto_gift_cards' | 'manual';
     auto_archive?: boolean;
   };
+  pro_dashboard?: ProDashboardSettings;
+  /** Sections + theme for public store home (?store=slug); see lib/storefrontHomeTheme.ts */
+  storefront_home?: StorefrontHomeTheme | null;
 }
 
 export interface StoreSummary {

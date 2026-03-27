@@ -6,7 +6,16 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
-import type { Me } from '@/lib/api';
+import type { Me, StoreSummary } from '@/lib/api';
+
+/** Public storefront URL for the selected store (subdomain host from API). */
+function storefrontHrefForStore(store: StoreSummary | null | undefined): string {
+  const host = store?.domain?.trim();
+  if (!host) return '/';
+  const isLocal =
+    host.includes('localhost') || host.endsWith('.local') || /^127\./.test(host);
+  return `${isLocal ? 'http' : 'https'}://${host}/`;
+}
 
 type MenuItem = {
   href: string;
@@ -42,6 +51,7 @@ const menuItems: MenuItem[] = [
     ],
   },
   { href: '/admin/customers', label: 'Customers', icon: '👥' },
+  { href: '/admin/theme', label: 'Theme editor', icon: '🎨' },
   { href: '/admin/settings', label: 'Settings', icon: '⚙️' },
   { href: '/admin/statistics', label: 'Analytics', icon: '📈' },
   {
@@ -54,6 +64,7 @@ const menuItems: MenuItem[] = [
       { href: '/admin/pro/integration', label: 'Integration' },
     ],
   },
+  { href: '/admin/pro/customize', label: 'Customize Pro home', icon: '🎨' },
   { href: '/admin/pro/api-settings', label: 'API Settings', icon: '🔑' },
   { href: '/admin/finance', label: 'Finance', icon: '💰' },
 ];
@@ -90,6 +101,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [userType, setUserType] = useState<string | null>(null);
+
+  const storefrontHref = storefrontHrefForStore(currentStore);
+  const storefrontIsExternal = storefrontHref.startsWith('http');
 
   useEffect(() => {
     if (storeLoading) return;
@@ -191,12 +205,23 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Link
-                href="/"
-                className="px-3 py-2 text-gray-600 hover:text-mint text-sm font-medium"
-              >
-                View storefront
-              </Link>
+              {storefrontIsExternal ? (
+                <a
+                  href={storefrontHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 text-gray-600 hover:text-mint text-sm font-medium"
+                >
+                  View storefront
+                </a>
+              ) : (
+                <Link
+                  href={storefrontHref}
+                  className="px-3 py-2 text-gray-600 hover:text-mint text-sm font-medium"
+                >
+                  View storefront
+                </Link>
+              )}
               <div className="relative">
                 <button
                   type="button"
@@ -255,6 +280,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 {menuItems
                   .filter((item) => {
                     if (item.href === '/admin/pro' && userType !== 'pro_admin') return false;
+                    if (item.href === '/admin/pro/customize' && userType !== 'pro_admin') return false;
                     if (item.href === '/admin/pro/api-settings' && userType !== 'pro_admin') return false;
                     return true;
                   })
@@ -265,14 +291,25 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       item.href === '/admin/settings' ||
                       item.href === '/admin/statistics' ||
                       item.href === '/admin/pro' ||
+                      item.href === '/admin/pro/customize' ||
                       item.href === '/admin/finance';
+                    /** "Pro & Admin" stays active for Pro sub-routes except the standalone Customize page. */
                     const isActiveTop =
-                      pathname === targetHref ||
-                      (targetHref !== '/admin' && pathname?.startsWith(targetHref));
+                      item.href === '/admin/pro'
+                        ? Boolean(
+                            pathname &&
+                              (pathname === '/admin/pro' ||
+                                (pathname.startsWith('/admin/pro/') &&
+                                  !pathname.startsWith('/admin/pro/customize')))
+                          )
+                        : pathname === targetHref ||
+                          (targetHref !== '/admin' && pathname?.startsWith(targetHref));
                     const isExpanded =
                       expandedSections[item.href] !== undefined
                         ? expandedSections[item.href]
-                        : isActiveTop || !item.children;
+                        : item.href === '/admin/pro'
+                          ? false
+                          : isActiveTop || !item.children;
 
                     if (item.href === '/admin/settings') {
                       return (
@@ -348,7 +385,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                               const isActiveChild =
                                 item.href === '/admin/content'
                                   ? isContentChildActive(pathname, searchParams, child.href)
-                                  : pathname === child.href || pathname?.startsWith(child.href + '/');
+                                  : child.href === '/admin/pro'
+                                    ? pathname === '/admin/pro'
+                                    : pathname === child.href || pathname?.startsWith(child.href + '/');
                               return (
                                 <Link
                                   key={child.href}

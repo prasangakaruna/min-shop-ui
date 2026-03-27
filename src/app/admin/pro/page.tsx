@@ -4,8 +4,10 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { apiRequest, type StoreListResponse, type Order, type StoreSummary } from '@/lib/api';
-import { fetchActiveSubscription } from '@/lib/subscription';
+import { apiRequest, getImageDisplayUrl, type StoreListResponse, type Order, type StoreSummary } from '@/lib/api';
+import { useStore } from '@/context/StoreContext';
+import { mergeProDashboard } from './ProHomeCustomizePanel';
+import { ProAdminGuard } from './ProAdminGuard';
 
 type StoreSummaryLite = {
   id: number;
@@ -27,8 +29,11 @@ export default function ProAdminDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const token = (session as { access_token?: string | null } | null)?.access_token ?? null;
+  const { currentStore, loading: storeCtxLoading } = useStore();
 
   const [stores, setStores] = useState<StoreSummaryLite[]>([]);
+  const [storeDetail, setStoreDetail] = useState<StoreSummary | null>(null);
+  const [storeDetailLoading, setStoreDetailLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<
@@ -40,97 +45,14 @@ export default function ProAdminDashboard() {
       }
     >
   >({});
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [proAccessState, setProAccessState] = useState<'loading' | 'ok' | 'blocked'>('loading');
   const [integrationStore, setIntegrationStore] = useState<StoreSummaryLite | null>(null);
   const [integrationLoading, setIntegrationLoading] = useState(false);
   const [integrationError, setIntegrationError] = useState<string | null>(null);
   const [integration, setIntegration] = useState<{ base_url?: string; api_key?: string; enabled?: boolean }>({});
   const [testStatus, setTestStatus] = useState<string | null>(null);
 
-  const isStoreOnboardingComplete = (store: StoreSummary): boolean => {
-    const s = store.settings ?? {};
-    if (s.onboarding_completed) return true;
-    const ob = s.onboarding ?? {};
-    return Boolean(
-      (store.name ?? '').trim() &&
-        (s.business_country ?? '').toString().trim() &&
-        (ob.store_category ?? '').toString().trim() &&
-        (ob.business_stage === 'new' || ob.business_stage === 'existing') &&
-        Array.isArray(ob.sell_types) &&
-        ob.sell_types.length > 0 &&
-        Array.isArray(ob.sell_places) &&
-        ob.sell_places.length > 0
-    );
-  };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const done = window.localStorage.getItem('mint_admin_onboarding_completed_v1') === 'true';
-    if (done) {
-      setOnboardingChecked(true);
-      return;
-    }
-    // Incognito/new browser: accept server onboarding flag from any owned store.
-    if (!token) return;
-    let cancelled = false;
-    apiRequest<StoreListResponse>('/me/stores', { token, query: { per_page: 1 } })
-      .then(async (res) => {
-        if (cancelled) return;
-        const storeId = res.data?.[0]?.id;
-        if (!storeId) {
-          router.replace('/admin/onboarding');
-          return;
-        }
-        const store = await apiRequest<StoreSummary>('/store', { token, storeId });
-        if (isStoreOnboardingComplete(store)) {
-          window.localStorage.setItem('mint_admin_onboarding_completed_v1', 'true');
-          setOnboardingChecked(true);
-        } else {
-          router.replace('/admin/onboarding');
-        }
-      })
-      .catch(() => router.replace('/admin/onboarding'));
-    return () => {
-      cancelled = true;
-    };
-  }, [router, token]);
-
   useEffect(() => {
     if (!token) return;
-    // Wait until the admin onboarding redirect is finished.
-    if (!onboardingChecked) return;
-
-    let cancelled = false;
-    setProAccessState('loading');
-
-    fetchActiveSubscription({ token, ownerType: 'user' })
-      .then((sub) => {
-        if (cancelled) return;
-        const ok = Boolean(sub && sub.status === 'active' && sub.plan_code === 'pro');
-        setProAccessState(ok ? 'ok' : 'blocked');
-        if (!ok) router.replace('/admin/pro/plans');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setProAccessState('blocked');
-        router.replace('/admin/pro/plans');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, onboardingChecked, router]);
-
-  useEffect(() => {
-    if (!token) return;
-    // Only allow users who chose the "pro_admin" level
-    const userTypeCookie = typeof document !== 'undefined' ? document.cookie.match(/(?:^|;\s*)USER_TYPE=([^;]+)/)?.[1] : null;
-    const decodedType = userTypeCookie ? decodeURIComponent(userTypeCookie) : null;
-    if (decodedType && decodedType !== 'pro_admin') {
-      router.replace('/admin');
-      return;
-    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -176,6 +98,29 @@ export default function ProAdminDashboard() {
       cancelled = true;
     };
   }, [token, router]);
+
+  useEffect(() => {
+    if (!token || !currentStore?.id) {
+      setStoreDetail(null);
+      setStoreDetailLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setStoreDetailLoading(true);
+    apiRequest<StoreSummary>('/store', { token, storeId: currentStore.id })
+      .then((s) => {
+        if (!cancelled) setStoreDetail(s);
+      })
+      .catch(() => {
+        if (!cancelled) setStoreDetail(null);
+      })
+      .finally(() => {
+        if (!cancelled) setStoreDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentStore?.id]);
 
   const openIntegration = async (store: StoreSummaryLite) => {
     if (!token) return;
@@ -250,44 +195,45 @@ export default function ProAdminDashboard() {
     }
   };
 
-  if (!token) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500 text-sm">Signing you in…</p>
-      </div>
-    );
-  }
+  const cfg = mergeProDashboard(storeDetail?.settings?.pro_dashboard);
+  const scope = cfg.kpis_scope ?? 'all_stores';
+  const effectiveStores =
+    scope === 'current_store' && currentStore ? stores.filter((s) => s.id === currentStore.id) : stores;
+  const totalRevenue = effectiveStores.reduce((sum, s) => sum + (metrics[s.id]?.revenue ?? 0), 0);
+  const totalOrders = effectiveStores.reduce((sum, s) => sum + (metrics[s.id]?.orders ?? 0), 0);
 
-  if (!onboardingChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-full border-2 border-mint border-t-transparent animate-spin" />
-          <p className="text-sm text-gray-500">Preparing your admin workspace…</p>
-        </div>
-      </div>
-    );
-  }
+  const defaultSubtitle =
+    'Monitor revenue, multi‑store health, and logistics across your global network of stores.';
+  const heroTitle = cfg.title?.trim() || 'Platform overview';
+  const heroSubtitle = cfg.subtitle?.trim() || defaultSubtitle;
+  const badgeLabel = cfg.badge_label?.trim() || 'PRO & ADMIN';
+  /** Primary accent from Theme editor (storefront home); fallback to Mint brand. */
+  const themePrimary = storeDetail?.settings?.storefront_home?.theme?.colorPrimary?.trim();
+  const accentFromTheme =
+    themePrimary && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(themePrimary) ? themePrimary : undefined;
+  const accent = accentFromTheme ?? '#0d9488';
+  const heroImage = cfg.hero_image_url?.trim();
+  const headerLogo = cfg.header_logo_url?.trim();
 
-  if (proAccessState === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 rounded-full border-2 border-mint border-t-transparent animate-spin" />
-          <p className="text-sm text-gray-500">Checking your Pro access…</p>
-        </div>
-      </div>
-    );
-  }
+  const showKpis = cfg.show_top_kpis !== false;
+  const showRev = cfg.show_kpi_total_revenue !== false;
+  const showOrd = cfg.show_kpi_total_orders !== false;
+  const showCnt = cfg.show_kpi_store_count !== false;
+  const visibleKpiCount = [showRev, showOrd, showCnt].filter(Boolean).length;
+  const kpiGridClass =
+    visibleKpiCount <= 1 ? 'md:grid-cols-1' : visibleKpiCount === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3';
 
-  if (proAccessState === 'blocked') {
-    return null;
-  }
+  const primaryLabel = cfg.primary_action_label?.trim();
+  const primaryHref = cfg.primary_action_href?.trim();
+  const showCustomPrimary = Boolean(primaryLabel && primaryHref);
 
-  const totalRevenue = Object.values(metrics).reduce((sum, m) => sum + m.revenue, 0);
-  const totalOrders = Object.values(metrics).reduce((sum, m) => sum + m.orders, 0);
+  const revenueKpiLabel =
+    scope === 'current_store' ? 'Revenue (this store)' : 'Total revenue (all stores)';
+  const ordersKpiLabel = scope === 'current_store' ? 'Orders (this store)' : 'Total orders';
+  const storesKpiLabel = scope === 'current_store' ? 'Stores in view' : 'Stores';
 
   return (
+    <ProAdminGuard>
     <div className="min-h-full bg-gray-50 text-gray-900">
       <main className="mx-auto max-w-6xl px-6 py-6 space-y-8">
         {error && (
@@ -296,70 +242,203 @@ export default function ProAdminDashboard() {
           </div>
         )}
 
-        {/* Page header + actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center rounded-full bg-mint/10 px-2.5 py-1 text-[11px] font-semibold text-mint tracking-wide mb-2">
-              PRO &amp; ADMIN
-            </div>
-            <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
-              Platform overview
-            </h2>
-            <p className="mt-1 text-sm text-gray-500 max-w-xl">
-              Monitor revenue, multi‑store health, and logistics across your global network of stores.
-            </p>
+        {!storeCtxLoading && !currentStore && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Select a store in the header to load this store&apos;s Pro home settings.
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/admin"
-              className="inline-flex items-center rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:border-mint hover:text-mint"
-            >
-              Go to store dashboard
+        )}
+
+        {storeCtxLoading || storeDetailLoading ? (
+          <p className="text-xs text-gray-500">Loading store preferences…</p>
+        ) : currentStore ? (
+          <p className="text-xs text-gray-600">
+            Pro home for{' '}
+            <span className="font-semibold text-gray-900">{currentStore.name}</span>
+            {currentStore.domain ? (
+              <span className="text-gray-500"> — storefront host {currentStore.domain}</span>
+            ) : null}
+          </p>
+        ) : null}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <p className="text-sm text-gray-600">
+            Customize how this page looks in{' '}
+            <Link href="/admin/pro/customize" className="font-medium text-mint hover:text-mint-dark">
+              Customize Pro home
             </Link>
-            <Link
-              href="/admin/pro/plans"
-              className="inline-flex items-center rounded-full border border-mint/40 bg-mint/10 px-4 py-2 text-xs font-semibold text-mint hover:bg-mint/20"
-            >
-              Plans &amp; billing
-            </Link>
-            <span className="inline-flex items-center rounded-full border border-mint/40 bg-mint/10 px-4 py-2 text-xs font-semibold text-mint">
-              Super admin workspace
-            </span>
+            .
+          </p>
+        </div>
+
+        {/* Page header + actions */}
+        <div
+          className="relative overflow-hidden rounded-2xl border border-gray-200 p-6 sm:p-8"
+          style={
+            heroImage
+              ? undefined
+              : {
+                  borderColor: `${accent}55`,
+                  background: `linear-gradient(135deg, ${accent}12 0%, #fff 48%, #fff 100%)`,
+                }
+          }
+        >
+          {heroImage ? (
+            <>
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${getImageDisplayUrl(heroImage)})` }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/65 to-black/25" />
+            </>
+          ) : null}
+          <div className={`relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between ${heroImage ? 'text-white' : ''}`}>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4 min-w-0">
+              {headerLogo ? (
+                <img
+                  src={getImageDisplayUrl(headerLogo)}
+                  alt=""
+                  className={`h-12 w-auto max-w-[200px] object-contain shrink-0 rounded-lg ${
+                    heroImage ? 'bg-white/15 ring-1 ring-white/25' : 'border border-gray-200 bg-white p-1 shadow-sm'
+                  }`}
+                />
+              ) : null}
+              <div className="min-w-0">
+              <div
+                className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide mb-2 ${
+                  heroImage ? 'bg-white/20 text-white border border-white/30' : 'bg-mint/10 text-mint border border-mint/20'
+                }`}
+                style={
+                  !heroImage
+                    ? { backgroundColor: `${accent}22`, color: accent, borderColor: `${accent}44` }
+                    : undefined
+                }
+              >
+                {badgeLabel}
+              </div>
+              <h2
+                className={`text-2xl font-semibold tracking-tight ${
+                  heroImage ? 'text-white' : 'text-gray-900'
+                }`}
+              >
+                {heroTitle}
+              </h2>
+              <p
+                className={`mt-1 text-sm max-w-xl ${
+                  heroImage ? 'text-white/90' : 'text-gray-500'
+                }`}
+              >
+                {heroSubtitle}
+              </p>
+              {cfg.custom_note?.trim() ? (
+                <p
+                  className={`mt-3 text-sm whitespace-pre-wrap rounded-lg px-3 py-2 ${
+                    heroImage ? 'bg-black/30 text-white/95' : 'bg-gray-50 text-gray-800 border border-gray-100'
+                  }`}
+                >
+                  {cfg.custom_note.trim()}
+                </p>
+              ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/admin"
+                className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-medium ${
+                  heroImage
+                    ? 'border-white/40 bg-white/10 text-white hover:bg-white/20'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-mint hover:text-mint'
+                }`}
+              >
+                Go to store dashboard
+              </Link>
+              {showCustomPrimary ? (
+                <Link
+                  href={primaryHref!}
+                  className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold ${
+                    heroImage
+                      ? 'border-white/50 bg-white text-gray-900 hover:bg-white/90'
+                      : 'border-mint/40 bg-mint/10 text-mint hover:bg-mint/20'
+                  }`}
+                >
+                  {primaryLabel}
+                </Link>
+              ) : (
+                <Link
+                  href="/admin/pro/plans"
+                  className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold ${
+                    heroImage
+                      ? 'border-white/50 bg-white text-gray-900 hover:bg-white/90'
+                      : 'border-mint/40 bg-mint/10 text-mint hover:bg-mint/20'
+                  }`}
+                >
+                  Plans &amp; billing
+                </Link>
+              )}
+              <span
+                className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold ${
+                  heroImage ? 'border-white/30 bg-white/10 text-white' : 'border-mint/40 bg-mint/10 text-mint'
+                }`}
+              >
+                Super admin workspace
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Top KPIs */}
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-medium text-gray-500">Total revenue (all stores)</p>
-            <p className="mt-2 text-3xl font-semibold text-gray-900 tabular-nums">
-              ${totalRevenue.toFixed(2)}
-            </p>
-            <p className="mt-2 text-xs text-emerald-700">
-              Includes demo orders from every active store.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-medium text-gray-500">Total orders</p>
-            <p className="mt-2 text-3xl font-semibold text-gray-900 tabular-nums">{totalOrders}</p>
-            <p className="mt-2 text-xs text-gray-500">Across all stores you own.</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-medium text-gray-500">Stores</p>
-            <p className="mt-2 text-3xl font-semibold text-gray-900 tabular-nums">{stores.length}</p>
-            <p className="mt-2 text-xs text-gray-500">
-              {stores.filter((s) => s.is_active).length} active ·{' '}
-              {stores.filter((s) => !s.is_active).length} paused
-            </p>
-          </div>
-        </section>
+        {showKpis && visibleKpiCount > 0 ? (
+          <section className={`grid grid-cols-1 gap-4 ${kpiGridClass}`}>
+            {showRev ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs font-medium text-gray-500">{revenueKpiLabel}</p>
+                <p className="mt-2 text-3xl font-semibold text-gray-900 tabular-nums">
+                  ${totalRevenue.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs text-emerald-700">
+                  {scope === 'current_store'
+                    ? 'Orders attributed to the selected store.'
+                    : 'Includes demo orders from every active store.'}
+                </p>
+              </div>
+            ) : null}
+            {showOrd ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs font-medium text-gray-500">{ordersKpiLabel}</p>
+                <p className="mt-2 text-3xl font-semibold text-gray-900 tabular-nums">{totalOrders}</p>
+                <p className="mt-2 text-xs text-gray-500">
+                  {scope === 'current_store' ? 'For the selected store only.' : 'Across all stores you own.'}
+                </p>
+              </div>
+            ) : null}
+            {showCnt ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p className="text-xs font-medium text-gray-500">{storesKpiLabel}</p>
+                <p className="mt-2 text-3xl font-semibold text-gray-900 tabular-nums">
+                  {scope === 'current_store' ? effectiveStores.length : stores.length}
+                </p>
+                <p className="mt-2 text-xs text-gray-500">
+                  {scope === 'current_store'
+                    ? effectiveStores[0]?.is_active
+                      ? 'This store is active.'
+                      : 'This store is paused.'
+                    : `${stores.filter((s) => s.is_active).length} active · ${stores.filter((s) => !s.is_active).length} paused`}
+                </p>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {/* Store table */}
+        {cfg.show_stores_table !== false ? (
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-gray-900">Stores overview</h2>
-              <p className="text-xs text-gray-500">Revenue and order volume by store.</p>
+              <p className="text-xs text-gray-500">
+                {scope === 'current_store'
+                  ? 'Revenue and orders for the selected store.'
+                  : 'Revenue and order volume by store.'}
+              </p>
             </div>
             <Link
               href="/admin/stores"
@@ -379,7 +458,7 @@ export default function ProAdminDashboard() {
                 </div>
               ))}
             </div>
-          ) : stores.length === 0 ? (
+          ) : effectiveStores.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
               No stores yet. Create a store from the admin to see platform‑wide insights here.
             </div>
@@ -393,7 +472,7 @@ export default function ProAdminDashboard() {
                 <span className="text-right">Actions</span>
               </div>
               <div className="space-y-2">
-                {stores.map((store) => {
+                {effectiveStores.map((store) => {
                   const m = metrics[store.id] ?? { orders: 0, revenue: 0 };
                   return (
                     <div
@@ -459,6 +538,7 @@ export default function ProAdminDashboard() {
             </>
           )}
         </section>
+        ) : null}
       </main>
       {integrationStore && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
@@ -562,6 +642,7 @@ export default function ProAdminDashboard() {
         </div>
       )}
     </div>
+    </ProAdminGuard>
   );
 }
 
