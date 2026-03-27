@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest, type StoreSummary } from '@/lib/api';
+import { apiRequest, type StoreSummary, type StoreThemeResource } from '@/lib/api';
 import StoreThemeEditor from '@/components/admin/StoreThemeEditor';
 
 export default function AdminThemeEditorPage() {
@@ -13,6 +13,8 @@ export default function AdminThemeEditorPage() {
   const { currentStore, loading: storeCtxLoading } = useStore();
   const [storeDetail, setStoreDetail] = useState<StoreSummary | null>(null);
   const [storeDetailLoading, setStoreDetailLoading] = useState(true);
+  const [themeResource, setThemeResource] = useState<StoreThemeResource | null>(null);
+  const [themeLoading, setThemeLoading] = useState(true);
 
   useEffect(() => {
     if (!token || !currentStore?.id) {
@@ -36,6 +38,50 @@ export default function AdminThemeEditorPage() {
       cancelled = true;
     };
   }, [token, currentStore?.id]);
+
+  useEffect(() => {
+    if (!token || !currentStore?.id) {
+      setThemeResource(null);
+      setThemeLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setThemeLoading(true);
+    apiRequest<{ data: StoreThemeResource }>('/store/theme', { token, storeId: currentStore.id })
+      .then((res) => {
+        if (!cancelled) setThemeResource(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setThemeResource(null);
+      })
+      .finally(() => {
+        if (!cancelled) setThemeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, currentStore?.id]);
+
+  const storeForEditor = useMemo((): StoreSummary | null => {
+    if (!storeDetail) return null;
+    if (!themeResource) return storeDetail;
+    return {
+      ...storeDetail,
+      settings: {
+        ...storeDetail.settings,
+        storefront_home: themeResource.storefront_home ?? storeDetail.settings?.storefront_home,
+        storefront_app_embeds: themeResource.storefront_app_embeds ?? storeDetail.settings?.storefront_app_embeds,
+      },
+    };
+  }, [storeDetail, themeResource]);
+
+  const onThemeSaved = (s: StoreSummary) => {
+    setStoreDetail(s);
+    if (!token || !s.id) return;
+    apiRequest<{ data: StoreThemeResource }>('/store/theme', { token, storeId: s.id })
+      .then((res) => setThemeResource(res.data))
+      .catch(() => {});
+  };
 
   return (
     <div className="min-h-full bg-gray-50 text-gray-900">
@@ -68,13 +114,13 @@ export default function AdminThemeEditorPage() {
           </div>
         )}
 
-        {storeCtxLoading || storeDetailLoading ? (
+        {storeCtxLoading || storeDetailLoading || themeLoading ? (
           <div className="flex items-center gap-3 text-sm text-gray-500">
             <div className="h-8 w-8 rounded-full border-2 border-mint border-t-transparent animate-spin" />
             Loading store…
           </div>
-        ) : token && storeDetail ? (
-          <StoreThemeEditor token={token} store={storeDetail} onSaved={setStoreDetail} />
+        ) : token && storeForEditor ? (
+          <StoreThemeEditor token={token} store={storeForEditor} onSaved={onThemeSaved} />
         ) : (
           <p className="text-sm text-gray-500">Unable to load store.</p>
         )}

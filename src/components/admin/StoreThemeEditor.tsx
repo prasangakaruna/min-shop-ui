@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiRequest, type StoreSummary } from '@/lib/api';
+import { apiRequest, type StoreSummary, type StorefrontAppEmbed } from '@/lib/api';
 import {
   SECTION_CATALOG,
   BUILTIN_THEME_PRESETS,
@@ -28,6 +28,27 @@ function newSectionId(): string {
   return `s-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function normalizeAppEmbeds(raw: unknown): StorefrontAppEmbed[] {
+  if (!Array.isArray(raw)) return [];
+  const out: StorefrontAppEmbed[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const id = typeof r.id === 'string' ? r.id.trim() : '';
+    if (!id) continue;
+    const name = typeof r.name === 'string' ? r.name.trim() : 'App embed';
+    let script_url: string | null = typeof r.script_url === 'string' ? r.script_url.trim() : null;
+    if (script_url === '') script_url = null;
+    out.push({
+      id,
+      name: name || 'App embed',
+      script_url,
+      enabled: r.enabled !== false,
+    });
+  }
+  return out;
+}
+
 function cloneTheme(t: StorefrontHomeTheme): StorefrontHomeTheme {
   return structuredClone(t);
 }
@@ -52,6 +73,7 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
   const [helpOpen, setHelpOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [embedDraft, setEmbedDraft] = useState<StorefrontAppEmbed[]>(() => normalizeAppEmbeds(store.settings?.storefront_app_embeds));
   const addMenuRef = useRef<HTMLDivElement>(null);
   const draggedId = useRef<string | null>(null);
 
@@ -85,6 +107,10 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
     setPast([]);
     setFuture([]);
   }, [store.id, store.settings?.storefront_home]);
+
+  useEffect(() => {
+    setEmbedDraft(normalizeAppEmbeds(store.settings?.storefront_app_embeds));
+  }, [store.id, store.settings?.storefront_app_embeds]);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -129,20 +155,18 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
         ...draft,
         preset: isMintMarketplaceSectionOrder(draft.sections) ? MINT_MARKETPLACE_PRESET : null,
       };
-      const settings = {
-        ...(store.settings ?? {}),
-        storefront_home,
-      };
-      const updated = await apiRequest<StoreSummary>('/store', {
+      const updated = await apiRequest<StoreSummary>('/store/theme', {
         method: 'PATCH',
         token,
         storeId: store.id,
         body: {
-          name: store.name,
-          email: store.email ?? null,
-          plan: store.plan,
-          is_active: store.is_active,
-          settings,
+          storefront_home,
+          storefront_app_embeds: embedDraft.map((e) => ({
+            id: e.id,
+            name: (e.name ?? '').trim() || 'App embed',
+            script_url: (e.script_url ?? '').trim() || null,
+            enabled: e.enabled !== false,
+          })),
         },
       });
       onSaved(updated);
@@ -521,9 +545,82 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
         {/* Right — settings */}
         <aside className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto min-h-0">
           {tab === 'embeds' && (
-            <div className="p-5 text-sm text-gray-600">
-              <p className="font-medium text-gray-900 mb-2">App embeds</p>
-              <p className="text-xs">Install apps that inject scripts or widgets into your storefront (checkout extensions, analytics, chat). Configuration will appear here.</p>
+            <div className="p-5 space-y-4 text-sm text-gray-600">
+              <div>
+                <p className="font-medium text-gray-900 mb-1">App embeds</p>
+                <p className="text-xs leading-relaxed">
+                  Add HTTPS JavaScript URLs (e.g. analytics or chat loaders). Scripts load on your public store home after the page becomes interactive.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setEmbedDraft((rows) => [
+                    ...rows,
+                    { id: newSectionId(), name: 'New embed', script_url: null, enabled: true },
+                  ])
+                }
+                className="w-full rounded-lg border border-gray-200 bg-white py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Add embed
+              </button>
+              <ul className="space-y-4">
+                {embedDraft.map((row, idx) => (
+                  <li key={row.id} className="rounded-xl border border-gray-200 p-3 space-y-2 bg-gray-50/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-gray-500">Embed {idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEmbedDraft((rows) => rows.filter((r) => r.id !== row.id))}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <label className="block text-xs font-medium text-gray-700">Label</label>
+                    <input
+                      type="text"
+                      value={row.name}
+                      onChange={(e) =>
+                        setEmbedDraft((rows) =>
+                          rows.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r))
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+                      placeholder="e.g. Analytics"
+                    />
+                    <label className="block text-xs font-medium text-gray-700">Script URL (https)</label>
+                    <input
+                      type="url"
+                      value={row.script_url ?? ''}
+                      onChange={(e) =>
+                        setEmbedDraft((rows) =>
+                          rows.map((r) => (r.id === row.id ? { ...r, script_url: e.target.value || null } : r))
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono bg-white"
+                      placeholder="https://cdn.example.com/loader.js"
+                      inputMode="url"
+                      autoComplete="off"
+                    />
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={row.enabled !== false}
+                        onChange={(e) =>
+                          setEmbedDraft((rows) =>
+                            rows.map((r) => (r.id === row.id ? { ...r, enabled: e.target.checked } : r))
+                          )
+                        }
+                      />
+                      Enabled on storefront
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {embedDraft.length === 0 ? (
+                <p className="text-xs text-gray-500">No embeds yet. Add one to inject a third-party script on <code className="text-[11px] bg-gray-100 px-1 rounded">/?store=…</code>.</p>
+              ) : null}
             </div>
           )}
 

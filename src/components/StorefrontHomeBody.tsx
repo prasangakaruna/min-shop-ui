@@ -16,7 +16,9 @@ import MarketplaceInsights from '@/components/MarketplaceInsights';
 import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import AnnouncementBar from '@/components/AnnouncementBar';
+import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
 import { storefrontRequest } from '@/lib/storefrontApi';
+import type { StorefrontAppEmbed } from '@/lib/api';
 import {
   type HomeSection,
   type StorefrontHomeTheme,
@@ -28,6 +30,7 @@ import {
 type BrandingResponse = {
   data?: {
     storefront_home?: StorefrontHomeTheme | null;
+    storefront_app_embeds?: StorefrontAppEmbed[] | null;
   };
 };
 
@@ -124,6 +127,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   /** Same stack as the main marketplace (mint-shop.pro) until a custom theme is saved in admin. */
   const [layoutKind, setLayoutKind] = useState<'loading' | 'classic' | 'custom'>('loading');
   const [customTheme, setCustomTheme] = useState<StorefrontHomeTheme | null>(null);
+  const [appEmbeds, setAppEmbeds] = useState<StorefrontAppEmbed[]>([]);
 
   useEffect(() => {
     if (storeSlug) {
@@ -136,14 +140,18 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   useEffect(() => {
     if (!effectiveSlug) {
       setLayoutKind('loading');
+      setAppEmbeds([]);
       return;
     }
     let cancelled = false;
     setLayoutKind('loading');
+    setAppEmbeds([]);
     storefrontRequest<BrandingResponse>('/storefront/store-branding', { store_slug: effectiveSlug })
       .then((res) => {
         if (cancelled) return;
         const raw = res.data?.storefront_home;
+        const embeds = Array.isArray(res.data?.storefront_app_embeds) ? res.data!.storefront_app_embeds! : [];
+        setAppEmbeds(embeds);
         if (raw == null) {
           setCustomTheme(null);
           setLayoutKind('classic');
@@ -155,6 +163,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       .catch(() => {
         if (!cancelled) {
           setCustomTheme(null);
+          setAppEmbeds([]);
           setLayoutKind('classic');
         }
       });
@@ -181,6 +190,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (layoutKind === 'loading') {
     return (
       <main className="min-h-screen bg-gray-50">
+        <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header />
         <div className="flex min-h-[50vh] items-center justify-center text-sm text-gray-500">Loading storefront…</div>
         <Footer />
@@ -191,6 +201,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (layoutKind === 'classic') {
     return (
       <main className="min-h-screen bg-white">
+        <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header />
         <DefaultMarketplaceHome storeSlug={effectiveSlug} />
         <Footer />
@@ -201,6 +212,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (!customTheme) {
     return (
       <main className="min-h-screen bg-white">
+        <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header />
         <DefaultMarketplaceHome storeSlug={effectiveSlug} />
         <Footer />
@@ -215,6 +227,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (isMintMarketplaceSectionOrder(customTheme.sections)) {
     return (
       <main className="min-h-screen bg-white">
+        <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header />
         <DefaultMarketplaceHome storeSlug={effectiveSlug} />
         <Footer />
@@ -227,6 +240,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
 
   return (
     <main className="min-h-screen" style={outerStyle}>
+      <StorefrontAppEmbedScripts embeds={appEmbeds} />
       <Header />
       <div className={innerClass}>
         {customTheme.sections

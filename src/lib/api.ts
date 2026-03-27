@@ -210,6 +210,25 @@ export interface ProDashboardSettings {
   primary_action_href?: string | null;
 }
 
+/** Persisted app embeds for the storefront (loaded via GET /storefront/store-branding). */
+export type StorefrontAppEmbed = {
+  id: string;
+  name: string;
+  /** HTTPS URL to a `.js` snippet loader (e.g. analytics). */
+  script_url?: string | null;
+  enabled?: boolean;
+};
+
+/** GET /store/theme — `themes` row + synced storefront_home and embeds (admin theme editor). */
+export type StoreThemeResource = {
+  id?: number | null;
+  name?: string | null;
+  role?: string;
+  updated_at?: string | null;
+  storefront_home: StorefrontHomeTheme | null;
+  storefront_app_embeds: StorefrontAppEmbed[];
+};
+
 export interface StoreSettings {
   plan_price?: number;
   currency_display?: string;
@@ -251,6 +270,8 @@ export interface StoreSettings {
   pro_dashboard?: ProDashboardSettings;
   /** Sections + theme for public store home (?store=slug); see lib/storefrontHomeTheme.ts */
   storefront_home?: StorefrontHomeTheme | null;
+  /** Third-party script embeds (analytics, chat, etc.); see Theme editor App Embeds. */
+  storefront_app_embeds?: StorefrontAppEmbed[] | null;
 }
 
 export interface StoreSummary {
