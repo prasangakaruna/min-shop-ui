@@ -8,6 +8,7 @@ import {
   type StorefrontStoresResponse,
   type StorefrontProductsResponse,
 } from '@/lib/storefrontApi';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 
 type StorefrontData = {
   storeSlug: string | null;
@@ -19,16 +20,6 @@ type StorefrontData = {
 };
 
 const StorefrontContext = createContext<StorefrontData | null>(null);
-
-function slugFromHostname(): string | null {
-  if (typeof window === 'undefined') return null;
-  const host = window.location.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1') return null;
-  const parts = host.split('.').filter(Boolean);
-  if (parts.length < 2) return null;
-  const effectiveParts = parts[0] === 'www' && parts.length >= 3 ? parts.slice(1) : parts;
-  return effectiveParts[0] ?? null;
-}
 
 export function StorefrontProvider({ children, storeSlug }: { children: React.ReactNode; storeSlug?: string | null }) {
   const [stores, setStores] = useState<StorefrontStore[]>([]);
@@ -42,7 +33,7 @@ export function StorefrontProvider({ children, storeSlug }: { children: React.Re
       setHostSlug(null);
       return;
     }
-    setHostSlug(slugFromHostname());
+    setHostSlug(storeSlugFromHostname());
   }, [storeSlug]);
 
   const effectiveStoreSlug = storeSlug ?? hostSlug;

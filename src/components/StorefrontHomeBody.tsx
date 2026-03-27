@@ -17,7 +17,8 @@ import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import AnnouncementBar from '@/components/AnnouncementBar';
 import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
-import { storefrontRequest } from '@/lib/storefrontApi';
+import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 import type { StorefrontAppEmbed } from '@/lib/api';
 import {
   type HomeSection,
@@ -32,6 +33,7 @@ type BrandingResponse = {
     company_logo_url?: string | null;
     storefront_home?: StorefrontHomeTheme | null;
     storefront_app_embeds?: StorefrontAppEmbed[] | null;
+    header_menu_items?: StorefrontHeaderMenuItem[] | null;
   };
 };
 
@@ -52,7 +54,7 @@ function renderSection(
 
   switch (section.type) {
     case 'default_hero':
-      return wrap(<Hero />);
+      return wrap(<Hero settings={settings} />);
     case 'announcement_bar':
       return wrap(<AnnouncementBar text={typeof settings.text === 'string' ? settings.text : null} />);
     case 'video_hero':
@@ -93,10 +95,17 @@ function renderSection(
   }
 }
 
-function DefaultMarketplaceHome({ storeSlug }: { storeSlug: string | null }) {
+function DefaultMarketplaceHome({
+  storeSlug,
+  heroSettings,
+}: {
+  storeSlug: string | null;
+  /** Theme → Marketplace hero section settings (admin). */
+  heroSettings?: Record<string, unknown> | null;
+}) {
   return (
     <>
-      <Hero />
+      <Hero settings={heroSettings ?? undefined} />
       <div className="border-t border-gray-100" />
       <BrowseCategories />
       <CategoryProducts />
@@ -113,16 +122,6 @@ function DefaultMarketplaceHome({ storeSlug }: { storeSlug: string | null }) {
   );
 }
 
-function storeSlugFromHostname(): string | null {
-  if (typeof window === 'undefined') return null;
-  const host = window.location.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1') return null;
-  const parts = host.split('.').filter(Boolean);
-  if (parts.length < 2) return null;
-  const effectiveParts = parts[0] === 'www' && parts.length >= 3 ? parts.slice(1) : parts;
-  return effectiveParts[0] ?? null;
-}
-
 export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | null }) {
   const [effectiveSlug, setEffectiveSlug] = useState<string | null>(storeSlug);
   /** Same stack as the main marketplace (mint-shop.pro) until a custom theme is saved in admin. */
@@ -130,6 +129,8 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   const [customTheme, setCustomTheme] = useState<StorefrontHomeTheme | null>(null);
   const [appEmbeds, setAppEmbeds] = useState<StorefrontAppEmbed[]>([]);
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
+  /** Admin Content → Main menu; 'loading' until branding request finishes */
+  const [adminNav, setAdminNav] = useState<'loading' | StorefrontHeaderMenuItem[] | undefined>(undefined);
 
   useEffect(() => {
     if (storeSlug) {
@@ -143,17 +144,21 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     if (!effectiveSlug) {
       setLayoutKind('loading');
       setAppEmbeds([]);
+      setAdminNav(undefined);
       return;
     }
     let cancelled = false;
     setLayoutKind('loading');
     setAppEmbeds([]);
     setCompanyLogoUrl(null);
+    setAdminNav('loading');
     storefrontRequest<BrandingResponse>('/storefront/store-branding', { store_slug: effectiveSlug })
       .then((res) => {
         if (cancelled) return;
         const raw = res.data?.storefront_home;
         const embeds = Array.isArray(res.data?.storefront_app_embeds) ? res.data!.storefront_app_embeds! : [];
+        const menuRaw = res.data?.header_menu_items;
+        setAdminNav(Array.isArray(menuRaw) ? menuRaw : []);
         setCompanyLogoUrl(
           typeof res.data?.company_logo_url === 'string' && res.data.company_logo_url.trim() !== ''
             ? res.data.company_logo_url
@@ -173,6 +178,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
           setCustomTheme(null);
           setAppEmbeds([]);
           setCompanyLogoUrl(null);
+          setAdminNav([]);
           setLayoutKind('classic');
         }
       });
@@ -186,11 +192,17 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return themeToCssVars(customTheme.theme);
   }, [layoutKind, customTheme]);
 
+  const heroSectionSettings = useMemo(() => {
+    if (!customTheme) return null;
+    const sec = customTheme.sections.find((s) => s.type === 'default_hero');
+    return sec?.settings ?? null;
+  }, [customTheme]);
+
   if (!effectiveSlug) {
     return (
       <main className="min-h-screen bg-white">
         <Header />
-        <DefaultMarketplaceHome storeSlug={null} />
+        <DefaultMarketplaceHome storeSlug={null} heroSettings={null} />
         <Footer />
       </main>
     );
@@ -200,7 +212,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen bg-gray-50">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} />
+        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
         <div className="flex min-h-[50vh] items-center justify-center text-sm text-gray-500">Loading storefront…</div>
         <Footer />
       </main>
@@ -211,8 +223,8 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen bg-white">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} />
+        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSectionSettings} />
         <Footer />
       </main>
     );
@@ -222,8 +234,8 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen bg-white">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} />
+        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSectionSettings} />
         <Footer />
       </main>
     );
@@ -238,8 +250,8 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen" style={themeToCssVars(customTheme.theme)}>
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} />
+        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSectionSettings} />
         <Footer />
       </main>
     );
@@ -251,7 +263,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   return (
     <main className="min-h-screen" style={outerStyle}>
       <StorefrontAppEmbedScripts embeds={appEmbeds} />
-      <Header companyLogoUrl={companyLogoUrl} />
+      <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
       <div className={innerClass}>
         {customTheme.sections
           .filter((s) => s.enabled !== false)

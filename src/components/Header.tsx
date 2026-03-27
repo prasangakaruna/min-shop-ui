@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { getCartCount, CART_UPDATED_EVENT, getImageDisplayUrl } from '@/lib/api';
+import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 
 const USER_TYPE_COOKIE = 'USER_TYPE';
 const USER_TYPE_TO_REGISTER = 'USER_TYPE_TO_REGISTER';
@@ -22,18 +24,74 @@ function clearUserTypeCookies() {
   document.cookie = `${USER_TYPE_TO_REGISTER}=; path=/; max-age=0`;
 }
 
+const DEFAULT_MARKETPLACE_NAV: StorefrontHeaderMenuItem[] = [
+  { label: 'Vehicles', url: '/vehicles' },
+  { label: 'Real Estate', url: '/real-estate' },
+  { label: 'Electronics', url: '/electronics' },
+  { label: 'Groceries', url: '/groceries' },
+];
+
+function isExternalMenuUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url) || url.startsWith('mailto:') || url.startsWith('tel:');
+}
+
 type HeaderProps = {
   /** Store settings logo (subdomain storefront); footer uses the same API field. */
   companyLogoUrl?: string | null;
+  /**
+   * Admin → Content → Menus → Main menu. From store branding on the home page.
+   * Omit on other routes: header loads the same menu on store subdomains via API.
+   * `loading` shows default marketplace links until the branding request finishes.
+   */
+  adminNav?: 'loading' | StorefrontHeaderMenuItem[];
 };
 
-export default function Header({ companyLogoUrl }: HeaderProps) {
+export default function Header({ companyLogoUrl, adminNav }: HeaderProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [cartCount, setCartCountState] = useState(0);
+  const [fetchedNav, setFetchedNav] = useState<StorefrontHeaderMenuItem[] | null>(null);
+
+  useEffect(() => {
+    if (adminNav !== undefined) {
+      return;
+    }
+    const slug = storeSlugFromHostname();
+    if (!slug) {
+      return;
+    }
+    let cancelled = false;
+    storefrontRequest<{ data?: { header_menu_items?: StorefrontHeaderMenuItem[] } }>('/storefront/store-branding', {
+      store_slug: slug,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const raw = res.data?.header_menu_items;
+        setFetchedNav(Array.isArray(raw) ? raw : []);
+      })
+      .catch(() => {
+        if (!cancelled) setFetchedNav([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [adminNav]);
+
+  const navItems = useMemo(() => {
+    if (adminNav !== undefined) {
+      if (adminNav === 'loading') {
+        return DEFAULT_MARKETPLACE_NAV;
+      }
+      return adminNav.length > 0 ? adminNav : DEFAULT_MARKETPLACE_NAV;
+    }
+    if (fetchedNav !== null && fetchedNav.length > 0) {
+      return fetchedNav;
+    }
+    return DEFAULT_MARKETPLACE_NAV;
+  }, [adminNav, fetchedNav]);
 
   useEffect(() => {
     setCartCountState(getCartCount());
@@ -133,24 +191,34 @@ export default function Header({ companyLogoUrl }: HeaderProps) {
             </form>
           </div>
 
-          {/* Navigation Links */}
+          {/* Navigation Links (admin Main menu, or default marketplace categories) */}
           <nav className="hidden lg:flex items-center space-x-8">
-            <Link href="/vehicles" className="text-gray-700 hover:text-mint transition-colors font-medium text-sm relative group">
-              Vehicles
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200"></span>
-            </Link>
-            <Link href="/real-estate" className="text-gray-700 hover:text-mint transition-colors font-medium text-sm relative group">
-              Real Estate
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200"></span>
-            </Link>
-            <Link href="/electronics" className="text-gray-700 hover:text-mint transition-colors font-medium text-sm relative group">
-              Electronics
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200"></span>
-            </Link>
-            <Link href="/groceries" className="text-gray-700 hover:text-mint transition-colors font-medium text-sm relative group">
-              Groceries
-              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200"></span>
-            </Link>
+            {navItems.map((item) => {
+              const cls =
+                'relative text-gray-700 hover:text-mint transition-colors font-medium text-sm group inline-block';
+              const underline = (
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200" />
+              );
+              if (isExternalMenuUrl(item.url)) {
+                return (
+                  <a
+                    key={`${item.label}-${item.url}`}
+                    href={item.url}
+                    className={cls}
+                    rel="noopener noreferrer"
+                  >
+                    {item.label}
+                    {underline}
+                  </a>
+                );
+              }
+              return (
+                <Link key={`${item.label}-${item.url}`} href={item.url} className={cls}>
+                  {item.label}
+                  {underline}
+                </Link>
+              );
+            })}
           </nav>
 
           {/* Actions */}
@@ -249,34 +317,33 @@ export default function Header({ companyLogoUrl }: HeaderProps) {
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-200 py-4 animate-slide-up">
             <nav className="flex flex-col space-y-3">
-              <Link 
-                href="/vehicles" 
-                className="px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Vehicles
-              </Link>
-              <Link 
-                href="/real-estate" 
-                className="px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Real Estate
-              </Link>
-              <Link 
-                href="/electronics" 
-                className="px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Electronics
-              </Link>
-              <Link 
-                href="/groceries" 
-                className="px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Groceries
-              </Link>
+              {navItems.map((item) => {
+                const cls =
+                  'px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium';
+                if (isExternalMenuUrl(item.url)) {
+                  return (
+                    <a
+                      key={`${item.label}-${item.url}`}
+                      href={item.url}
+                      className={cls}
+                      rel="noopener noreferrer"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {item.label}
+                    </a>
+                  );
+                }
+                return (
+                  <Link
+                    key={`${item.label}-${item.url}`}
+                    href={item.url}
+                    className={cls}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
               <div className="pt-4 border-t border-gray-200">
                 <Link 
                   href="/login" 

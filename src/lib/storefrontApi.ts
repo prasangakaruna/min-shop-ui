@@ -44,6 +44,9 @@ export interface StorefrontProductsResponse {
   total: number;
 }
 
+/** Items from GET /storefront/store-branding → data.header_menu_items (admin Content → Main menu) */
+export type StorefrontHeaderMenuItem = { label: string; url: string };
+
 export async function storefrontRequest<T>(
   path: string,
   query?: Record<string, string | number | undefined>,

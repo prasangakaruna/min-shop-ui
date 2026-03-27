@@ -1,16 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getImageDisplayUrl } from '@/lib/api';
+import {
+  mergeDefaultHeroSettings,
+  type HeroPopularLink,
+} from '@/lib/storefrontHomeTheme';
 
 type HeroProps = {
   variant?: 'default' | 'video';
+  /** From theme section `default_hero` (admin Theme editor). */
+  settings?: Record<string, unknown> | null;
 };
 
-export default function Hero({ variant = 'default' }: HeroProps) {
+export default function Hero({ variant = 'default', settings }: HeroProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  const hero = useMemo(() => mergeDefaultHeroSettings(settings ?? undefined), [settings]);
+
+  const searchCategories = hero.searchCategories ?? [];
+  const popularLinks = hero.popularLinks ?? [];
+
+  useEffect(() => {
+    if (searchCategories.length === 0) return;
+    const ok = searchCategories.some((c) => c.value === selectedCategory);
+    if (!ok) setSelectedCategory(searchCategories[0].value);
+  }, [searchCategories, selectedCategory]);
+
+  const bgUrl = useMemo(() => {
+    const u = hero.backgroundImageUrl ?? '';
+    if (!u) return '';
+    return getImageDisplayUrl(u);
+  }, [hero.backgroundImageUrl]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,58 +96,78 @@ export default function Hero({ variant = 'default' }: HeroProps) {
     );
   }
 
+  const primary = 'var(--sf-color-primary, #0f766e)';
+  const accent = 'var(--sf-color-accent, #99f6e4)';
+
   return (
     <section className="relative h-[500px] md:h-[550px] overflow-hidden">
-      {/* Background Image with Multiple Layers */}
       <div className="absolute inset-0">
-        {/* Base Background Image */}
-        <div 
+        <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url("https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80")',
+            backgroundImage: `url("${(bgUrl || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80').replace(/"/g, '\\"')}")`,
           }}
-        ></div>
-        
-        {/* Gradient Overlays for Depth */}
-        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85 z-10"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-mint/10 to-white/95 z-10"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent z-10"></div>
-        
-        {/* Animated Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-mint/20 via-transparent to-blue-500/20 z-10 animate-pulse"></div>
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-50/20 to-white/95 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent z-10" />
+        <div
+          className="absolute inset-0 z-10 animate-pulse opacity-90"
+          style={{
+            background: `linear-gradient(to bottom right, color-mix(in srgb, ${primary} 20%, transparent), transparent, color-mix(in srgb, #3b82f6 20%, transparent))`,
+          }}
+        />
       </div>
 
-      {/* Floating Shapes for Visual Interest */}
-      <div className="absolute inset-0 z-10 overflow-hidden">
-        <div className="absolute top-20 right-20 w-72 h-72 bg-mint/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300"></div>
+      <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
+        <div
+          className="absolute top-20 right-20 w-72 h-72 rounded-full blur-3xl animate-pulse"
+          style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)` }}
+        />
+        <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300" />
       </div>
 
-      {/* Content */}
-      <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
-        <div className="max-w-2xl">
-          {/* Tag with Enhanced Styling */}
-          <div className="inline-flex items-center bg-mint/10 backdrop-blur-sm text-mint-dark px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border border-mint/20 shadow-md">
-            <span className="w-2 h-2 bg-mint rounded-full mr-2 animate-pulse"></span>
-            MINT CONDITION MARKETPLACE
+      <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center pointer-events-auto">
+        <div className="max-w-2xl" style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}>
+          <div
+            className="inline-flex items-center backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border shadow-md"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${accent} 22%, transparent)`,
+              color: primary,
+              borderColor: `color-mix(in srgb, ${primary} 25%, transparent)`,
+            }}
+          >
+            <span
+              className="w-2 h-2 rounded-full mr-2 animate-pulse shrink-0"
+              style={{ backgroundColor: primary }}
+            />
+            {hero.badgeText}
           </div>
 
-          {/* Headline with Text Shadow */}
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 animate-slide-up leading-tight">
-            Sell Your Assets{' '}
-            <span className="bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">With Ease.</span>
+            {hero.headlineLine1}{' '}
+            <span
+              className="bg-clip-text text-transparent"
+              style={{
+                backgroundImage: `linear-gradient(to right, ${primary}, color-mix(in srgb, ${primary} 65%, #0f172a))`,
+              }}
+            >
+              {hero.headlineAccent}
+            </span>
           </h1>
 
-          {/* Description with Better Contrast */}
           <p className="text-lg md:text-xl text-gray-700 mb-6 animate-slide-up delay-100 leading-relaxed max-w-xl">
-            The premier marketplace for high-value trade. Browse verified cars, luxury villas, and professional tech from trusted sellers.
+            {hero.description}
           </p>
 
-          {/* Search Interface with Glassmorphism */}
-          <form onSubmit={handleSearch} className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 animate-slide-up delay-200 border border-white/20">
+          <form
+            onSubmit={handleSearch}
+            className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 animate-slide-up delay-200 border border-white/20"
+          >
             <div className="flex-1 relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5" style={{ color: primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
@@ -131,21 +175,21 @@ export default function Hero({ variant = 'default' }: HeroProps) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for cars, villas, electronics..."
-                className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+                placeholder={hero.searchPlaceholder}
+                className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
               />
             </div>
             <div className="relative">
-              <select 
+              <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm font-medium text-gray-800"
+                className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm font-medium text-gray-800"
               >
-                <option value="all">All Categories</option>
-                <option value="vehicles">Vehicles</option>
-                <option value="real estate">Real Estate</option>
-                <option value="electronics">Electronics</option>
-                <option value="groceries">Groceries</option>
+                {searchCategories.map((c) => (
+                  <option key={`${c.value}-${c.label}`} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,9 +197,13 @@ export default function Hero({ variant = 'default' }: HeroProps) {
                 </svg>
               </div>
             </div>
-            <button 
+            <button
               type="submit"
-              className="bg-mint text-white px-8 py-3 rounded-lg font-semibold hover:bg-mint-dark transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 whitespace-nowrap"
+              className="text-white px-8 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 whitespace-nowrap hover:opacity-95"
+              style={{
+                backgroundColor: primary,
+                borderRadius: 'var(--sf-button-radius, 0.5rem)',
+              }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -164,26 +212,51 @@ export default function Hero({ variant = 'default' }: HeroProps) {
             </button>
           </form>
 
-          {/* Quick Links with Better Styling */}
           <div className="mt-4 flex flex-wrap items-center gap-3 animate-fade-in delay-300">
             <span className="text-sm text-gray-600 font-medium">Popular:</span>
-            {[
-              { name: 'Vehicles', path: '/vehicles' },
-              { name: 'Real Estate', path: '/real-estate' },
-              { name: 'Electronics', path: '/electronics' },
-              { name: 'Groceries', path: '/groceries' },
-            ].map((item) => (
-              <button
-                key={item.path}
-                onClick={() => router.push(item.path)}
-                className="text-sm bg-mint/10 text-mint-dark px-3 py-1.5 rounded-full font-medium hover:bg-mint hover:text-white hover:scale-105 transition-all border border-mint/20"
-              >
-                {item.name}
-              </button>
+            {popularLinks.map((item) => (
+              <HeroPopularPill key={`${item.label}-${item.url}`} item={item} primary={primary} accent={accent} />
             ))}
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function HeroPopularPill({
+  item,
+  primary,
+  accent,
+}: {
+  item: HeroPopularLink;
+  primary: string;
+  accent: string;
+}) {
+  const router = useRouter();
+  const external =
+    /^https?:\/\//i.test(item.url) || item.url.startsWith('mailto:') || item.url.startsWith('tel:');
+
+  const style: React.CSSProperties = {
+    backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)`,
+    color: `color-mix(in srgb, ${primary} 90%, #0f172a)`,
+    borderColor: `color-mix(in srgb, ${primary} 22%, transparent)`,
+  };
+
+  const className =
+    'text-sm px-3 py-1.5 rounded-full font-medium border transition-all hover:scale-105 hover:opacity-90';
+
+  if (external) {
+    return (
+      <a href={item.url} className={className} style={style} rel="noopener noreferrer">
+        {item.label}
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => router.push(item.url)} className={className} style={style}>
+      {item.label}
+    </button>
   );
 }

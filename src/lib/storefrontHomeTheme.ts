@@ -29,6 +29,103 @@ export type HomeSection = {
   settings?: Record<string, unknown>;
 };
 
+/** Search bar category dropdown row (value `all` = no category filter). */
+export type HeroSearchCategory = { value: string; label: string };
+
+/** Quick links under the hero search (“Popular”). */
+export type HeroPopularLink = { label: string; url: string };
+
+/**
+ * Marketplace hero (`default_hero` section). Stored in section.settings JSON.
+ * Theme colors come from storefront_home.theme (CSS variables on the page).
+ */
+export type DefaultHeroSectionSettings = {
+  badgeText?: string;
+  headlineLine1?: string;
+  headlineAccent?: string;
+  description?: string;
+  searchPlaceholder?: string;
+  /** Full-bleed background; https or app-relative path resolved like other media */
+  backgroundImageUrl?: string;
+  searchCategories?: HeroSearchCategory[];
+  popularLinks?: HeroPopularLink[];
+};
+
+export const DEFAULT_HERO_SECTION_SETTINGS: DefaultHeroSectionSettings = {
+  badgeText: 'MINT CONDITION MARKETPLACE',
+  headlineLine1: 'Sell Your Assets',
+  headlineAccent: 'With Ease.',
+  description:
+    'The premier marketplace for high-value trade. Browse verified cars, luxury villas, and professional tech from trusted sellers.',
+  searchPlaceholder: 'Search for cars, villas, electronics...',
+  backgroundImageUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80',
+  searchCategories: [
+    { value: 'all', label: 'All Categories' },
+    { value: 'vehicles', label: 'Vehicles' },
+    { value: 'real estate', label: 'Real Estate' },
+    { value: 'electronics', label: 'Electronics' },
+    { value: 'groceries', label: 'Groceries' },
+  ],
+  popularLinks: [
+    { label: 'Vehicles', url: '/vehicles' },
+    { label: 'Real Estate', url: '/real-estate' },
+    { label: 'Electronics', url: '/electronics' },
+    { label: 'Groceries', url: '/groceries' },
+  ],
+};
+
+function parseHeroSearchCategories(raw: unknown): HeroSearchCategory[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: HeroSearchCategory[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const value = String(r.value ?? '').trim();
+    const label = typeof r.label === 'string' ? r.label.trim() : '';
+    if (value === '' || label === '') continue;
+    out.push({ value, label });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function parseHeroPopularLinks(raw: unknown): HeroPopularLink[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: HeroPopularLink[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const label = typeof r.label === 'string' ? r.label.trim() : '';
+    const url = typeof r.url === 'string' ? r.url.trim() : '';
+    if (label === '' || url === '') continue;
+    out.push({ label, url });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/** Merge saved section.settings with built-in defaults for the marketplace hero. */
+export function mergeDefaultHeroSettings(
+  raw: Record<string, unknown> | undefined | null
+): DefaultHeroSectionSettings {
+  const base: DefaultHeroSectionSettings = { ...DEFAULT_HERO_SECTION_SETTINGS };
+  if (!raw || typeof raw !== 'object') return base;
+
+  if (typeof raw.badgeText === 'string' && raw.badgeText.trim() !== '') base.badgeText = raw.badgeText.trim();
+  if (typeof raw.headlineLine1 === 'string' && raw.headlineLine1.trim() !== '') base.headlineLine1 = raw.headlineLine1.trim();
+  if (typeof raw.headlineAccent === 'string' && raw.headlineAccent.trim() !== '') base.headlineAccent = raw.headlineAccent.trim();
+  if (typeof raw.description === 'string' && raw.description.trim() !== '') base.description = raw.description.trim();
+  if (typeof raw.searchPlaceholder === 'string' && raw.searchPlaceholder.trim() !== '')
+    base.searchPlaceholder = raw.searchPlaceholder.trim();
+  if (typeof raw.backgroundImageUrl === 'string' && raw.backgroundImageUrl.trim() !== '')
+    base.backgroundImageUrl = raw.backgroundImageUrl.trim();
+
+  const cats = parseHeroSearchCategories(raw.searchCategories);
+  if (cats) base.searchCategories = cats;
+  const pop = parseHeroPopularLinks(raw.popularLinks);
+  if (pop) base.popularLinks = pop;
+
+  return base;
+}
+
 /**
  * Built-in theme templates. `mint_marketplace` is the default: same section stack as the public
  * marketplace home at `/` (search hero, categories, offers, etc.).

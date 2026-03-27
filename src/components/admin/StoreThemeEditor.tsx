@@ -14,6 +14,10 @@ import {
   buttonRadiusLabel,
   createDefaultSections,
   isMintMarketplaceSectionOrder,
+  mergeDefaultHeroSettings,
+  DEFAULT_HERO_SECTION_SETTINGS,
+  type HeroSearchCategory,
+  type HeroPopularLink,
 } from '@/lib/storefrontHomeTheme';
 
 const FONT_OPTIONS: { value: string; label: string }[] = [
@@ -661,9 +665,14 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                   />
                 </div>
               )}
-              {selected.type !== 'announcement_bar' && selected.type !== 'video_hero' && (
-                <p className="text-xs text-gray-500">Fine-grained controls for this block type can be extended here (copy, images, links).</p>
+              {selected.type === 'default_hero' && (
+                <DefaultHeroSectionEditor selected={selected} updateSection={updateSection} />
               )}
+              {selected.type !== 'announcement_bar' &&
+                selected.type !== 'video_hero' &&
+                selected.type !== 'default_hero' && (
+                  <p className="text-xs text-gray-500">Fine-grained controls for this block type can be extended here (copy, images, links).</p>
+                )}
             </div>
           )}
 
@@ -830,6 +839,176 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
   );
 }
 
+function DefaultHeroSectionEditor({
+  selected,
+  updateSection,
+}: {
+  selected: HomeSection;
+  updateSection: (id: string, patch: Partial<HomeSection>) => void;
+}) {
+  const eff = mergeDefaultHeroSettings(selected.settings ?? null);
+  const raw = selected.settings ?? {};
+
+  const set = (patch: Record<string, unknown>) =>
+    updateSection(selected.id, { settings: { ...raw, ...patch } });
+
+  const categories: HeroSearchCategory[] = eff.searchCategories ?? DEFAULT_HERO_SECTION_SETTINGS.searchCategories!;
+  const popular: HeroPopularLink[] = eff.popularLinks ?? DEFAULT_HERO_SECTION_SETTINGS.popularLinks!;
+
+  const updateCategory = (index: number, row: HeroSearchCategory) => {
+    const next = categories.map((c, i) => (i === index ? row : c));
+    set({ searchCategories: next });
+  };
+  const addCategory = () => {
+    set({ searchCategories: [...categories, { value: `cat-${categories.length + 1}`, label: 'New category' }] });
+  };
+  const removeCategory = (index: number) => {
+    if (categories.length <= 1) return;
+    set({ searchCategories: categories.filter((_, i) => i !== index) });
+  };
+
+  const updatePopular = (index: number, row: HeroPopularLink) => {
+    const next = popular.map((c, i) => (i === index ? row : c));
+    set({ popularLinks: next });
+  };
+  const addPopular = () => {
+    set({ popularLinks: [...popular, { label: 'Link', url: '/products' }] });
+  };
+  const removePopular = (index: number) => {
+    if (popular.length <= 1) return;
+    set({ popularLinks: popular.filter((_, i) => i !== index) });
+  };
+
+  return (
+    <div className="space-y-4 text-sm">
+      <p className="text-xs text-gray-600 leading-relaxed">
+        Headline, search, and hero background. Accent colors come from the <span className="font-medium text-gray-800">Theme Settings</span> tab.
+      </p>
+      <label className="block text-xs font-medium text-gray-700">Badge</label>
+      <input
+        type="text"
+        value={eff.badgeText ?? ''}
+        onChange={(e) => set({ badgeText: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder={DEFAULT_HERO_SECTION_SETTINGS.badgeText}
+      />
+      <label className="block text-xs font-medium text-gray-700">Headline (first line)</label>
+      <input
+        type="text"
+        value={eff.headlineLine1 ?? ''}
+        onChange={(e) => set({ headlineLine1: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder={DEFAULT_HERO_SECTION_SETTINGS.headlineLine1}
+      />
+      <label className="block text-xs font-medium text-gray-700">Headline (accent)</label>
+      <input
+        type="text"
+        value={eff.headlineAccent ?? ''}
+        onChange={(e) => set({ headlineAccent: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder={DEFAULT_HERO_SECTION_SETTINGS.headlineAccent}
+      />
+      <label className="block text-xs font-medium text-gray-700">Description</label>
+      <textarea
+        value={eff.description ?? ''}
+        onChange={(e) => set({ description: e.target.value })}
+        rows={3}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder={DEFAULT_HERO_SECTION_SETTINGS.description}
+      />
+      <label className="block text-xs font-medium text-gray-700">Search placeholder</label>
+      <input
+        type="text"
+        value={eff.searchPlaceholder ?? ''}
+        onChange={(e) => set({ searchPlaceholder: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder={DEFAULT_HERO_SECTION_SETTINGS.searchPlaceholder}
+      />
+      <label className="block text-xs font-medium text-gray-700">Hero background image URL</label>
+      <input
+        type="url"
+        value={eff.backgroundImageUrl ?? ''}
+        onChange={(e) => set({ backgroundImageUrl: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono"
+        placeholder="https://…"
+      />
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-medium text-gray-700">Search category dropdown</span>
+          <button type="button" onClick={addCategory} className="text-[11px] font-medium text-mint hover:underline">
+            Add row
+          </button>
+        </div>
+        <p className="text-[10px] text-gray-500 mb-2">Use value <code className="bg-gray-100 px-1 rounded">all</code> for “All categories”.</p>
+        <ul className="space-y-2">
+          {categories.map((row, i) => (
+            <li key={i} className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={row.value}
+                onChange={(e) => updateCategory(i, { ...row, value: e.target.value })}
+                className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                placeholder="value"
+              />
+              <input
+                type="text"
+                value={row.label}
+                onChange={(e) => updateCategory(i, { ...row, label: e.target.value })}
+                className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                placeholder="Label"
+              />
+              <button
+                type="button"
+                onClick={() => removeCategory(i)}
+                className="text-xs text-red-600 hover:underline shrink-0"
+                disabled={categories.length <= 1}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-medium text-gray-700">Popular quick links</span>
+          <button type="button" onClick={addPopular} className="text-[11px] font-medium text-mint hover:underline">
+            Add link
+          </button>
+        </div>
+        <ul className="space-y-2">
+          {popular.map((row, i) => (
+            <li key={i} className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={row.label}
+                onChange={(e) => updatePopular(i, { ...row, label: e.target.value })}
+                className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                placeholder="Label"
+              />
+              <input
+                type="text"
+                value={row.url}
+                onChange={(e) => updatePopular(i, { ...row, url: e.target.value })}
+                className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs font-mono"
+                placeholder="/path or https://"
+              />
+              <button
+                type="button"
+                onClick={() => removePopular(i)}
+                className="text-xs text-red-600 hover:underline shrink-0"
+                disabled={popular.length <= 1}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function EditorTip() {
   return (
     <div className="mx-2 mb-3 rounded-xl border border-orange-200/80 bg-gradient-to-br from-orange-50 to-amber-50/90 px-3 py-3 text-[11px] leading-relaxed text-amber-950 shadow-sm">
@@ -886,26 +1065,34 @@ function PreviewBlock({
   const pad = device === 'desktop' ? 'px-8 py-6' : 'px-3 py-6';
 
   if (section.type === 'default_hero') {
+    const hero = mergeDefaultHeroSettings(section.settings ?? null);
+    const bgUrl =
+      hero.backgroundImageUrl?.trim() ||
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80';
     return (
       <div
         className={`${pad} bg-cover bg-center relative overflow-hidden`}
         style={{
-          backgroundImage:
-            'linear-gradient(to right, rgba(255,255,255,0.95), rgba(255,255,255,0.88)), url(https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80)',
+          backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.95), rgba(255,255,255,0.88)), url(${bgUrl})`,
         }}
       >
         <div className="relative z-10 max-w-[95%]">
-          <p className="text-[8px] font-semibold text-mint mb-1.5 inline-flex items-center gap-1 rounded-full bg-mint/10 px-2 py-0.5">MINT CONDITION MARKETPLACE</p>
+          <p className="text-[8px] font-semibold text-mint mb-1.5 inline-flex items-center gap-1 rounded-full bg-mint/10 px-2 py-0.5">
+            {hero.badgeText}
+          </p>
           <p
             className={`font-extrabold text-gray-900 leading-tight mb-1 ${device === 'desktop' ? 'text-sm' : 'text-xs'}`}
             style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
           >
-            Sell Your Assets <span style={{ color: primary }}>With Ease.</span>
+            {hero.headlineLine1}{' '}
+            <span style={{ color: primary }}>{hero.headlineAccent}</span>
           </p>
-          <p className="text-[8px] text-gray-600 mb-2 leading-snug">Browse verified listings from trusted sellers.</p>
+          <p className="text-[8px] text-gray-600 mb-2 leading-snug line-clamp-2">{hero.description}</p>
           <div className="flex gap-1.5">
-            <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400">Search…</div>
-            <div className="h-7 px-2 rounded-md text-[8px] font-semibold text-white flex items-center" style={{ backgroundColor: primary }}>
+            <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400 truncate">
+              {hero.searchPlaceholder}
+            </div>
+            <div className="h-7 px-2 rounded-md text-[8px] font-semibold text-white flex items-center shrink-0" style={{ backgroundColor: primary }}>
               Go
             </div>
           </div>
