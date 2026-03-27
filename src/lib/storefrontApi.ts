@@ -46,7 +46,8 @@ export interface StorefrontProductsResponse {
 
 export async function storefrontRequest<T>(
   path: string,
-  query?: Record<string, string | number | undefined>
+  query?: Record<string, string | number | undefined>,
+  options?: { timeoutMs?: number }
 ): Promise<T> {
   const base = getBaseUrl();
   if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
@@ -57,10 +58,18 @@ export async function storefrontRequest<T>(
       if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
     });
   }
-  const res = await fetch(url.toString(), {
-    headers: { Accept: 'application/json' },
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data?.message as string) || res.statusText);
-  return data as T;
+  const timeoutMs = options?.timeoutMs ?? 20000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url.toString(), {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error((data?.message as string) || res.statusText);
+    return data as T;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
