@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { getCartCount, CART_UPDATED_EVENT } from '@/lib/api';
+import { getCartCount, CART_UPDATED_EVENT, getImageDisplayUrl } from '@/lib/api';
 
 const USER_TYPE_COOKIE = 'USER_TYPE';
 const USER_TYPE_TO_REGISTER = 'USER_TYPE_TO_REGISTER';
@@ -22,7 +22,12 @@ function clearUserTypeCookies() {
   document.cookie = `${USER_TYPE_TO_REGISTER}=; path=/; max-age=0`;
 }
 
-export default function Header() {
+type HeaderProps = {
+  /** Store settings logo (subdomain storefront); footer uses the same API field. */
+  companyLogoUrl?: string | null;
+};
+
+export default function Header({ companyLogoUrl }: HeaderProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -69,23 +74,44 @@ export default function Header() {
     }
   };
 
+  const resolvedLogo = companyLogoUrl ? getImageDisplayUrl(companyLogoUrl) : '';
+  const useCustomLogo = Boolean(resolvedLogo && resolvedLogo !== '');
+
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100">
+    <header
+      className="sticky top-0 z-50 backdrop-blur-sm shadow-sm border-b border-gray-100"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--sf-color-background, #ffffff) 94%, transparent)',
+        borderBottomColor: 'var(--sf-color-accent, #f3f4f6)',
+      }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="relative w-20 h-20 group-hover:scale-110 transition-transform duration-200">
-              <Image
-                src="/logo.webp"
-                alt="Mint Hub Logo"
-                fill
-                sizes="80px"
-                className="object-contain"
-                priority
-              />
-            </div>
-             
+          <Link href="/" className="flex items-center space-x-2 group shrink-0">
+            {useCustomLogo ? (
+              <div className="relative h-14 w-auto max-w-[200px] group-hover:scale-105 transition-transform duration-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={resolvedLogo}
+                  alt="Store logo"
+                  className="h-14 w-auto max-w-[200px] object-contain object-left"
+                  width={200}
+                  height={56}
+                />
+              </div>
+            ) : (
+              <div className="relative w-20 h-20 group-hover:scale-110 transition-transform duration-200">
+                <Image
+                  src="/logo.webp"
+                  alt="Mint Hub Logo"
+                  fill
+                  sizes="80px"
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            )}
           </Link>
 
           {/* Search Bar */}

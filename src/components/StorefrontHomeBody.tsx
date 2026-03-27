@@ -29,6 +29,7 @@ import {
 
 type BrandingResponse = {
   data?: {
+    company_logo_url?: string | null;
     storefront_home?: StorefrontHomeTheme | null;
     storefront_app_embeds?: StorefrontAppEmbed[] | null;
   };
@@ -128,6 +129,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   const [layoutKind, setLayoutKind] = useState<'loading' | 'classic' | 'custom'>('loading');
   const [customTheme, setCustomTheme] = useState<StorefrontHomeTheme | null>(null);
   const [appEmbeds, setAppEmbeds] = useState<StorefrontAppEmbed[]>([]);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (storeSlug) {
@@ -146,11 +148,17 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     let cancelled = false;
     setLayoutKind('loading');
     setAppEmbeds([]);
+    setCompanyLogoUrl(null);
     storefrontRequest<BrandingResponse>('/storefront/store-branding', { store_slug: effectiveSlug })
       .then((res) => {
         if (cancelled) return;
         const raw = res.data?.storefront_home;
         const embeds = Array.isArray(res.data?.storefront_app_embeds) ? res.data!.storefront_app_embeds! : [];
+        setCompanyLogoUrl(
+          typeof res.data?.company_logo_url === 'string' && res.data.company_logo_url.trim() !== ''
+            ? res.data.company_logo_url
+            : null
+        );
         setAppEmbeds(embeds);
         if (raw == null) {
           setCustomTheme(null);
@@ -164,6 +172,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
         if (!cancelled) {
           setCustomTheme(null);
           setAppEmbeds([]);
+          setCompanyLogoUrl(null);
           setLayoutKind('classic');
         }
       });
@@ -191,7 +200,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen bg-gray-50">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header />
+        <Header companyLogoUrl={companyLogoUrl} />
         <div className="flex min-h-[50vh] items-center justify-center text-sm text-gray-500">Loading storefront…</div>
         <Footer />
       </main>
@@ -202,7 +211,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen bg-white">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header />
+        <Header companyLogoUrl={companyLogoUrl} />
         <DefaultMarketplaceHome storeSlug={effectiveSlug} />
         <Footer />
       </main>
@@ -213,7 +222,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return (
       <main className="min-h-screen bg-white">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header />
+        <Header companyLogoUrl={companyLogoUrl} />
         <DefaultMarketplaceHome storeSlug={effectiveSlug} />
         <Footer />
       </main>
@@ -223,12 +232,13 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   /**
    * Default Mint Marketplace theme = same DOM as the global home (`/`): one shared component tree,
    * not the section renderer (which adds extra wrappers/spacing and theme shell).
+   * Theme colors/fonts still apply via CSS variables on <main> (previously missing here).
    */
   if (isMintMarketplaceSectionOrder(customTheme.sections)) {
     return (
-      <main className="min-h-screen bg-white">
+      <main className="min-h-screen" style={themeToCssVars(customTheme.theme)}>
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header />
+        <Header companyLogoUrl={companyLogoUrl} />
         <DefaultMarketplaceHome storeSlug={effectiveSlug} />
         <Footer />
       </main>
@@ -241,7 +251,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   return (
     <main className="min-h-screen" style={outerStyle}>
       <StorefrontAppEmbedScripts embeds={appEmbeds} />
-      <Header />
+      <Header companyLogoUrl={companyLogoUrl} />
       <div className={innerClass}>
         {customTheme.sections
           .filter((s) => s.enabled !== false)
