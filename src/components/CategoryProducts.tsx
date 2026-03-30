@@ -112,6 +112,7 @@ export default function CategoryProducts({ products: propProducts, loading: prop
                 <Link
                   key={`${product.store_id}-${product.id}`}
                   href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
+                  prefetch={false}
                   className="group rounded-2xl border border-gray-100 bg-white p-4 hover:border-mint/30 hover:shadow-lg transition"
                 >
                   <ProductImage imageUrl={product.image_url} alt={product.title} productId={product.id} containerClassName="h-32 rounded-xl group-hover:bg-mint/5" />

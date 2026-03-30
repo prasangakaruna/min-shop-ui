@@ -74,7 +74,7 @@ export default function ProductCard({
       {/* Content */}
       <div className="p-4">
         <p className="text-xs text-gray-500 uppercase mb-1">{category}</p>
-        <Link href={`/product/${id}`}>
+        <Link href={`/product/${id}`} prefetch={false}>
           <h3 className="text-lg font-semibold text-gray-800 mb-2 hover:text-mint transition-colors line-clamp-2">
             {title}
           </h3>
@@ -120,7 +120,7 @@ export default function ProductCard({
             <span>{addToCartLoading ? 'Adding…' : 'Add to Cart'}</span>
           </button>
         ) : (
-          <Link href={`/product/${id}`} className="block w-full bg-mint text-white py-2 rounded-lg font-medium hover:bg-mint-dark transition-colors flex items-center justify-center space-x-2">
+          <Link href={`/product/${id}`} prefetch={false} className="block w-full bg-mint text-white py-2 rounded-lg font-medium hover:bg-mint-dark transition-colors flex items-center justify-center space-x-2">
             <span>View Details</span>
           </Link>
         )}

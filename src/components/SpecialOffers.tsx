@@ -214,6 +214,7 @@ export default function SpecialOffers({ storeSlug }: { storeSlug?: string | null
                 <Link
                   key={offer.id}
                   href={withStore(offer.link)}
+                  prefetch={false}
                   className="relative group overflow-hidden rounded-2xl bg-white shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30 hover:-translate-y-1"
                 >
                   <div

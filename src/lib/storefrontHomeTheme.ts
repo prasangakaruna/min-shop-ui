@@ -188,6 +188,39 @@ export type StorefrontHomeTheme = {
   preset?: StorefrontHomeThemePresetId | null;
 };
 
+/**
+ * Merge Pro → Customize hero upload into saved Marketplace hero settings when the theme has no
+ * real custom background (empty, or the stock Mint villa image). Used for both the classic home
+ * layout and per-section rendering when the section order differs from the default stack.
+ */
+export function resolveStorefrontHeroSettings(
+  sectionSettings: Record<string, unknown> | undefined | null,
+  proDashboardHeroImageUrl: string | null,
+): Record<string, unknown> {
+  const raw =
+    sectionSettings && typeof sectionSettings === 'object'
+      ? ({ ...sectionSettings } as Record<string, unknown>)
+      : {};
+  const themeBg = typeof raw.backgroundImageUrl === 'string' ? raw.backgroundImageUrl.trim() : '';
+  const themeHasRealCustomBg = themeBg !== '' && !isDefaultMarketplaceHeroImageUrl(themeBg);
+
+  if (proDashboardHeroImageUrl && !themeHasRealCustomBg) {
+    return { ...raw, backgroundImageUrl: proDashboardHeroImageUrl };
+  }
+  return raw;
+}
+
+/** null = no overrides and no Pro image (Hero uses built-in defaults only). */
+export function heroSettingsForStorefront(
+  customTheme: StorefrontHomeTheme | null,
+  proDashboardHeroImageUrl: string | null,
+): Record<string, unknown> | null {
+  const secSettings = customTheme?.sections.find((s) => s.type === 'default_hero')?.settings;
+  const resolved = resolveStorefrontHeroSettings(secSettings, proDashboardHeroImageUrl);
+  if (Object.keys(resolved).length === 0 && !proDashboardHeroImageUrl) return null;
+  return resolved;
+}
+
 export const SECTION_CATALOG: { type: HomeSectionType; label: string }[] = [
   { type: 'default_hero', label: 'Marketplace hero' },
   { type: 'announcement_bar', label: 'Announcement Bar' },

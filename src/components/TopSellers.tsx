@@ -58,16 +58,21 @@ export default function TopSellers({ products: propProducts, loading: propLoadin
               <div className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-yellow-400 text-gray-800 flex items-center justify-center font-bold text-sm">
                 #{index + 1}
               </div>
-              <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`} className="block relative h-40">
+              <Link
+                href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
+                prefetch={false}
+                className="block relative h-40"
+              >
                 <ProductImage imageUrl={product.image_url} alt={product.title} productId={product.id} containerClassName="h-40 w-full" />
               </Link>
               <div className="p-4">
-                <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}>
+                <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`} prefetch={false}>
                   <h3 className="font-bold text-gray-900 line-clamp-2 hover:text-mint text-sm">{product.title}</h3>
                 </Link>
                 <p className="text-lg font-bold text-mint mt-2">${product.price}</p>
                 <Link
                   href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
+                  prefetch={false}
                   className="mt-2 block w-full bg-mint text-white py-2 rounded-lg font-semibold text-center text-xs hover:bg-mint-dark"
                 >
                   View Details

@@ -24,8 +24,9 @@ import type { StorefrontAppEmbed } from '@/lib/api';
 import {
   type HomeSection,
   type StorefrontHomeTheme,
-  mergeDefaultHeroSettings,
   mergeStorefrontHomeTheme,
+  resolveStorefrontHeroSettings,
+  heroSettingsForStorefront,
   themeToCssVars,
   isMintMarketplaceSectionOrder,
 } from '@/lib/storefrontHomeTheme';
@@ -45,7 +46,8 @@ function renderSection(
   section: HomeSection,
   storeSlug: string | null,
   index: number,
-  sectionSpacing: number
+  sectionSpacing: number,
+  proHeroImageUrl: string | null
 ) {
   const gapStyle = index > 0 ? { marginTop: sectionSpacing } : undefined;
   const wrap = (node: React.ReactNode) => (
@@ -58,7 +60,9 @@ function renderSection(
 
   switch (section.type) {
     case 'default_hero':
-      return wrap(<Hero settings={settings} />);
+      return wrap(
+        <Hero settings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)} />
+      );
     case 'announcement_bar':
       return wrap(<AnnouncementBar text={typeof settings.text === 'string' ? settings.text : null} />);
     case 'video_hero':
@@ -202,21 +206,10 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return themeToCssVars(customTheme.theme);
   }, [layoutKind, customTheme]);
 
-  /** Theme default_hero settings, merged with Pro → Customize hero when the theme has no storefront hero image */
-  const heroSettingsResolved = useMemo(() => {
-    const secSettings = customTheme
-      ? customTheme.sections.find((s) => s.type === 'default_hero')?.settings
-      : undefined;
-    const raw = (secSettings && typeof secSettings === 'object' ? { ...secSettings } : {}) as Record<string, unknown>;
-    const merged = mergeDefaultHeroSettings(raw);
-    if (!merged.backgroundImageUrl && proHeroImageUrl) {
-      return { ...raw, backgroundImageUrl: proHeroImageUrl };
-    }
-    if (Object.keys(raw).length === 0 && !proHeroImageUrl) {
-      return null;
-    }
-    return raw;
-  }, [customTheme, proHeroImageUrl]);
+  const heroSettingsResolved = useMemo(
+    () => heroSettingsForStorefront(customTheme, proHeroImageUrl),
+    [customTheme, proHeroImageUrl]
+  );
 
   if (!effectiveSlug) {
     return (
@@ -291,7 +284,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <div className={innerClass}>
         {customTheme.sections
           .filter((s) => s.enabled !== false)
-          .map((section, i) => renderSection(section, effectiveSlug, i, spacing))}
+          .map((section, i) => renderSection(section, effectiveSlug, i, spacing, proHeroImageUrl))}
       </div>
       <Footer />
     </main>

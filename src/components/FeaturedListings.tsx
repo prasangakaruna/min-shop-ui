@@ -55,17 +55,22 @@ export default function FeaturedListings({ products: propProducts, loading: prop
               key={`${product.store_id}-${product.id}`}
               className="rounded-xl border border-gray-100 bg-white overflow-hidden hover:shadow-lg hover:border-mint/20 transition"
             >
-              <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`} className="block relative h-40">
+              <Link
+                href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
+                prefetch={false}
+                className="block relative h-40"
+              >
                 <ProductImage imageUrl={product.image_url} alt={product.title} productId={product.id} containerClassName="h-40 w-full" />
               </Link>
               <div className="p-4">
-                <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}>
+                <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`} prefetch={false}>
                   <h3 className="font-bold text-gray-900 line-clamp-2 hover:text-mint">{product.title}</h3>
                 </Link>
                 <p className="text-xl font-bold text-mint mt-1">${product.price}</p>
                 <p className="text-xs text-gray-500 mt-1">{product.store?.name ?? `Store #${product.store_id}`}</p>
                 <Link
                   href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
+                  prefetch={false}
                   className="mt-3 block w-full bg-mint text-white py-2 rounded-lg font-semibold text-center text-sm hover:bg-mint-dark"
                 >
                   View Details
