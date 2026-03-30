@@ -61,10 +61,13 @@ function renderSection(
   switch (section.type) {
     case 'default_hero':
       return wrap(
-        <Hero
-          settings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)}
-          storeSlug={storeSlug}
-        />
+        <>
+          <Hero
+            settings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)}
+            storeSlug={storeSlug}
+          />
+          <CouponPromoSection storeSlug={storeSlug} />
+        </>
       );
     case 'announcement_bar':
       return wrap(<AnnouncementBar text={typeof settings.text === 'string' ? settings.text : null} />);
@@ -279,11 +282,13 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
 
   const spacing = customTheme.theme.sectionSpacing;
   const innerClass = customTheme.theme.wideLayout ? '' : 'max-w-6xl mx-auto';
+  const hasEnabledHero = customTheme.sections.some((s) => s.enabled !== false && s.type === 'default_hero');
 
   return (
     <main className="min-h-screen" style={outerStyle}>
       <StorefrontAppEmbedScripts embeds={appEmbeds} />
       <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+      {!hasEnabledHero ? <CouponPromoSection storeSlug={effectiveSlug} /> : null}
       <div className={innerClass}>
         {customTheme.sections
           .filter((s) => s.enabled !== false)
