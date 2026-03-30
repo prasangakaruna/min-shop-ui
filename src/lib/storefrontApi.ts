@@ -47,6 +47,13 @@ export interface StorefrontProductsResponse {
 /** Items from GET /storefront/store-branding → data.header_menu_items (admin Content → Main menu) */
 export type StorefrontHeaderMenuItem = { label: string; url: string };
 
+/** GET /storefront/browse-categories — distinct category ids from active catalog (optional `store` slug) */
+export type StorefrontBrowseCategoryRow = { id: string; count: number };
+
+export type StorefrontBrowseCategoriesResponse = {
+  data: { categories: StorefrontBrowseCategoryRow[] };
+};
+
 export async function storefrontRequest<T>(
   path: string,
   query?: Record<string, string | number | undefined>,

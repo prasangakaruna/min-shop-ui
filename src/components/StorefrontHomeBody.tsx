@@ -61,7 +61,10 @@ function renderSection(
   switch (section.type) {
     case 'default_hero':
       return wrap(
-        <Hero settings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)} />
+        <Hero
+          settings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)}
+          storeSlug={storeSlug}
+        />
       );
     case 'announcement_bar':
       return wrap(<AnnouncementBar text={typeof settings.text === 'string' ? settings.text : null} />);
@@ -113,7 +116,7 @@ function DefaultMarketplaceHome({
 }) {
   return (
     <>
-      <Hero settings={heroSettings ?? undefined} />
+      <Hero settings={heroSettings ?? undefined} storeSlug={storeSlug} />
       <CouponPromoSection storeSlug={storeSlug} />
       <div className="border-t border-gray-100" />
       <BrowseCategories />

@@ -3,27 +3,77 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getImageDisplayUrl } from '@/lib/api';
+import { formatCategoryLabel } from '@/lib/categories';
+import { storefrontRequest, type StorefrontBrowseCategoriesResponse } from '@/lib/storefrontApi';
 import {
   DEFAULT_MARKETPLACE_HERO_IMAGE_URL,
   mergeDefaultHeroSettings,
   type HeroPopularLink,
+  type HeroSearchCategory,
 } from '@/lib/storefrontHomeTheme';
+
+const POPULAR_CATEGORY_LIMIT = 8;
 
 type HeroProps = {
   variant?: 'default' | 'video';
   /** From theme section `default_hero` (admin Theme editor). */
   settings?: Record<string, unknown> | null;
+  /** When set, hero loads category dropdown + popular links from GET /storefront/browse-categories */
+  storeSlug?: string | null;
 };
 
-export default function Hero({ variant = 'default', settings }: HeroProps) {
+export default function Hero({ variant = 'default', settings, storeSlug = null }: HeroProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  /** null = fetch not finished yet (use theme defaults); array after fetch (may be empty → theme) */
+  const [catalogCategories, setCatalogCategories] = useState<{ id: string; count: number }[] | null>(null);
 
   const hero = useMemo(() => mergeDefaultHeroSettings(settings ?? undefined), [settings]);
 
-  const searchCategories = hero.searchCategories ?? [];
-  const popularLinks = hero.popularLinks ?? [];
+  useEffect(() => {
+    let cancelled = false;
+    setCatalogCategories(null);
+    storefrontRequest<StorefrontBrowseCategoriesResponse>('/storefront/browse-categories', {
+      ...(storeSlug ? { store: storeSlug } : {}),
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data?.categories) ? res.data!.categories! : [];
+        setCatalogCategories(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalogCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeSlug]);
+
+  const searchCategories: HeroSearchCategory[] = useMemo(() => {
+    if (catalogCategories !== null && catalogCategories.length > 0) {
+      return [
+        { value: 'all', label: 'All Categories' },
+        ...catalogCategories.map((c) => ({
+          value: c.id,
+          label: formatCategoryLabel(c.id),
+        })),
+      ];
+    }
+    return hero.searchCategories ?? [];
+  }, [catalogCategories, hero.searchCategories]);
+
+  const popularLinks: HeroPopularLink[] = useMemo(() => {
+    if (catalogCategories !== null && catalogCategories.length > 0) {
+      return catalogCategories.slice(0, POPULAR_CATEGORY_LIMIT).map((c) => ({
+        label: formatCategoryLabel(c.id),
+        url: storeSlug
+          ? `/products?category=${encodeURIComponent(c.id)}&store=${encodeURIComponent(storeSlug)}`
+          : `/products?category=${encodeURIComponent(c.id)}`,
+      }));
+    }
+    return hero.popularLinks ?? [];
+  }, [catalogCategories, hero.popularLinks, storeSlug]);
 
   useEffect(() => {
     if (searchCategories.length === 0) return;
@@ -40,9 +90,10 @@ export default function Hero({ variant = 'default', settings }: HeroProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (searchQuery) params.set('q', searchQuery);
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
     if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
-    router.push(`/search?${params.toString()}`);
+    if (storeSlug) params.set('store', storeSlug);
+    router.push(`/products?${params.toString()}`);
   };
 
   if (variant === 'video') {
