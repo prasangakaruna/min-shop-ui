@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { storefrontRequest } from '@/lib/storefrontApi';
 import { getImageDisplayUrl } from '@/lib/api';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 
 type SocialLinks = {
   facebook?: string | null;
@@ -22,35 +24,14 @@ type StoreBranding = {
   social_links?: SocialLinks;
 };
 
-export default function Footer() {
+function FooterInner({ storeSlug }: { storeSlug: string | null }) {
   const [branding, setBranding] = useState<StoreBranding | null>(null);
-  const [storeSlug, setStoreSlug] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const fromQuery = new URLSearchParams(window.location.search).get('store');
-    if (fromQuery && fromQuery.trim() !== '') {
-      setStoreSlug(fromQuery.trim());
+    if (!storeSlug) {
+      setBranding(null);
       return;
     }
-
-    // Fallback: parse subdomain from host (e.g. myshop.localhost -> "myshop")
-    const host = window.location.hostname.toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1') {
-      setStoreSlug(null);
-      return;
-    }
-    const parts = host.split('.').filter(Boolean);
-    if (parts.length < 2) {
-      setStoreSlug(null);
-      return;
-    }
-    const effectiveParts = parts[0] === 'www' && parts.length >= 3 ? parts.slice(1) : parts;
-    setStoreSlug(effectiveParts[0] ?? null);
-  }, []);
-
-  useEffect(() => {
-    if (!storeSlug) return;
     let cancelled = false;
 
     storefrontRequest<{ data: StoreBranding }>('/storefront/store-branding', { store_slug: storeSlug })
@@ -236,5 +217,20 @@ export default function Footer() {
         </div>
       </div>
     </footer>
+  );
+}
+
+function FooterWithSearchParams() {
+  const searchParams = useSearchParams();
+  const q = (searchParams.get('store') ?? '').trim();
+  const storeSlug = q || storeSlugFromHostname() || null;
+  return <FooterInner storeSlug={storeSlug} />;
+}
+
+export default function Footer() {
+  return (
+    <Suspense fallback={<FooterInner storeSlug={typeof window !== 'undefined' ? storeSlugFromHostname() : null} />}>
+      <FooterWithSearchParams />
+    </Suspense>
   );
 }

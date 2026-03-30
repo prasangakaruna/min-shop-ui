@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { getCartCount, CART_UPDATED_EVENT, getImageDisplayUrl } from '@/lib/api';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
@@ -46,7 +46,12 @@ type HeaderProps = {
   adminNav?: 'loading' | StorefrontHeaderMenuItem[];
 };
 
-export default function Header({ companyLogoUrl, adminNav }: HeaderProps) {
+type HeaderCoreProps = HeaderProps & {
+  /** From `?store=` on apex (mint-shop.pro); empty string when unknown (Suspense fallback). */
+  storeQueryFromUrl: string;
+};
+
+function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -59,7 +64,7 @@ export default function Header({ companyLogoUrl, adminNav }: HeaderProps) {
     if (adminNav !== undefined) {
       return;
     }
-    const slug = storeSlugFromHostname();
+    const slug = (storeQueryFromUrl ?? '').trim() || storeSlugFromHostname();
     if (!slug) {
       return;
     }
@@ -78,7 +83,7 @@ export default function Header({ companyLogoUrl, adminNav }: HeaderProps) {
     return () => {
       cancelled = true;
     };
-  }, [adminNav]);
+  }, [adminNav, storeQueryFromUrl]);
 
   const navItems = useMemo(() => {
     if (adminNav !== undefined) {
@@ -358,5 +363,19 @@ export default function Header({ companyLogoUrl, adminNav }: HeaderProps) {
         )}
       </div>
     </header>
+  );
+}
+
+function HeaderWithSearchParams(props: HeaderProps) {
+  const searchParams = useSearchParams();
+  const storeQueryFromUrl = (searchParams.get('store') ?? '').trim();
+  return <HeaderCore {...props} storeQueryFromUrl={storeQueryFromUrl} />;
+}
+
+export default function Header(props: HeaderProps) {
+  return (
+    <Suspense fallback={<HeaderCore {...props} storeQueryFromUrl="" />}>
+      <HeaderWithSearchParams {...props} />
+    </Suspense>
   );
 }
