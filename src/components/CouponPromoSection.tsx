@@ -1,21 +1,46 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { storefrontRequest } from '@/lib/storefrontApi';
+
+type StorefrontCouponRow = { code: string; summary: string; min_subtotal?: string };
+
+type StorefrontCouponsResponse = { data?: StorefrontCouponRow[] };
 
 /**
- * Homepage promo: drives shoppers to the cart to apply codes—copy and layout tuned for conversion.
+ * Homepage promo: drives shoppers to the cart; when `storeSlug` is set, lists active coupons from the API.
  */
 export default function CouponPromoSection({ storeSlug }: { storeSlug?: string | null }) {
+  const [coupons, setCoupons] = useState<StorefrontCouponRow[]>([]);
+
   const cartHref = (() => {
     const base = '/cart';
     if (!storeSlug) return base;
     return `${base}?store=${encodeURIComponent(storeSlug)}`;
   })();
 
+  useEffect(() => {
+    if (!storeSlug) {
+      setCoupons([]);
+      return;
+    }
+    let cancelled = false;
+    storefrontRequest<StorefrontCouponsResponse>('/storefront/coupons', { store: storeSlug })
+      .then((res) => {
+        if (cancelled) return;
+        setCoupons(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setCoupons([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeSlug]);
+
   return (
     <section className="w-full overflow-hidden border-y border-mint/20" aria-labelledby="coupon-promo-heading">
-      {/* Top band: value prop */}
       <div className="bg-gradient-to-r from-mint/[0.12] via-cyan-50/50 to-teal-50/40">
         <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
@@ -41,6 +66,25 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                 <strong className="font-semibold text-gray-800">cart</strong> page (before checkout). Newsletter deals,
                 social drops, and partner promos update your order total in one click—no surprises at payment.
               </p>
+              {coupons.length > 0 ? (
+                <div className="mt-4 flex flex-col gap-2 sm:items-start">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-mint-dark">Active codes — this store</p>
+                  <ul className="flex flex-wrap justify-center gap-2 sm:justify-start" aria-label="Active coupon codes">
+                    {coupons.map((c) => (
+                      <li
+                        key={c.code}
+                        className="inline-flex items-center gap-2 rounded-xl border border-mint/30 bg-white/90 px-3 py-2 text-left shadow-sm"
+                      >
+                        <span className="font-mono text-sm font-bold text-gray-900">{c.code}</span>
+                        <span className="text-xs text-gray-600">
+                          {c.summary}
+                          {c.min_subtotal ? ` · min order $${c.min_subtotal}` : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
           <Link
@@ -64,7 +108,6 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
           </Link>
         </div>
       </div>
-      {/* Lower strip: social proof + texture */}
       <div
         className="border-t border-mint/10 bg-white bg-[radial-gradient(circle_at_center,_rgb(79_209_199/0.08)_1px,_transparent_1px)] bg-[length:14px_14px] px-4 py-3 sm:px-6 lg:px-8"
         role="note"
