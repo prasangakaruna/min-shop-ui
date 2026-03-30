@@ -106,6 +106,7 @@ export type StorefrontPagePayload = {
     body: string | null;
     excerpt: string | null;
     featured_image: string | null;
+    layout_width?: string | null;
   };
   store: { id: number; name: string; slug: string };
 };

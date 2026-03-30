@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { getStorefrontPage, getImageDisplayUrl } from '@/lib/api';
+import { cmsPageMainMaxWidthClass, normalizeCmsPageLayoutWidth } from '@/lib/storePages';
 
 function StorePageInner() {
   const params = useParams();
@@ -22,6 +23,7 @@ function StorePageInner() {
   const [excerpt, setExcerpt] = useState<string | null>(null);
   const [featuredImage, setFeaturedImage] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string | null>(null);
+  const [layoutWidth, setLayoutWidth] = useState<string>('default');
 
   /* eslint-disable react-hooks/set-state-in-effect -- sync loading gate before client fetch */
   useEffect(() => {
@@ -45,6 +47,7 @@ function StorePageInner() {
         setExcerpt(res.data.excerpt ?? null);
         setFeaturedImage(res.data.featured_image ?? null);
         setStoreName(res.store?.name ?? null);
+        setLayoutWidth(normalizeCmsPageLayoutWidth(res.data.layout_width));
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Page not found'))
       .finally(() => setLoading(false));
@@ -56,7 +59,9 @@ function StorePageInner() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      <main
+        className={`mx-auto w-full px-4 py-10 sm:px-6 lg:px-8 ${cmsPageMainMaxWidthClass(layoutWidth)}`}
+      >
         <nav className="mb-6 text-sm text-gray-600">
           <Link href={storeSlug ? `/?store=${encodeURIComponent(storeSlug)}` : '/'} className="hover:text-mint">
             Home

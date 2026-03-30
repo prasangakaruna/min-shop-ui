@@ -6,7 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, getImageDisplayUrl, uploadContentLibraryFile } from '@/lib/api';
-import { slugifyPageHandle, type StoreContentPage } from '@/lib/storePages';
+import {
+  slugifyPageHandle,
+  type CmsPageLayoutWidth,
+  type StoreContentPage,
+  normalizeCmsPageLayoutWidth,
+  CMS_PAGE_LAYOUT_OPTIONS,
+} from '@/lib/storePages';
 import PageRichTextEditor from '@/components/admin/PageRichTextEditor';
 
 type ContentFile = { id: string; name: string; url: string };
@@ -47,6 +53,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
   const [parentId, setParentId] = useState<string>('');
   const [published, setPublished] = useState(false);
   const [sortOrder, setSortOrder] = useState(0);
+  const [layoutWidth, setLayoutWidth] = useState<CmsPageLayoutWidth>('default');
   const [editorKey, setEditorKey] = useState(0);
   const featuredFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingFeatured, setUploadingFeatured] = useState(false);
@@ -97,6 +104,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
         setParentId(p.parent_id ?? '');
         setPublished(p.published);
         setSortOrder(typeof p.sort_order === 'number' ? p.sort_order : 0);
+        setLayoutWidth(normalizeCmsPageLayoutWidth(p.layout_width));
         setEditorKey((k) => k + 1);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load page'))
@@ -195,6 +203,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
       setParentId(d.parent_id ?? '');
       setPublished(d.published);
       setSortOrder(typeof d.sort_order === 'number' ? d.sort_order : 0);
+      setLayoutWidth(normalizeCmsPageLayoutWidth(d.layout_width));
       setEditorKey((k) => k + 1);
       await loadContent();
     } catch (e) {
@@ -374,6 +383,21 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
                       onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
                       className="mt-1 w-full rounded border border-gray-200 px-2 py-2 text-sm"
                     />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Page layout width</label>
+                    <select
+                      value={layoutWidth}
+                      onChange={(e) => setLayoutWidth(normalizeCmsPageLayoutWidth(e.target.value))}
+                      className="mt-1 w-full rounded border border-gray-200 px-2 py-2 text-sm"
+                    >
+                      {CMS_PAGE_LAYOUT_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">How wide the content column is on the live page and preview.</p>
                   </div>
                 </div>
               </div>

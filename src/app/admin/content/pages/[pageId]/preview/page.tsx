@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, getImageDisplayUrl } from '@/lib/api';
 import type { StoreContentPage } from '@/lib/storePages';
+import { cmsPageMainMaxWidthClass } from '@/lib/storePages';
 
 export default function AdminPagePreview() {
   const params = useParams();
@@ -40,7 +41,9 @@ export default function AdminPagePreview() {
           ← Back to editor
         </Link>
       </div>
-      <div className="mx-auto max-w-3xl px-4 py-10">
+      <div
+        className={`mx-auto w-full px-4 py-10 ${cmsPageMainMaxWidthClass(page?.layout_width ?? 'default')}`}
+      >
         {loading ? (
           <p className="text-gray-500">Loading…</p>
         ) : error ? (
