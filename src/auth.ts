@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import Keycloak from 'next-auth/providers/keycloak';
 import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
+import { headers } from 'next/headers';
 
 declare module 'next-auth' {
   interface Session {
@@ -110,6 +111,40 @@ function localhostSameHostIgnoreScheme(url: string, baseUrl: string): boolean {
   }
 }
 
+/** Real browser host behind nginx (avoids NEXTAUTH_URL=http(s)://localhost:3000 leaking into OAuth redirects). */
+async function getTrustedRequestOrigin(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = (h.get('x-forwarded-host') ?? h.get('host') ?? '').split(',')[0].trim();
+    if (!host) {
+      const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+      if (root) return `https://${root}`;
+      const apex = process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '').trim();
+      if (apex) return apex;
+      return 'http://localhost:3000';
+    }
+    const proto = (h.get('x-forwarded-proto') ?? (host.includes('localhost') ? 'http' : 'https'))
+      .split(',')[0]
+      .trim();
+    return `${proto}://${host}`;
+  } catch {
+    const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+    if (root) return `https://${root}`;
+    return 'http://localhost:3000';
+  }
+}
+
+function rewriteLocalhostTargetToOrigin(target: string, requestOrigin: string): string {
+  try {
+    const u = new URL(target);
+    if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') return target;
+    const ro = new URL(requestOrigin);
+    return `${ro.origin}${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return target;
+  }
+}
+
 function crossSubdomainCookieOptions(): Record<
   string,
   { name?: string; options: { domain: string; path: string; secure?: boolean; sameSite?: 'lax' | 'strict' | 'none' } }
@@ -188,10 +223,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   cookies: crossSubdomainCookieOptions(),
   callbacks: {
     async redirect({ url, baseUrl }) {
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
-      if (hostAllowedForRedirect(url, baseUrl)) return url;
-      if (localhostSameHostIgnoreScheme(url, baseUrl)) return url;
-      return baseUrl;
+      const requestOrigin = await getTrustedRequestOrigin();
+      if (url.startsWith('/')) {
+        return rewriteLocalhostTargetToOrigin(`${requestOrigin}${url}`, requestOrigin);
+      }
+      let next = rewriteLocalhostTargetToOrigin(url, requestOrigin);
+      if (hostAllowedForRedirect(next, requestOrigin)) return next;
+      if (localhostSameHostIgnoreScheme(next, requestOrigin)) return next;
+      if (hostAllowedForRedirect(next, baseUrl)) return next;
+      if (localhostSameHostIgnoreScheme(next, baseUrl)) return next;
+      return requestOrigin.replace(/\/$/, '');
     },
     async jwt({ token, account }) {
       if (account) {
