@@ -24,6 +24,7 @@ import type { StorefrontAppEmbed } from '@/lib/api';
 import {
   type HomeSection,
   type StorefrontHomeTheme,
+  mergeDefaultHeroSettings,
   mergeStorefrontHomeTheme,
   themeToCssVars,
   isMintMarketplaceSectionOrder,
@@ -32,6 +33,8 @@ import {
 type BrandingResponse = {
   data?: {
     company_logo_url?: string | null;
+    /** Admin → Pro → Customize → hero image; storefront uses when theme hero has no custom background */
+    pro_dashboard_hero_image_url?: string | null;
     storefront_home?: StorefrontHomeTheme | null;
     storefront_app_embeds?: StorefrontAppEmbed[] | null;
     header_menu_items?: StorefrontHeaderMenuItem[] | null;
@@ -133,6 +136,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(null);
   /** Admin Content → Main menu; 'loading' until branding request finishes */
   const [adminNav, setAdminNav] = useState<'loading' | StorefrontHeaderMenuItem[] | undefined>(undefined);
+  const [proHeroImageUrl, setProHeroImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (storeSlug) {
@@ -153,6 +157,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     setLayoutKind('loading');
     setAppEmbeds([]);
     setCompanyLogoUrl(null);
+    setProHeroImageUrl(null);
     setAdminNav('loading');
     storefrontRequest<BrandingResponse>('/storefront/store-branding', { store_slug: effectiveSlug })
       .then((res) => {
@@ -166,6 +171,8 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
             ? res.data.company_logo_url
             : null
         );
+        const proHero = res.data?.pro_dashboard_hero_image_url;
+        setProHeroImageUrl(typeof proHero === 'string' && proHero.trim() !== '' ? proHero.trim() : null);
         setAppEmbeds(embeds);
         if (raw == null) {
           setCustomTheme(null);
@@ -180,6 +187,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
           setCustomTheme(null);
           setAppEmbeds([]);
           setCompanyLogoUrl(null);
+          setProHeroImageUrl(null);
           setAdminNav([]);
           setLayoutKind('classic');
         }
@@ -194,11 +202,21 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     return themeToCssVars(customTheme.theme);
   }, [layoutKind, customTheme]);
 
-  const heroSectionSettings = useMemo(() => {
-    if (!customTheme) return null;
-    const sec = customTheme.sections.find((s) => s.type === 'default_hero');
-    return sec?.settings ?? null;
-  }, [customTheme]);
+  /** Theme default_hero settings, merged with Pro → Customize hero when the theme has no storefront hero image */
+  const heroSettingsResolved = useMemo(() => {
+    const secSettings = customTheme
+      ? customTheme.sections.find((s) => s.type === 'default_hero')?.settings
+      : undefined;
+    const raw = (secSettings && typeof secSettings === 'object' ? { ...secSettings } : {}) as Record<string, unknown>;
+    const merged = mergeDefaultHeroSettings(raw);
+    if (!merged.backgroundImageUrl && proHeroImageUrl) {
+      return { ...raw, backgroundImageUrl: proHeroImageUrl };
+    }
+    if (Object.keys(raw).length === 0 && !proHeroImageUrl) {
+      return null;
+    }
+    return raw;
+  }, [customTheme, proHeroImageUrl]);
 
   if (!effectiveSlug) {
     return (
@@ -215,7 +233,11 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <main className="min-h-screen bg-gray-50">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <div className="flex min-h-[50vh] items-center justify-center text-sm text-gray-500">Loading storefront…</div>
+        {/* Coupon strip + API need the store slug; this block used to hide the whole home (no promo) until branding finished */}
+        <CouponPromoSection storeSlug={effectiveSlug} />
+        <div className="flex min-h-[40vh] items-center justify-center border-t border-gray-100 bg-white text-sm text-gray-500">
+          Loading storefront…
+        </div>
         <Footer />
       </main>
     );
@@ -226,7 +248,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <main className="min-h-screen bg-white">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSectionSettings} />
+        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
         <Footer />
       </main>
     );
@@ -237,7 +259,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <main className="min-h-screen bg-white">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSectionSettings} />
+        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
         <Footer />
       </main>
     );
@@ -253,7 +275,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <main className="min-h-screen" style={themeToCssVars(customTheme.theme)}>
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSectionSettings} />
+        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
         <Footer />
       </main>
     );

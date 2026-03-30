@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
 import ProductImage from '@/components/ProductImage';
 import type { StorefrontProduct } from '@/lib/storefrontApi';
-import { formatCategoryLabel } from '@/lib/categories';
+import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
 
 interface CategoryProductsProps {
   products?: StorefrontProduct[];
@@ -24,7 +24,9 @@ export default function CategoryProducts({ products: propProducts, loading: prop
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(p);
     });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return Array.from(map.entries())
+      .filter(([cat]) => !isCategoryHiddenFromStorefrontBrowse(cat))
+      .sort((a, b) => a[0].localeCompare(b[0]));
   }, [products]);
 
   const firstCategory = byCategory[0]?.[0] ?? '';

@@ -175,7 +175,14 @@ export function ProHomeCustomizePanel({ token, store, onSaved }: Props) {
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">Hero background</label>
-            <p className="text-[11px] text-gray-500 mb-3">Full-width banner behind the hero text. Optional.</p>
+            <p className="text-[11px] text-gray-500 mb-3">
+              Shown on the Pro dashboard and on your public store home when the{' '}
+              <Link href="/admin/theme" className="font-medium text-mint hover:text-mint-dark">
+                Theme editor
+              </Link>{' '}
+              marketplace hero has no custom background. Click <span className="font-medium text-gray-700">Save</span>{' '}
+              below after uploading.
+            </p>
             <input
               ref={heroInputRef}
               type="file"

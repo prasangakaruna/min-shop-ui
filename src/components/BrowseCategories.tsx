@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
-import { formatCategoryLabel } from '@/lib/categories';
+import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
 
 const CATEGORY_IMAGES: Record<string, string> = {
   vehicles: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
@@ -39,6 +39,7 @@ function deriveCategoriesFromProducts(
     map.set(cat, (map.get(cat) ?? 0) + 1);
   });
   return Array.from(map.entries())
+    .filter(([rawId]) => !isCategoryHiddenFromStorefrontBrowse(rawId))
     .map(([rawId, count]) => ({
       title: formatCategoryLabel(rawId),
       // keep the original ID in the query so the backend filter still works
