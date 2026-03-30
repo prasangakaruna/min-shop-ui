@@ -4,10 +4,13 @@ import React, { useCallback, useRef, useState } from 'react';
 import { NodeSelection } from '@tiptap/pm/state';
 import { BubbleMenu, EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import Color from '@tiptap/extension-color';
+import FontFamily from '@tiptap/extension-font-family';
 import TiptapImage from '@tiptap/extension-image';
 import TiptapLink from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
+import TextStyle from '@tiptap/extension-text-style';
 import Underline from '@tiptap/extension-underline';
 
 const IMAGE_SIZE_STEPS = [null, 'sm', 'md', 'lg', 'full'] as const;
@@ -28,6 +31,28 @@ const IMAGE_SIZE_LABEL: Record<string, string> = {
   lg: 'Large',
   full: 'Full width',
 };
+
+const TEXT_COLOR_PRESETS: { title: string; hex: string }[] = [
+  { title: 'Gray', hex: '#4b5563' },
+  { title: 'Mint', hex: '#0d9488' },
+  { title: 'Blue', hex: '#2563eb' },
+  { title: 'Red', hex: '#dc2626' },
+  { title: 'Amber', hex: '#d97706' },
+];
+
+const CMS_FONT_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Default', value: '' },
+  { label: 'Serif', value: 'Georgia, "Times New Roman", Times, serif' },
+  {
+    label: 'Sans',
+    value: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+  { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+  {
+    label: 'Mono',
+    value: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+  },
+];
 
 /** Block images: alignment + width presets (data-* survives save + sanitizer). */
 const ImageWithAlign = TiptapImage.extend({
@@ -113,6 +138,9 @@ export default function PageRichTextEditor({ initialHtml, onChange, placeholder,
         heading: { levels: [2, 3, 4] },
       }),
       Underline,
+      TextStyle,
+      Color.configure({ types: ['textStyle'] }),
+      FontFamily.configure({ types: ['textStyle'] }),
       TextAlign.configure({
         types: ['heading', 'paragraph', 'blockquote'],
         alignments: ['left', 'center', 'right'],
@@ -231,6 +259,28 @@ export default function PageRichTextEditor({ initialHtml, onChange, placeholder,
     },
   });
 
+  const textStyleAttrs = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => {
+      if (!ed) {
+        return { color: null as string | null, fontFamily: null as string | null };
+      }
+      const a = ed.getAttributes('textStyle') as { color?: string | null; fontFamily?: string | null };
+      return {
+        color: a.color ?? null,
+        fontFamily: a.fontFamily ?? null,
+      };
+    },
+  });
+
+  const colorPickerValue =
+    textStyleAttrs?.color && /^#[0-9A-Fa-f]{6}$/i.test(textStyleAttrs.color) ? textStyleAttrs.color : '#111827';
+  const fontSelectValue =
+    textStyleAttrs?.fontFamily &&
+    CMS_FONT_OPTIONS.some((o) => o.value === textStyleAttrs.fontFamily)
+      ? textStyleAttrs.fontFamily
+      : '';
+
   if (!editor) {
     return <div className="min-h-[320px] animate-pulse rounded-lg border border-gray-200 bg-gray-50" aria-hidden />;
   }
@@ -324,6 +374,52 @@ export default function PageRichTextEditor({ initialHtml, onChange, placeholder,
         <ToolbarButton title="Underline" onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')}>
           <span className="underline">U</span>
         </ToolbarButton>
+        <span className="mx-1 h-6 w-px bg-gray-300" />
+        <span className="text-xs font-medium text-gray-500">Color</span>
+        <label className="inline-flex cursor-pointer items-center rounded border border-gray-300 bg-white p-0.5 hover:bg-gray-50">
+          <span className="sr-only">Custom text color</span>
+          <input
+            type="color"
+            className="h-6 w-7 cursor-pointer border-0 bg-transparent p-0"
+            value={colorPickerValue}
+            onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+            title="Custom color"
+          />
+        </label>
+        {TEXT_COLOR_PRESETS.map((p) => (
+          <button
+            key={p.hex}
+            type="button"
+            title={p.title}
+            onClick={() => editor.chain().focus().setColor(p.hex).run()}
+            className="h-6 w-6 rounded border border-gray-200 shadow-sm ring-offset-1 hover:ring-2 hover:ring-gray-400"
+            style={{ backgroundColor: p.hex }}
+          />
+        ))}
+        <ToolbarButton title="Reset text color" onClick={() => editor.chain().focus().unsetColor().run()}>
+          Clr
+        </ToolbarButton>
+        <label className="ml-1 flex items-center gap-1 text-xs text-gray-600">
+          <span className="font-medium text-gray-500">Font</span>
+          <select
+            value={fontSelectValue}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === '') {
+                editor.chain().focus().unsetFontFamily().run();
+              } else {
+                editor.chain().focus().setFontFamily(v).run();
+              }
+            }}
+            className="max-w-[9.5rem] rounded border border-gray-300 bg-white py-1 pl-1 pr-6 text-xs text-gray-800"
+          >
+            {CMS_FONT_OPTIONS.map((o) => (
+              <option key={o.label} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <span className="mx-1 h-6 w-px bg-gray-300" />
         <ToolbarButton title="Bullet list" onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')}>
           • List
