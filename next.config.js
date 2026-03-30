@@ -12,6 +12,10 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'cdn.dummyjson.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'mint-market-dev.s3.eu-north-1.amazonaws.com',
       },
       {

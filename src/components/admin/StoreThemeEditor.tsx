@@ -116,6 +116,22 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
     setEmbedDraft(normalizeAppEmbeds(store.settings?.storefront_app_embeds));
   }, [store.id, store.settings?.storefront_app_embeds]);
 
+  const publishedThemeBaseline = useMemo(
+    () => mergeStorefrontHomeTheme(store.settings?.storefront_home ?? null),
+    [store.id, store.settings?.storefront_home]
+  );
+  const publishedEmbedsBaseline = useMemo(
+    () => normalizeAppEmbeds(store.settings?.storefront_app_embeds),
+    [store.id, store.settings?.storefront_app_embeds]
+  );
+
+  const isDirty = useMemo(() => {
+    return (
+      JSON.stringify(draft) !== JSON.stringify(publishedThemeBaseline) ||
+      JSON.stringify(embedDraft) !== JSON.stringify(publishedEmbedsBaseline)
+    );
+  }, [draft, embedDraft, publishedThemeBaseline, publishedEmbedsBaseline]);
+
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) setAddMenuOpen(false);
@@ -284,24 +300,23 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
   const storefrontUrl = `/?store=${encodeURIComponent(store.slug)}`;
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-8rem)] bg-gray-100 rounded-2xl border border-gray-200 overflow-hidden">
-      {/* Top bar — tabs + device / undo / help + live + save */}
+    <div className="flex flex-col min-h-[calc(100vh-8rem)] bg-[#f0f0f1] rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+      {/* Top bar — WordPress Customizer–style: title, preview devices, publish */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 bg-white border-b border-gray-200">
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
-            {(['sections', 'theme', 'embeds'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition ${
-                  tab === t ? 'bg-white text-mint shadow-sm ring-1 ring-gray-200/80' : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {t === 'sections' ? 'Sections' : t === 'theme' ? 'Theme Settings' : 'App Embeds'}
-              </button>
-            ))}
+        <div className="flex items-center gap-3 flex-wrap min-w-0">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-gray-900 truncate">Customize: {store.name}</h2>
+            <p className="text-[11px] text-gray-500 hidden sm:block">You are customizing your storefront theme. Changes apply after you publish.</p>
           </div>
+          {isDirty ? (
+            <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900 border border-amber-200/80">
+              Unsaved changes
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600 border border-gray-200">
+              Published
+            </span>
+          )}
           <div className="hidden sm:flex items-center gap-0.5 rounded-lg border border-gray-200 bg-white p-0.5">
             <button
               type="button"
@@ -355,48 +370,58 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400 hidden md:inline">Live Preview</span>
           <a
             href={storefrontUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-medium text-gray-600 hover:text-mint"
           >
-            Open storefront
+            Open site in new tab
           </a>
           <button
             type="button"
             onClick={save}
             disabled={saving}
-            className="rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-mint-dark disabled:opacity-50"
+            className="rounded-lg bg-mint px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-mint-dark disabled:opacity-50"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? 'Publishing…' : 'Publish'}
           </button>
         </div>
       </div>
 
       {error && <div className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
-      <div className="mx-4 mt-2 mb-1 flex flex-wrap items-start gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-[11px] leading-snug text-gray-600">
-        <span className="font-semibold text-gray-800 shrink-0">Default theme</span>
-        <span>
-          <span className="text-mint font-medium">{BUILTIN_THEME_PRESETS[0].name}</span> — {BUILTIN_THEME_PRESETS[0].description}
-        </span>
-        {isMintMarketplaceLayout ? (
-          <span className="ml-auto shrink-0 rounded-full bg-mint/15 px-2 py-0.5 text-[10px] font-semibold text-mint">Matches default</span>
-        ) : (
-          <span className="ml-auto shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500">Custom</span>
-        )}
-      </div>
-
       {helpOpen && (
         <HelpModal onClose={() => setHelpOpen(false)} />
       )}
 
       <div className="flex flex-1 min-h-0">
-        {/* Left — sections (always visible; matches Shopify-style editor) */}
-        <aside className="w-64 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
-            <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100">
+        {/* Left — WordPress Customizer–style: panels + options */}
+        <aside className="w-full max-w-[440px] shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
+          <div className="shrink-0 border-b border-gray-200 bg-[#f6f7f7] px-2 py-2">
+            <div className="flex gap-0.5 rounded-lg bg-white/90 p-0.5 border border-gray-200/80 shadow-sm">
+              {(['sections', 'theme', 'embeds'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setTab(t)}
+                  className={`flex-1 px-2 py-2 text-xs font-medium rounded-md transition ${
+                    tab === t ? 'bg-white text-mint shadow-sm ring-1 ring-gray-200/80' : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {t === 'sections' ? 'Home sections' : t === 'theme' ? 'Colors & fonts' : 'App embeds'}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 px-1 text-[10px] text-gray-500 leading-snug">
+              <span className="font-medium text-gray-700">{BUILTIN_THEME_PRESETS[0].name}</span>
+              {isMintMarketplaceLayout ? ' · Default layout' : ' · Custom layout'}
+            </p>
+          </div>
+
+          {tab === 'sections' && (
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 shrink-0">
               <span className="text-[11px] font-semibold tracking-[0.2em] text-gray-400 uppercase">Sections</span>
               <div className="relative" ref={addMenuRef}>
                 <button
@@ -423,7 +448,7 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                 )}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto py-2 space-y-1 px-2 min-h-0">
+            <div className="max-h-[min(260px,36vh)] overflow-y-auto py-2 space-y-1 px-2 shrink-0 border-b border-gray-100 bg-white">
               {draft.sections.map((s) => {
                 const label = SECTION_CATALOG.find((c) => c.type === s.type)?.label ?? s.type;
                 const active = selectedId === s.id;
@@ -513,182 +538,73 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                 Reset to compact showcase template
               </button>
             </div>
-            <EditorTip />
-          </aside>
-
-        {/* Center — preview */}
-        <div className="flex-1 flex flex-col items-center justify-start bg-gradient-to-b from-gray-200/90 to-gray-300/80 overflow-y-auto py-6 px-4 min-h-0">
-          <p className="text-xs text-gray-500 mb-3">
-            {previewDevice === 'mobile' ? 'Mobile' : 'Desktop'} preview · draft styles
-          </p>
-          <div
-            className={`shadow-2xl overflow-hidden bg-white border border-gray-300/80 transition-all duration-200 ${
-              previewDevice === 'mobile'
-                ? 'w-[min(100%,360px)] rounded-[2rem] border-8 border-gray-800'
-                : 'w-full max-w-4xl rounded-lg border border-gray-200'
-            }`}
-            style={{ ...previewStyle, fontFamily: draft.theme.fontBody }}
-          >
-            <div className="h-8 bg-gray-100 flex items-center justify-center gap-2 text-[10px] text-gray-400 border-b border-gray-200">
-              <span className="rounded-full w-2 h-2 bg-gray-300" />
-              <span>
-                {previewDevice === 'mobile' ? 'mint.app' : 'storefront'} · {store.slug}
-              </span>
-            </div>
-            <div className={previewDevice === 'desktop' ? 'max-h-[560px] overflow-y-auto' : 'max-h-[520px] overflow-y-auto'}>
-              {draft.sections
-                .filter((s) => s.enabled !== false)
-                .slice(0, 8)
-                .map((s) => (
-                  <PreviewBlock key={s.id} section={s} theme={draft.theme} device={previewDevice} />
-                ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right — settings */}
-        <aside className="w-80 shrink-0 border-l border-gray-200 bg-white overflow-y-auto min-h-0">
-          {tab === 'embeds' && (
-            <div className="p-5 space-y-4 text-sm text-gray-600">
-              <div>
-                <p className="font-medium text-gray-900 mb-1">App embeds</p>
-                <p className="text-xs leading-relaxed">
-                  Add HTTPS JavaScript URLs (e.g. analytics or chat loaders). Scripts load on your public store home after the page becomes interactive.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setEmbedDraft((rows) => [
-                    ...rows,
-                    { id: newSectionId(), name: 'New embed', script_url: null, enabled: true },
-                  ])
-                }
-                className="w-full rounded-lg border border-gray-200 bg-white py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50"
-              >
-                Add embed
-              </button>
-              <ul className="space-y-4">
-                {embedDraft.map((row, idx) => (
-                  <li key={row.id} className="rounded-xl border border-gray-200 p-3 space-y-2 bg-gray-50/80">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-gray-500">Embed {idx + 1}</span>
-                      <button
-                        type="button"
-                        onClick={() => setEmbedDraft((rows) => rows.filter((r) => r.id !== row.id))}
-                        className="text-xs text-red-600 hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <label className="block text-xs font-medium text-gray-700">Label</label>
+            <div className="flex-1 overflow-y-auto min-h-0 border-t border-gray-100 bg-white">
+              {selected && (
+                <div className="p-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Section settings</h3>
+                  <label className="flex items-center gap-2 text-sm">
                     <input
-                      type="text"
-                      value={row.name}
-                      onChange={(e) =>
-                        setEmbedDraft((rows) =>
-                          rows.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r))
-                        )
-                      }
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
-                      placeholder="e.g. Analytics"
+                      type="checkbox"
+                      checked={selected.enabled !== false}
+                      onChange={(e) => updateSection(selected.id, { enabled: e.target.checked })}
                     />
-                    <label className="block text-xs font-medium text-gray-700">Script URL (https)</label>
-                    <input
-                      type="url"
-                      value={row.script_url ?? ''}
-                      onChange={(e) =>
-                        setEmbedDraft((rows) =>
-                          rows.map((r) => (r.id === row.id ? { ...r, script_url: e.target.value || null } : r))
-                        )
-                      }
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono bg-white"
-                      placeholder="https://cdn.example.com/loader.js"
-                      inputMode="url"
-                      autoComplete="off"
-                    />
-                    <label className="flex items-center gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={row.enabled !== false}
-                        onChange={(e) =>
-                          setEmbedDraft((rows) =>
-                            rows.map((r) => (r.id === row.id ? { ...r, enabled: e.target.checked } : r))
-                          )
-                        }
+                    Visible on storefront
+                  </label>
+                  {selected.type === 'announcement_bar' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Banner text</label>
+                      <textarea
+                        value={typeof selected.settings?.text === 'string' ? selected.settings.text : ''}
+                        onChange={(e) => updateSection(selected.id, { settings: { text: e.target.value } })}
+                        rows={3}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="FREE SHIPPING…"
                       />
-                      Enabled on storefront
-                    </label>
-                  </li>
-                ))}
-              </ul>
-              {embedDraft.length === 0 ? (
-                <p className="text-xs text-gray-500">No embeds yet. Add one to inject a third-party script on <code className="text-[11px] bg-gray-100 px-1 rounded">/?store=…</code>.</p>
-              ) : null}
-            </div>
-          )}
-
-          {tab === 'sections' && selected && (
-            <div className="p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-gray-900">Section</h3>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.enabled !== false}
-                  onChange={(e) => updateSection(selected.id, { enabled: e.target.checked })}
-                />
-                Visible on storefront
-              </label>
-              {selected.type === 'announcement_bar' && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Banner text</label>
-                  <textarea
-                    value={typeof selected.settings?.text === 'string' ? selected.settings.text : ''}
-                    onChange={(e) => updateSection(selected.id, { settings: { text: e.target.value } })}
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                    placeholder="FREE SHIPPING…"
-                  />
+                    </div>
+                  )}
+                  {selected.type === 'video_hero' && (
+                    <div className="space-y-3 text-xs text-gray-600">
+                      <p>
+                        <span className="font-medium text-gray-800">Video Hero</span> uses your theme colors and shows a featured story block on the home page.
+                      </p>
+                      <label className="block text-xs font-medium text-gray-700">Eyebrow</label>
+                      <input
+                        type="text"
+                        defaultValue="Featured"
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        readOnly
+                      />
+                    </div>
+                  )}
+                  {selected.type === 'default_hero' && (
+                    <DefaultHeroSectionEditor selected={selected} updateSection={updateSection} />
+                  )}
+                  {selected.type !== 'announcement_bar' &&
+                    selected.type !== 'video_hero' &&
+                    selected.type !== 'default_hero' && (
+                      <p className="text-xs text-gray-500">Fine-grained controls for this block type can be extended here (copy, images, links).</p>
+                    )}
                 </div>
               )}
-              {selected.type === 'video_hero' && (
-                <div className="space-y-3 text-xs text-gray-600">
-                  <p>
-                    <span className="font-medium text-gray-800">Video Hero</span> uses your theme colors and shows a featured story block on the home page.
-                  </p>
-                  <label className="block text-xs font-medium text-gray-700">Eyebrow</label>
-                  <input
-                    type="text"
-                    defaultValue="Featured"
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                    readOnly
-                  />
+              {!selected && (
+                <div className="p-4 text-sm text-gray-500">
+                  Select a section in the list to edit it, or open <span className="font-medium">Colors & fonts</span>.
                 </div>
               )}
-              {selected.type === 'default_hero' && (
-                <DefaultHeroSectionEditor selected={selected} updateSection={updateSection} />
-              )}
-              {selected.type !== 'announcement_bar' &&
-                selected.type !== 'video_hero' &&
-                selected.type !== 'default_hero' && (
-                  <p className="text-xs text-gray-500">Fine-grained controls for this block type can be extended here (copy, images, links).</p>
-                )}
             </div>
-          )}
-
-          {tab === 'sections' && !selected && (
-            <div className="p-5 text-sm text-gray-500">Select a section in the list, or switch to Theme Settings.</div>
+            <EditorTip />
+            </div>
           )}
 
           {tab === 'theme' && (
-            <div className="p-5 space-y-6">
+            <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-6 border-t border-gray-100">
               <a
                 href={storefrontUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex w-full items-center justify-center rounded-xl border-2 border-gray-200 py-3 text-sm font-semibold text-gray-800 hover:border-mint/50 hover:bg-mint/5"
               >
-                View storefront
+                View live storefront
               </a>
 
               <div>
@@ -833,7 +749,130 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
               <p className="text-[11px] text-gray-400 text-center">Harmonizes accent and secondary from your primary palette.</p>
             </div>
           )}
+
+          {tab === 'embeds' && (
+            <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-4 text-sm text-gray-600 border-t border-gray-100">
+              <div>
+                <p className="font-medium text-gray-900 mb-1">App embeds</p>
+                <p className="text-xs leading-relaxed">
+                  Add HTTPS JavaScript URLs (e.g. analytics or chat loaders). Scripts load on your public store home after the page becomes interactive.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setEmbedDraft((rows) => [
+                    ...rows,
+                    { id: newSectionId(), name: 'New embed', script_url: null, enabled: true },
+                  ])
+                }
+                className="w-full rounded-lg border border-gray-200 bg-white py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50"
+              >
+                Add embed
+              </button>
+              <ul className="space-y-4">
+                {embedDraft.map((row, idx) => (
+                  <li key={row.id} className="rounded-xl border border-gray-200 p-3 space-y-2 bg-gray-50/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-gray-500">Embed {idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEmbedDraft((rows) => rows.filter((r) => r.id !== row.id))}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <label className="block text-xs font-medium text-gray-700">Label</label>
+                    <input
+                      type="text"
+                      value={row.name}
+                      onChange={(e) =>
+                        setEmbedDraft((rows) =>
+                          rows.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r))
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+                      placeholder="e.g. Analytics"
+                    />
+                    <label className="block text-xs font-medium text-gray-700">Script URL (https)</label>
+                    <input
+                      type="url"
+                      value={row.script_url ?? ''}
+                      onChange={(e) =>
+                        setEmbedDraft((rows) =>
+                          rows.map((r) => (r.id === row.id ? { ...r, script_url: e.target.value || null } : r))
+                        )
+                      }
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono bg-white"
+                      placeholder="https://cdn.example.com/loader.js"
+                      inputMode="url"
+                      autoComplete="off"
+                    />
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={row.enabled !== false}
+                        onChange={(e) =>
+                          setEmbedDraft((rows) =>
+                            rows.map((r) => (r.id === row.id ? { ...r, enabled: e.target.checked } : r))
+                          )
+                        }
+                      />
+                      Enabled on storefront
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              {embedDraft.length === 0 ? (
+                <p className="text-xs text-gray-500">No embeds yet. Add one to inject a third-party script on <code className="text-[11px] bg-gray-100 px-1 rounded">/?store=…</code>.</p>
+              ) : null}
+            </div>
+          )}
         </aside>
+
+        {/* Live preview (WordPress Customizer–style: controls left, site right) */}
+        <div className="flex-1 flex flex-col min-h-0 bg-[#cfcfcf] border-l border-gray-400/40">
+          <div className="shrink-0 px-4 py-2.5 bg-[#dcdcde] border-b border-gray-400/35 text-[11px] text-gray-800">
+            <span className="font-semibold">Live preview</span>
+            <span className="text-gray-600"> — changes appear here as you edit. Use </span>
+            <span className="font-semibold">Publish</span>
+            <span className="text-gray-600"> to make them visible to shoppers.</span>
+          </div>
+          <div className="flex-1 flex flex-col items-center overflow-y-auto py-6 px-4 min-h-0">
+            <p className="text-xs text-gray-600 mb-3">
+              {previewDevice === 'mobile' ? 'Mobile' : 'Desktop'} · draft (not public until published)
+            </p>
+            <div
+              className={`shadow-2xl overflow-hidden bg-white border border-gray-300/80 transition-all duration-200 ${
+                previewDevice === 'mobile'
+                  ? 'w-[min(100%,360px)] rounded-[2rem] border-8 border-gray-800'
+                  : 'w-full max-w-5xl rounded-lg border border-gray-200'
+              }`}
+              style={{ ...previewStyle, fontFamily: draft.theme.fontBody }}
+            >
+              <div className="h-8 bg-gray-100 flex items-center justify-center gap-2 text-[10px] text-gray-400 border-b border-gray-200">
+                <span className="rounded-full w-2 h-2 bg-gray-300" />
+                <span>
+                  {previewDevice === 'mobile' ? 'mint.app' : 'storefront'} · {store.slug}
+                </span>
+              </div>
+              <div
+                className={
+                  previewDevice === 'desktop'
+                    ? 'max-h-[min(720px,calc(100vh-13rem))] overflow-y-auto'
+                    : 'max-h-[min(580px,calc(100vh-15rem))] overflow-y-auto'
+                }
+              >
+                {draft.sections
+                  .filter((s) => s.enabled !== false)
+                  .map((s) => (
+                    <PreviewBlock key={s.id} section={s} theme={draft.theme} device={previewDevice} />
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -882,7 +921,7 @@ function DefaultHeroSectionEditor({
   return (
     <div className="space-y-4 text-sm">
       <p className="text-xs text-gray-600 leading-relaxed">
-        Headline, search, and hero background. Accent colors come from the <span className="font-medium text-gray-800">Theme Settings</span> tab.
+        Headline, search, and hero background. Accent colors come from <span className="font-medium text-gray-800">Colors & fonts</span>.
       </p>
       <label className="block text-xs font-medium text-gray-700">Badge</label>
       <input
@@ -1027,16 +1066,19 @@ function HelpModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-gray-200" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Theme editor help</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">Customizer help</h2>
         <ul className="text-sm text-gray-600 space-y-2 list-disc pl-5">
           <li>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘Z</kbd> / <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Ctrl+Z</kbd> undo
+            Like WordPress: <span className="font-medium">Home sections</span>, <span className="font-medium">Colors & fonts</span>, and <span className="font-medium">App embeds</span> are in the left panel; the large area on the right is a live draft preview.
           </li>
           <li>
-            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘⇧Z</kbd> / <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Ctrl+Shift+Z</kbd> redo
+            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘Z</kbd> / <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">Ctrl+Z</kbd> undo ·{' '}
+            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">⌘⇧Z</kbd> redo
           </li>
-          <li>Drag sections by the grip (⋮⋮) to reorder, or use ↑ ↓.</li>
-          <li>Use <span className="font-medium">Save</span> to publish changes to your live storefront.</li>
+          <li>Drag sections by ⋮⋮ to reorder, or use ↑ ↓.</li>
+          <li>
+            Click <span className="font-medium">Publish</span> when you are ready — until then, the live site keeps the last published version.
+          </li>
         </ul>
         <button
           type="button"
