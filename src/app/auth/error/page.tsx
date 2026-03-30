@@ -43,6 +43,42 @@ export default async function AuthErrorPage({
             : 'An error occurred during sign-in. Please try again.'}
         </p>
 
+        {isConfiguration && (
+          <p className="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md p-3">
+            <strong>Why it only says &quot;Configuration&quot;:</strong> Auth.js hides the real error in the URL. Open the{' '}
+            <strong>terminal where you run</strong> <code className="bg-gray-200 px-1 rounded">next dev</code> and look for the
+            latest <code className="bg-gray-200 px-1 rounded">[auth]</code> log line, <code className="bg-gray-200 px-1 rounded">OAuth</code>,{' '}
+            <code className="bg-gray-200 px-1 rounded">CallbackRouteError</code>, or stack trace—that message is the actual cause.
+          </p>
+        )}
+
+        {isConfiguration && isLocal && (
+          <div className="mb-4 p-4 bg-sky-50 border border-sky-200 rounded-md text-left">
+            <p className="font-semibold text-sky-900 mb-2">Local development (localhost:3000)</p>
+            <ul className="list-disc list-inside text-sm text-sky-900 space-y-1">
+              <li>
+                <strong>Keycloak must match <code className="bg-sky-100 px-1 rounded">KEYCLOAK_ISSUER</code></strong> — If it points to{' '}
+                <code className="bg-sky-100 px-1 rounded">http://localhost:9091/realms/...</code>, run Keycloak locally (or change the issuer to a
+                reachable server).
+              </li>
+              <li>
+                In that Keycloak client, add{' '}
+                <code className="bg-sky-100 px-1 rounded">http://localhost:3000/api/auth/callback/keycloak</code> under{' '}
+                <strong>Valid redirect URIs</strong>.
+              </li>
+              <li>
+                If your <code className="bg-sky-100 px-1 rounded">.env</code> still has{' '}
+                <code className="bg-sky-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN=https://mint-shop.pro</code> from production, Keycloak will
+                send the browser to the <strong>production</strong> callback after login—not localhost. Remove that variable for local Keycloak, or
+                add the same production callback URI in Keycloak and accept testing against the deployed site.
+              </li>
+              <li>
+                Confidential client: <code className="bg-sky-100 px-1 rounded">KEYCLOAK_CLIENT_SECRET</code> in <code className="bg-sky-100 px-1 rounded">.env</code> must match Keycloak exactly.
+              </li>
+            </ul>
+          </div>
+        )}
+
         {isConfiguration && nextAuthUrlBreaksTenantOAuth && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-left">
             <p className="font-semibold text-red-900 mb-1">Likely fix: unset NEXTAUTH_URL (and AUTH_URL)</p>

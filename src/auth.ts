@@ -97,6 +97,19 @@ function hostAllowedForRedirect(url: string, baseUrl: string): boolean {
   }
 }
 
+/** Browser on https://localhost:3000 while NextAuth infers http://localhost:3000 → origins differ; default redirect would send users to `/` instead of `/auth/after-login`. */
+function localhostSameHostIgnoreScheme(url: string, baseUrl: string): boolean {
+  try {
+    const u = new URL(url);
+    const b = new URL(baseUrl);
+    const local = (h: string) => h === 'localhost' || h === '127.0.0.1';
+    if (!local(u.hostname) || !local(b.hostname)) return false;
+    return u.hostname === b.hostname && u.port === b.port;
+  } catch {
+    return false;
+  }
+}
+
 function crossSubdomainCookieOptions(): Record<
   string,
   { name?: string; options: { domain: string; path: string; secure?: boolean; sameSite?: 'lax' | 'strict' | 'none' } }
@@ -177,6 +190,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async redirect({ url, baseUrl }) {
       if (url.startsWith('/')) return `${baseUrl}${url}`;
       if (hostAllowedForRedirect(url, baseUrl)) return url;
+      if (localhostSameHostIgnoreScheme(url, baseUrl)) return url;
       return baseUrl;
     },
     async jwt({ token, account }) {

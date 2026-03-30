@@ -9,7 +9,8 @@ import { signIn } from 'next-auth/react';
 import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
 
 export default function LoginPage() {
-  const [callbackUrl, setCallbackUrl] = useState('/auth/after-login');
+  const [callbackUrl, setCallbackUrl] = useState('');
+  const [callbackReady, setCallbackReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -22,23 +23,29 @@ export default function LoginPage() {
       const cb = url.searchParams.get('callbackUrl');
       if (!cb) {
         setCallbackUrl(defaultAfterLogin);
+        setCallbackReady(true);
         return;
       }
       if (cb.startsWith('http://') || cb.startsWith('https://')) {
         setCallbackUrl(cb);
+        setCallbackReady(true);
         return;
       }
       if (cb.startsWith('/')) {
         setCallbackUrl(`${origin}${cb}`);
+        setCallbackReady(true);
         return;
       }
       setCallbackUrl(defaultAfterLogin);
+      setCallbackReady(true);
     } catch {
       setCallbackUrl(defaultAfterLogin);
+      setCallbackReady(true);
     }
   }, []);
 
   const handleKeycloakLogin = () => {
+    if (!callbackUrl) return;
     setIsLoading(true);
     setError('');
     signIn('keycloak', { callbackUrl, redirect: true }).finally(() => setIsLoading(false));
@@ -77,7 +84,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={handleKeycloakLogin}
-              disabled={isLoading}
+              disabled={isLoading || !callbackReady || !callbackUrl}
               className="w-full bg-mint text-white py-3 rounded-lg font-semibold hover:bg-mint-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isLoading ? (
