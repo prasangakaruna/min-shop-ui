@@ -26,6 +26,12 @@ export default async function AuthErrorPage({
     host && !isLocal ? `${scheme}://${host}` : host && isLocal ? `${scheme}://${host}` : envBase;
   const callbackUrlThisHost = `${origin}/api/auth/callback/keycloak`;
   const callbackUrlApex = apexRedirect ? `${apexRedirect}/api/auth/callback/keycloak` : '';
+  const canonicalAuthEnv = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim();
+  const redirectProxyConfigured = !!(
+    process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.trim()
+  );
+  const nextAuthUrlBreaksTenantOAuth = !!(canonicalAuthEnv && redirectProxyConfigured);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -36,6 +42,26 @@ export default async function AuthErrorPage({
             ? 'There is a problem with the server configuration. This often happens after registering or logging in with Keycloak when the callback fails.'
             : 'An error occurred during sign-in. Please try again.'}
         </p>
+
+        {isConfiguration && nextAuthUrlBreaksTenantOAuth && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-left">
+            <p className="font-semibold text-red-900 mb-1">Likely fix: unset NEXTAUTH_URL (and AUTH_URL)</p>
+            <p className="text-sm text-red-800">
+              You have <code className="bg-red-100 px-1 rounded">NEXTAUTH_URL</code> or{' '}
+              <code className="bg-red-100 px-1 rounded">AUTH_URL</code> set <em>and</em> apex Keycloak redirect (
+              <code className="bg-red-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> / root domain). NextAuth
+              then rewrites every auth request to that apex URL, but the browser still uses your store subdomain for
+              cookies—so after Keycloak sends users to <code className="bg-red-100 px-1 rounded">mint-shop.pro</code>,
+              the PKCE cookie is missing and sign-in fails.
+            </p>
+            <p className="text-sm text-red-800 mt-2">
+              <strong>Do this:</strong> remove <code className="bg-red-100 px-1 rounded">NEXTAUTH_URL</code> and{' '}
+              <code className="bg-red-100 px-1 rounded">AUTH_URL</code> from production env, keep{' '}
+              <code className="bg-red-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code>, add{' '}
+              <code className="bg-red-100 px-1 rounded">AUTH_TRUST_HOST=true</code>, redeploy.
+            </p>
+          </div>
+        )}
 
         {isConfiguration && (
           <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md text-left">
@@ -82,10 +108,12 @@ export default async function AuthErrorPage({
                 <strong>Client type</strong> — If the client is <strong>Public</strong>, leave <code className="bg-amber-100 px-1 rounded">KEYCLOAK_CLIENT_SECRET</code> empty in <code className="bg-amber-100 px-1 rounded">.env</code>. If it is <strong>Confidential</strong>, set the client secret.
               </li>
               <li>
-                <strong>AUTH_URL</strong> — For multi-tenant subdomains, <strong>omit</strong> <code className="bg-amber-100 px-1 rounded">AUTH_URL</code>{' '}
-                (next-auth would rewrite the host and break apex-only OAuth). Use{' '}
-                <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> instead. Set{' '}
-                <code className="bg-amber-100 px-1 rounded">AUTH_TRUST_HOST=true</code> in production if the host header must be trusted.
+                <strong>NEXTAUTH_URL / AUTH_URL</strong> — For store subdomains with{' '}
+                <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code>, <strong>omit both</strong>{' '}
+                in production (they rewrite the host and break PKCE on the apex callback). Use{' '}
+                <code className="bg-amber-100 px-1 rounded">AUTH_TRUST_HOST=true</code> behind your reverse proxy. Local dev
+                can keep <code className="bg-amber-100 px-1 rounded">NEXTAUTH_URL=http://localhost:3000</code> only if you are
+                not using the apex redirect on localhost.
               </li>
               <li>
                 <strong>AUTH_SECRET</strong> — Must be set in production (e.g. <code className="bg-amber-100 px-1 rounded">openssl rand -base64 32</code>

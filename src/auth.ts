@@ -68,6 +68,19 @@ const keycloakRedirectOrigin = resolveKeycloakRedirectOrigin();
 const keycloakRedirectProxyBase =
   keycloakRedirectOrigin.length > 0 ? `${keycloakRedirectOrigin}/api/auth` : undefined;
 
+const canonicalAuthEnv = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim();
+if (
+  process.env.NODE_ENV === 'production' &&
+  canonicalAuthEnv &&
+  keycloakRedirectProxyBase
+) {
+  console.warn(
+    '[auth] Remove AUTH_URL / NEXTAUTH_URL in production when using AUTH_KEYCLOAK_REDIRECT_ORIGIN (or MINT_ROOT_DOMAIN) — ' +
+      'next-auth rewrites the request host to the apex, PKCE cookies stay on the store subdomain, and Keycloak callback on the apex fails. ' +
+      'Unset them and set AUTH_TRUST_HOST=true instead.'
+  );
+}
+
 /** Optional e.g. .mint-shop.pro — share session across *.mint-shop.pro (requires __Secure- CSRF name, not __Host-). */
 const authCookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
 
