@@ -16,6 +16,7 @@ import MarketplaceInsights from '@/components/MarketplaceInsights';
 import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import AnnouncementBar from '@/components/AnnouncementBar';
+import CouponPromoSection from '@/components/CouponPromoSection';
 import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
 import { storeSlugFromHostname } from '@/lib/storeSlug';
@@ -77,7 +78,7 @@ function renderSection(
     case 'new_arrivals':
       return wrap(<NewArrivals />);
     case 'multi_column':
-      return wrap(<WhyChooseUs />);
+      return wrap(<WhyChooseUs storeSlug={storeSlug} />);
     case 'image_with_text':
       return wrap(<SpecialOffers storeSlug={storeSlug} />);
     case 'user_levels':
@@ -106,6 +107,7 @@ function DefaultMarketplaceHome({
   return (
     <>
       <Hero settings={heroSettings ?? undefined} />
+      <CouponPromoSection storeSlug={storeSlug} />
       <div className="border-t border-gray-100" />
       <BrowseCategories />
       <CategoryProducts />
@@ -113,7 +115,7 @@ function DefaultMarketplaceHome({
       <FeaturedListings />
       <TopSellers />
       <NewArrivals />
-      <WhyChooseUs />
+      <WhyChooseUs storeSlug={storeSlug} />
       <UserLevels />
       <Testimonials />
       <MarketplaceInsights />

@@ -506,6 +506,11 @@ export interface StorefrontCart {
   lines: StorefrontCartLine[];
   lines_count: number;
   cart_token?: string;
+  /** Line totals before discount (API v2). */
+  subtotal?: string;
+  discount_total?: string;
+  total?: string;
+  coupon_code?: string | null;
 }
 
 export async function getStorefrontCart(storeId: number, cartToken?: string | null): Promise<StorefrontCart> {
@@ -600,6 +605,38 @@ export async function removeStorefrontCartLine(
   return data as StorefrontCart;
 }
 
+export async function applyStorefrontCoupon(storeId: number, code: string, cartToken?: string | null): Promise<StorefrontCart> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
+  const token = cartToken ?? getCartTokenForStore(storeId);
+  if (!token) throw new Error('Cart token required. Add something to your cart first.');
+  const res = await fetch(`${base}/storefront/cart/coupon`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store_id: storeId, code: code.trim(), cart_token: token }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.message as string) || res.statusText);
+  const out = data as StorefrontCart;
+  if (out.cart_token) setCartTokenForStore(storeId, out.cart_token);
+  return out;
+}
+
+export async function removeStorefrontCoupon(storeId: number, cartToken?: string | null): Promise<StorefrontCart> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
+  const token = cartToken ?? getCartTokenForStore(storeId);
+  if (!token) throw new Error('Cart token required');
+  const url = `${base}/storefront/cart/coupon?store_id=${storeId}&cart_token=${encodeURIComponent(token)}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json', 'X-Store-Id': String(storeId), 'X-Cart-Token': token },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.message as string) || res.statusText);
+  return data as StorefrontCart;
+}
+
 /** Fetch order by number for storefront (e.g. confirmation page). No auth. */
 export async function getStorefrontOrder(
   storeId: number,
@@ -656,6 +693,28 @@ export interface Customer {
 
 export interface CustomersResponse {
   data: Customer[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+/** Admin list: GET /store/gift-cards */
+export interface AdminGiftCard {
+  id: number;
+  store_id: number;
+  customer_id: number | null;
+  code: string;
+  initial_value: string;
+  balance: string;
+  currency: string;
+  expires_at: string | null;
+  note: string | null;
+  created_at: string | null;
+}
+
+export interface GiftCardsListResponse {
+  data: AdminGiftCard[];
   current_page: number;
   last_page: number;
   per_page: number;

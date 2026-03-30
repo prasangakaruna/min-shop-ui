@@ -14,6 +14,7 @@ import {
   buttonRadiusLabel,
   createDefaultSections,
   isMintMarketplaceSectionOrder,
+  DEFAULT_MARKETPLACE_HERO_IMAGE_URL,
   mergeDefaultHeroSettings,
   DEFAULT_HERO_SECTION_SETTINGS,
   type HeroSearchCategory,
@@ -964,12 +965,16 @@ function DefaultHeroSectionEditor({
         placeholder={DEFAULT_HERO_SECTION_SETTINGS.searchPlaceholder}
       />
       <label className="block text-xs font-medium text-gray-700">Hero background image URL</label>
+      <p className="text-[11px] text-gray-500 mb-1.5 leading-snug">
+        Leave empty to keep the default Mint marketplace hero (villa) for this layout. Paste or upload a URL to show
+        your own image on <span className="font-medium text-gray-700">this store only</span>.
+      </p>
       <input
         type="url"
         value={eff.backgroundImageUrl ?? ''}
         onChange={(e) => set({ backgroundImageUrl: e.target.value })}
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono"
-        placeholder="https://…"
+        placeholder="Empty = default marketplace hero"
       />
       <div>
         <div className="flex items-center justify-between mb-1">
@@ -1108,9 +1113,7 @@ function PreviewBlock({
 
   if (section.type === 'default_hero') {
     const hero = mergeDefaultHeroSettings(section.settings ?? null);
-    const bgUrl =
-      hero.backgroundImageUrl?.trim() ||
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80';
+    const bgUrl = hero.backgroundImageUrl?.trim() || DEFAULT_MARKETPLACE_HERO_IMAGE_URL;
     return (
       <div
         className={`${pad} bg-cover bg-center relative overflow-hidden`}

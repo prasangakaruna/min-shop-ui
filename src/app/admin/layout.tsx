@@ -39,6 +39,7 @@ const menuItems: MenuItem[] = [
       { href: '/admin/gift-cards', label: 'Gift cards' },
     ],
   },
+  { href: '/admin/coupons', label: 'Coupons', icon: '🎟️' },
   {
     href: '/admin/content',
     label: 'Content',
@@ -304,12 +305,25 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                           )
                         : pathname === targetHref ||
                           (targetHref !== '/admin' && pathname?.startsWith(targetHref));
+                    const anyChildActive =
+                      item.children?.some((child) => {
+                        if (item.href === '/admin/content') {
+                          return isContentChildActive(pathname, searchParams, child.href);
+                        }
+                        const base = child.href.split('?')[0];
+
+                        return (
+                          pathname === child.href ||
+                          pathname === base ||
+                          (base.length > 0 && pathname?.startsWith(`${base}/`))
+                        );
+                      }) ?? false;
                     const isExpanded =
                       expandedSections[item.href] !== undefined
                         ? expandedSections[item.href]
                         : item.href === '/admin/pro'
                           ? false
-                          : isActiveTop || !item.children;
+                          : isActiveTop || anyChildActive || !item.children;
 
                     if (item.href === '/admin/settings') {
                       return (

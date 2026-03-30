@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getImageDisplayUrl } from '@/lib/api';
 import {
+  DEFAULT_MARKETPLACE_HERO_IMAGE_URL,
   mergeDefaultHeroSettings,
   type HeroPopularLink,
 } from '@/lib/storefrontHomeTheme';
@@ -31,8 +32,8 @@ export default function Hero({ variant = 'default', settings }: HeroProps) {
   }, [searchCategories, selectedCategory]);
 
   const bgUrl = useMemo(() => {
-    const u = hero.backgroundImageUrl ?? '';
-    if (!u) return '';
+    const u = hero.backgroundImageUrl?.trim() ?? '';
+    if (!u) return DEFAULT_MARKETPLACE_HERO_IMAGE_URL;
     return getImageDisplayUrl(u);
   }, [hero.backgroundImageUrl]);
 
@@ -105,7 +106,7 @@ export default function Hero({ variant = 'default', settings }: HeroProps) {
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: `url("${(bgUrl || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80').replace(/"/g, '\\"')}")`,
+            backgroundImage: `url("${bgUrl.replace(/"/g, '\\"')}")`,
           }}
         />
 

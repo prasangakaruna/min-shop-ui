@@ -35,6 +35,19 @@ export type HeroSearchCategory = { value: string; label: string };
 /** Quick links under the hero search (“Popular”). */
 export type HeroPopularLink = { label: string; url: string };
 
+/** Default hero art for the marketplace and any store that has not set a custom hero image. */
+export const DEFAULT_MARKETPLACE_HERO_IMAGE_URL =
+  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80';
+
+const DEFAULT_MARKETPLACE_HERO_PHOTO_ID = 'photo-1600596542815-ffad4c1539a9';
+
+/** True if the URL is empty or points at the stock Mint marketplace villa image (not a store-specific upload). */
+export function isDefaultMarketplaceHeroImageUrl(url: string): boolean {
+  const t = url.trim().toLowerCase();
+  if (t === '') return true;
+  return t.includes(DEFAULT_MARKETPLACE_HERO_PHOTO_ID);
+}
+
 /**
  * Marketplace hero (`default_hero` section). Stored in section.settings JSON.
  * Theme colors come from storefront_home.theme (CSS variables on the page).
@@ -45,7 +58,7 @@ export type DefaultHeroSectionSettings = {
   headlineAccent?: string;
   description?: string;
   searchPlaceholder?: string;
-  /** Full-bleed background; https or app-relative path resolved like other media */
+  /** Store-only custom full-bleed background. Omit or leave empty to use {@link DEFAULT_MARKETPLACE_HERO_IMAGE_URL}. */
   backgroundImageUrl?: string;
   searchCategories?: HeroSearchCategory[];
   popularLinks?: HeroPopularLink[];
@@ -58,7 +71,6 @@ export const DEFAULT_HERO_SECTION_SETTINGS: DefaultHeroSectionSettings = {
   description:
     'The premier marketplace for high-value trade. Browse verified cars, luxury villas, and professional tech from trusted sellers.',
   searchPlaceholder: 'Search for cars, villas, electronics...',
-  backgroundImageUrl: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80',
   searchCategories: [
     { value: 'all', label: 'All Categories' },
     { value: 'vehicles', label: 'Vehicles' },
@@ -115,8 +127,12 @@ export function mergeDefaultHeroSettings(
   if (typeof raw.description === 'string' && raw.description.trim() !== '') base.description = raw.description.trim();
   if (typeof raw.searchPlaceholder === 'string' && raw.searchPlaceholder.trim() !== '')
     base.searchPlaceholder = raw.searchPlaceholder.trim();
-  if (typeof raw.backgroundImageUrl === 'string' && raw.backgroundImageUrl.trim() !== '')
-    base.backgroundImageUrl = raw.backgroundImageUrl.trim();
+  if (typeof raw.backgroundImageUrl === 'string') {
+    const bg = raw.backgroundImageUrl.trim();
+    if (bg !== '' && !isDefaultMarketplaceHeroImageUrl(bg)) {
+      base.backgroundImageUrl = bg;
+    }
+  }
 
   const cats = parseHeroSearchCategories(raw.searchCategories);
   if (cats) base.searchCategories = cats;

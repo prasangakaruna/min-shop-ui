@@ -112,13 +112,15 @@ function PaymentPageInner() {
     }, 2000);
   };
 
-  const lines = cart?.lines ?? [];
-  const subtotal = lines.reduce((sum, l) => sum + parseFloat(l.price) * l.quantity, 0);
-  const subtotalFormatted = `$${subtotal.toFixed(2)}`;
+  const lines = Array.isArray(cart?.lines) ? cart.lines : [];
+  const computedSubtotal = lines.reduce((sum, l) => sum + parseFloat(l.price) * l.quantity, 0);
+  const subtotalNum = cart?.subtotal != null ? parseFloat(cart.subtotal) : computedSubtotal;
+  const discountNum = parseFloat(cart?.discount_total ?? '0') || 0;
+  const totalNum = cart?.total != null ? parseFloat(cart.total) : Math.max(0, subtotalNum - discountNum);
+  const subtotalFormatted = `$${subtotalNum.toFixed(2)}`;
   const shipping = 0;
   const tax = 0;
-  const total = subtotal + shipping + tax;
-  const totalFormatted = `$${total.toFixed(2)}`;
+  const totalFormatted = `$${(totalNum + shipping + tax).toFixed(2)}`;
 
   const showOrderSummary = status === 'authenticated' && !cartLoading && effectiveStoreId != null;
   const orderSummaryEmpty = showOrderSummary && (cartError != null || (cart != null && lines.length === 0));
@@ -441,6 +443,12 @@ function PaymentPageInner() {
                       <span>Subtotal</span>
                       <span className="font-medium">{subtotalFormatted}</span>
                     </div>
+                    {discountNum > 0 && cart?.coupon_code ? (
+                      <div className="flex justify-between text-green-700 text-sm">
+                        <span>Discount ({cart.coupon_code})</span>
+                        <span className="font-medium">−${discountNum.toFixed(2)}</span>
+                      </div>
+                    ) : null}
                     <div className="flex justify-between text-gray-600 text-sm">
                       <span>Shipping</span>
                       <span className="font-medium">{shipping > 0 ? `$${shipping.toFixed(2)}` : '—'}</span>

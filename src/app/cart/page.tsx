@@ -10,6 +10,8 @@ import {
   getStorefrontCart,
   updateStorefrontCartLine,
   removeStorefrontCartLine,
+  applyStorefrontCoupon,
+  removeStorefrontCoupon,
   getImageDisplayUrl,
   setCartCount,
 } from '@/lib/api';
@@ -44,6 +46,9 @@ function CartPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingLineId, setUpdatingLineId] = useState<number | null>(null);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   const checkoutHref =
     storeId != null && storeId > 0
@@ -159,7 +164,10 @@ function CartPageInner() {
 
   const lines = normalizeCartLines(cart);
   const isEmpty = lines.length === 0;
-  const subtotal = lines.reduce((sum, l) => sum + parseFloat(l.price) * l.quantity, 0).toFixed(2);
+  const computedSubtotal = lines.reduce((sum, l) => sum + parseFloat(l.price) * l.quantity, 0);
+  const subtotal = cart?.subtotal ?? computedSubtotal.toFixed(2);
+  const discountTotal = parseFloat(cart?.discount_total ?? '0') || 0;
+  const total = cart?.total ?? Math.max(0, computedSubtotal - discountTotal).toFixed(2);
 
   return (
     <div className="min-h-screen bg-white">
@@ -245,9 +253,85 @@ function CartPageInner() {
               ))}
             </ul>
 
-            <div className="border-t border-gray-200 pt-6 flex justify-between items-center">
-              <p className="text-lg font-semibold text-gray-900">Subtotal</p>
-              <p className="text-xl font-bold text-mint">${subtotal}</p>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700">Discount code</p>
+              {cart?.coupon_code ? (
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm text-gray-800">
+                    Applied: <span className="font-mono font-semibold">{cart.coupon_code}</span>
+                  </p>
+                  <button
+                    type="button"
+                    disabled={couponBusy || storeId == null}
+                    onClick={async () => {
+                      if (storeId == null) return;
+                      setCouponBusy(true);
+                      setCouponError(null);
+                      try {
+                        const updated = await removeStorefrontCoupon(storeId);
+                        setCart(updated);
+                      } catch (e) {
+                        setCouponError(e instanceof Error ? e.message : 'Could not remove coupon');
+                      } finally {
+                        setCouponBusy(false);
+                      }
+                    }}
+                    className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value)}
+                    placeholder="Enter code"
+                    className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    disabled={couponBusy}
+                  />
+                  <button
+                    type="button"
+                    disabled={couponBusy || !couponInput.trim() || storeId == null}
+                    onClick={async () => {
+                      if (storeId == null) return;
+                      setCouponBusy(true);
+                      setCouponError(null);
+                      try {
+                        const updated = await applyStorefrontCoupon(storeId, couponInput);
+                        setCart(updated);
+                        setCouponInput('');
+                      } catch (e) {
+                        setCouponError(e instanceof Error ? e.message : 'Invalid coupon');
+                      } finally {
+                        setCouponBusy(false);
+                      }
+                    }}
+                    className="rounded-lg bg-mint px-4 py-2 text-sm font-medium text-white hover:bg-mint-dark disabled:opacity-50"
+                  >
+                    {couponBusy ? 'Applying…' : 'Apply'}
+                  </button>
+                </div>
+              )}
+              {couponError ? <p className="text-sm text-red-600">{couponError}</p> : null}
+            </div>
+
+            <div className="border-t border-gray-200 pt-6 space-y-2">
+              <div className="flex justify-between items-center text-gray-700">
+                <span>Subtotal</span>
+                <span className="font-medium">${subtotal}</span>
+              </div>
+              {discountTotal > 0 ? (
+                <div className="flex justify-between items-center text-green-700">
+                  <span>Discount</span>
+                  <span className="font-medium">−${discountTotal.toFixed(2)}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                <p className="text-lg font-semibold text-gray-900">Total</p>
+                <p className="text-xl font-bold text-mint">${total}</p>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
