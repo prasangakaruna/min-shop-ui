@@ -17,9 +17,15 @@ export default async function AuthErrorPage({
     !host || host.startsWith('localhost') || host.startsWith('127.') || host.includes('localhost:');
   const scheme = forwardedProto || (isLocal ? 'http' : 'https');
   const envBase = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '');
+  const apexRedirect =
+    process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '') ||
+    (process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN
+      ? `https://${process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN.replace(/^\./, '')}`
+      : '');
   const origin =
     host && !isLocal ? `${scheme}://${host}` : host && isLocal ? `${scheme}://${host}` : envBase;
-  const callbackUrl = `${origin}/api/auth/callback/keycloak`;
+  const callbackUrlThisHost = `${origin}/api/auth/callback/keycloak`;
+  const callbackUrlApex = apexRedirect ? `${apexRedirect}/api/auth/callback/keycloak` : '';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
@@ -36,23 +42,50 @@ export default async function AuthErrorPage({
             <p className="font-medium text-amber-900 mb-2">Check the following in Keycloak and your app:</p>
             <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
               <li>
-                <strong>Redirect URI</strong> — In Keycloak, for client <code className="bg-amber-100 px-1 rounded">mint-ecommerce</code>, add{' '}
-                <strong>Valid redirect URIs</strong> for <em>every</em> host users sign in from (apex + each store subdomain), e.g.:
-                <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">{callbackUrl}</code>
-                <span className="block mt-1 text-amber-900/90">
-                  For <strong>many stores</strong> on <code className="bg-amber-100 px-1 rounded">{'{slug}'}.yourdomain.com</code>, either add each
-                  callback URI or configure a <strong>wildcard</strong> redirect in Keycloak (e.g.{' '}
-                  <code className="bg-amber-100 px-1 rounded">https://*.mint-shop.pro/*</code>) if your Keycloak version supports it.
-                </span>
+                <strong>Redirect URI</strong> — Path must be exactly{' '}
+                <code className="bg-amber-100 px-1 rounded">/api/auth/callback/keycloak</code> (not{' '}
+                <code className="bg-amber-100 px-1 rounded">/keyclo</code>). In Keycloak, for client{' '}
+                <code className="bg-amber-100 px-1 rounded">mint-ecommerce</code>, add <strong>Valid redirect URIs</strong>:
+                {callbackUrlApex ? (
+                  <>
+                    <span className="block mt-1 text-amber-900/90">
+                      With <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> (or{' '}
+                      <code className="bg-amber-100 px-1 rounded">NEXT_PUBLIC_MINT_ROOT_DOMAIN</code>), register the{' '}
+                      <strong>apex</strong> callback only:
+                    </span>
+                    <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">
+                      {callbackUrlApex}
+                    </code>
+                    <span className="block mt-1 text-amber-900/90">Plus localhost if you use it:</span>
+                    <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">
+                      http://localhost:3000/api/auth/callback/keycloak
+                    </code>
+                  </>
+                ) : (
+                  <>
+                    <span className="block mt-1 text-amber-900/90">
+                      Either one URI per host (this request&apos;s host), e.g.:
+                    </span>
+                    <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">
+                      {callbackUrlThisHost}
+                    </code>
+                    <span className="block mt-1 text-amber-900/90">
+                      For <strong>many stores</strong> without listing each subdomain, set{' '}
+                      <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN=https://your-apex.com</code> in the UI env and
+                      register only that apex callback, or use a Keycloak <strong>wildcard</strong> if your version supports it (e.g.{' '}
+                      <code className="bg-amber-100 px-1 rounded">https://*.mint-shop.pro/*</code>).
+                    </span>
+                  </>
+                )}
               </li>
               <li>
                 <strong>Client type</strong> — If the client is <strong>Public</strong>, leave <code className="bg-amber-100 px-1 rounded">KEYCLOAK_CLIENT_SECRET</code> empty in <code className="bg-amber-100 px-1 rounded">.env</code>. If it is <strong>Confidential</strong>, set the client secret.
               </li>
               <li>
-                <strong>AUTH_URL / NEXTAUTH_URL</strong> — Set to your primary site URL with no trailing slash (e.g.{' '}
-                <code className="bg-amber-100 px-1 rounded">https://mint-shop.pro</code>). With{' '}
-                <code className="bg-amber-100 px-1 rounded">trustHost</code> enabled, sign-in still requires each origin&apos;s callback URI in
-                Keycloak.
+                <strong>AUTH_URL</strong> — For multi-tenant subdomains, <strong>omit</strong> <code className="bg-amber-100 px-1 rounded">AUTH_URL</code>{' '}
+                (next-auth would rewrite the host and break apex-only OAuth). Use{' '}
+                <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> instead. Set{' '}
+                <code className="bg-amber-100 px-1 rounded">AUTH_TRUST_HOST=true</code> in production if the host header must be trusted.
               </li>
               <li>
                 <strong>AUTH_SECRET</strong> — Must be set in production (e.g. <code className="bg-amber-100 px-1 rounded">openssl rand -base64 32</code>

@@ -49,6 +49,62 @@ function hasSuperAdminRole(payload: Record<string, unknown>): boolean {
 // NextAuth requires AUTH_SECRET or NEXTAUTH_SECRET for session signing. Without it, /api/auth/session returns 500.
 const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 
+/**
+ * OAuth redirect_uri sent to Keycloak (single URI for all store subdomains).
+ * Use the marketplace apex only, e.g. https://mint-shop.pro — do NOT use AUTH_URL for this:
+ * next-auth rewrites requests to AUTH_URL, which breaks storing the real host in OAuth state.
+ * Auth.js forwards Keycloak's callback to the store host automatically (redirect proxy).
+ */
+function resolveKeycloakRedirectOrigin(): string {
+  const explicit = process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '').trim();
+  if (explicit) return explicit;
+  // Avoid forcing production apex OAuth when developing on localhost with NEXT_PUBLIC_MINT_ROOT_DOMAIN set.
+  if (process.env.NODE_ENV !== 'production') return '';
+  const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  if (root) return `https://${root}`;
+  return '';
+}
+const keycloakRedirectOrigin = resolveKeycloakRedirectOrigin();
+const keycloakRedirectProxyBase =
+  keycloakRedirectOrigin.length > 0 ? `${keycloakRedirectOrigin}/api/auth` : undefined;
+
+/** Optional e.g. .mint-shop.pro — share session across *.mint-shop.pro (requires __Secure- CSRF name, not __Host-). */
+const authCookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
+
+function hostAllowedForRedirect(url: string, baseUrl: string): boolean {
+  try {
+    const u = new URL(url);
+    const b = new URL(baseUrl);
+    if (u.origin === b.origin) return true;
+    if (!authCookieDomain) return false;
+    const root = authCookieDomain.replace(/^\./, '');
+    return u.hostname === root || u.hostname.endsWith(`.${root}`);
+  } catch {
+    return false;
+  }
+}
+
+function crossSubdomainCookieOptions(): Record<
+  string,
+  { name?: string; options: { domain: string; path: string; secure?: boolean; sameSite?: 'lax' | 'strict' | 'none' } }
+> {
+  if (!authCookieDomain) return {};
+  const d = authCookieDomain;
+  const useSecure =
+    process.env.AUTH_USE_SECURE_COOKIES === 'true' || process.env.NODE_ENV === 'production';
+  return {
+    sessionToken: { options: { domain: d, path: '/' } },
+    callbackUrl: { options: { domain: d, path: '/' } },
+    csrfToken: {
+      name: useSecure ? '__Secure-authjs.csrf-token' : 'authjs.csrf-token',
+      options: { domain: d, path: '/', secure: useSecure, sameSite: 'lax' },
+    },
+    pkceCodeVerifier: { options: { domain: d, path: '/' } },
+    state: { options: { domain: d, path: '/' } },
+    nonce: { options: { domain: d, path: '/' } },
+  };
+}
+
 // Keycloak issuer: no trailing slash (must match Keycloak's .well-known/openid-configuration)
 const keycloakIssuer = (process.env.KEYCLOAK_ISSUER ?? 'http://localhost:9091/realms/mint').replace(/\/$/, '').trim();
 // Only send client_secret if client is confidential; for public client leave KEYCLOAK_CLIENT_SECRET unset
@@ -100,9 +156,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.KEYCLOAK_CLIENT_ID ?? 'mint-ecommerce',
       clientSecret: keycloakClientSecret,
       issuer: keycloakIssuer,
+      ...(keycloakRedirectProxyBase ? { redirectProxyUrl: keycloakRedirectProxyBase } : {}),
     }),
   ],
+  cookies: crossSubdomainCookieOptions(),
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      if (hostAllowedForRedirect(url, baseUrl)) return url;
+      return baseUrl;
+    },
     async jwt({ token, account }) {
       if (account) {
         token.access_token = account.access_token;
