@@ -387,6 +387,31 @@ export interface ProductsResponse {
   total: number;
 }
 
+/** Normalizes GET /store/product-categories (may be `{ data: string[] }`, a string array, or legacy objects). */
+export type ProductCategoryOption = { id: string; name: string };
+
+export function parseStoreProductCategoriesResponse(raw: unknown): ProductCategoryOption[] {
+  const rows: unknown[] = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data)
+      ? ((raw as { data: unknown[] }).data ?? [])
+      : [];
+  return rows.map((item): ProductCategoryOption => {
+    if (typeof item === 'string') {
+      const t = item.trim();
+      return { id: t, name: t };
+    }
+    if (item && typeof item === 'object' && 'name' in item) {
+      const o = item as { id?: unknown; name: unknown };
+      const name = String(o.name ?? '').trim();
+      const id = String(o.id ?? name).trim();
+      return { id: id || name, name: name || id };
+    }
+    const s = String(item).trim();
+    return { id: s, name: s };
+  });
+}
+
 /** Distinct product categories for the current store (admin filters). */
 export async function getStoreProductCategories(options: {
   token: string;

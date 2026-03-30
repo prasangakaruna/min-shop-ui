@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useStore } from "@/context/StoreContext";
-import { apiRequest, type StoreSummary } from "@/lib/api";
+import { apiRequest, type StoreSummary, parseStoreProductCategoriesResponse } from "@/lib/api";
 import Toast from "@/components/Toast";
 
 const ONBOARDING_KEY = "mint_admin_onboarding_completed_v1";
@@ -133,13 +133,13 @@ export default function AdminOnboardingPage() {
     let cancelled = false;
     setMainCategoriesLoading(true);
     setMainCategoriesError(null);
-    apiRequest<MainCategory[]>("/store/product-categories", {
+    apiRequest<unknown>("/store/product-categories", {
       token,
       storeId: currentStore.id,
     })
       .then((res) => {
         if (cancelled) return;
-        setMainCategories(res ?? []);
+        setMainCategories(parseStoreProductCategoriesResponse(res));
       })
       .catch((e) => {
         if (cancelled) return;

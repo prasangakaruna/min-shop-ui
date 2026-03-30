@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest, uploadProductImage, getImageDisplayUrl } from '@/lib/api';
+import { apiRequest, uploadProductImage, getImageDisplayUrl, parseStoreProductCategoriesResponse } from '@/lib/api';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/jpg';
 const MAX_SIZE_MB = 5;
@@ -50,12 +50,12 @@ export default function AddProductPage() {
     if (!token || !currentStore) return;
     setCategoriesLoading(true);
     setCategoriesError(null);
-    apiRequest<{ id: string; name: string }[]>('/store/product-categories', {
+    apiRequest<unknown>('/store/product-categories', {
       token,
       storeId: currentStore.id,
     })
       .then((res) => {
-        setCategories(res ?? []);
+        setCategories(parseStoreProductCategoriesResponse(res));
       })
       .catch((e) => setCategoriesError(e instanceof Error ? e.message : 'Failed to load categories'))
       .finally(() => setCategoriesLoading(false));

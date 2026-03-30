@@ -234,8 +234,20 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
         {/* Coupon strip + API need the store slug; this block used to hide the whole home (no promo) until branding finished */}
         <CouponPromoSection storeSlug={effectiveSlug} />
-        <div className="flex min-h-[40vh] items-center justify-center border-t border-gray-100 bg-white text-sm text-gray-500">
-          Loading storefront…
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          className="flex min-h-[min(50vh,28rem)] flex-col items-center justify-center gap-4 border-t border-gray-100 bg-white px-4 py-16"
+        >
+          <div
+            className="h-11 w-11 shrink-0 animate-spin rounded-full border-[3px] border-gray-200 border-t-mint"
+            aria-hidden
+          />
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-700">Loading storefront…</p>
+            <p className="mt-1 text-xs text-gray-500">Fetching your theme and navigation</p>
+          </div>
         </div>
         <Footer />
       </main>
