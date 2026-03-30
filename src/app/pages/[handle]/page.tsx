@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { getStorefrontPage } from '@/lib/api';
+import { getStorefrontPage, getImageDisplayUrl } from '@/lib/api';
 
 function StorePageInner() {
   const params = useParams();
@@ -19,8 +19,11 @@ function StorePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState<string | null>(null);
+  const [excerpt, setExcerpt] = useState<string | null>(null);
+  const [featuredImage, setFeaturedImage] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string | null>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- sync loading gate before client fetch */
   useEffect(() => {
     if (!handle) {
       setLoading(false);
@@ -39,11 +42,14 @@ function StorePageInner() {
       .then((res) => {
         setTitle(res.data.title);
         setBody(res.data.body);
+        setExcerpt(res.data.excerpt ?? null);
+        setFeaturedImage(res.data.featured_image ?? null);
         setStoreName(res.store?.name ?? null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Page not found'))
       .finally(() => setLoading(false));
   }, [handle, storeSlug, storeId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const storeQuery = storeSlug ? `?store=${encodeURIComponent(storeSlug)}` : `?store_id=${storeId}`;
 
@@ -75,10 +81,20 @@ function StorePageInner() {
         ) : (
           <article className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
             {storeName ? <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">{storeName}</p> : null}
+            {featuredImage ? (
+              // CMS URLs may be arbitrary API/storage paths; next/image remotePatterns would be too broad.
+              // eslint-disable-next-line @next/next/no-img-element -- dynamic storefront media URL
+              <img
+                src={getImageDisplayUrl(featuredImage)}
+                alt=""
+                className="mb-6 max-h-80 w-full rounded-lg object-cover"
+              />
+            ) : null}
             <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+            {excerpt ? <p className="mt-3 text-lg text-gray-600">{excerpt}</p> : null}
             {body ? (
               <div
-                className="prose prose-gray mt-6 max-w-none text-gray-700"
+                className="cms-page-body prose prose-gray mt-6 max-w-none text-gray-700"
                 dangerouslySetInnerHTML={{ __html: body }}
               />
             ) : (

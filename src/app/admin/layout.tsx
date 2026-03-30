@@ -45,7 +45,8 @@ const menuItems: MenuItem[] = [
     label: 'Content',
     icon: '📝',
     children: [
-      { href: '/admin/content?section=metaobjects', label: 'Metaobjects' },
+      { href: '/admin/content/pages', label: 'Pages' },
+      { href: '/admin/content/metaobjects', label: 'Metaobjects' },
       { href: '/admin/content/files', label: 'Files' },
       { href: '/admin/content/menus', label: 'Menus' },
       { href: '/admin/content?section=blog-posts', label: 'Blog posts' },
@@ -80,6 +81,12 @@ function isContentChildActive(
 ): boolean {
   if (childHref === '/admin/content/files' || childHref.startsWith('/admin/content/files')) {
     return pathname === '/admin/content/files' || pathname?.startsWith('/admin/content/files/') === true;
+  }
+  if (childHref === '/admin/content/pages' || childHref.startsWith('/admin/content/pages')) {
+    return pathname === '/admin/content/pages' || pathname?.startsWith('/admin/content/pages/') === true;
+  }
+  if (childHref === '/admin/content/metaobjects' || childHref.startsWith('/admin/content/metaobjects')) {
+    return pathname === '/admin/content/metaobjects' || pathname?.startsWith('/admin/content/metaobjects/') === true;
   }
   const qIdx = childHref.indexOf('?');
   if (qIdx !== -1 && childHref.slice(0, qIdx) === '/admin/content') {

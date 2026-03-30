@@ -59,6 +59,8 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
   const [searchQuery, setSearchQuery] = useState('');
   const [cartCount, setCartCountState] = useState(0);
   const [fetchedNav, setFetchedNav] = useState<StorefrontHeaderMenuItem[] | null>(null);
+  /** Same source as admin Settings → company logo; used on subpages where Header is rendered without props. */
+  const [fetchedCompanyLogoUrl, setFetchedCompanyLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (adminNav !== undefined) {
@@ -66,19 +68,29 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
     }
     const slug = (storeQueryFromUrl ?? '').trim() || storeSlugFromHostname();
     if (!slug) {
+      setFetchedCompanyLogoUrl(null);
       return;
     }
     let cancelled = false;
-    storefrontRequest<{ data?: { header_menu_items?: StorefrontHeaderMenuItem[] } }>('/storefront/store-branding', {
+    storefrontRequest<{
+      data?: { header_menu_items?: StorefrontHeaderMenuItem[]; company_logo_url?: string | null };
+    }>('/storefront/store-branding', {
       store_slug: slug,
     })
       .then((res) => {
         if (cancelled) return;
         const raw = res.data?.header_menu_items;
         setFetchedNav(Array.isArray(raw) ? raw : []);
+        const logo = res.data?.company_logo_url;
+        setFetchedCompanyLogoUrl(
+          typeof logo === 'string' && logo.trim() !== '' ? logo.trim() : null
+        );
       })
       .catch(() => {
-        if (!cancelled) setFetchedNav([]);
+        if (!cancelled) {
+          setFetchedNav([]);
+          setFetchedCompanyLogoUrl(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -137,7 +149,11 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
     }
   };
 
-  const resolvedLogo = companyLogoUrl ? getImageDisplayUrl(companyLogoUrl) : '';
+  const logoSource =
+    typeof companyLogoUrl === 'string' && companyLogoUrl.trim() !== ''
+      ? companyLogoUrl.trim()
+      : fetchedCompanyLogoUrl;
+  const resolvedLogo = logoSource ? getImageDisplayUrl(logoSource) : '';
   const useCustomLogo = Boolean(resolvedLogo && resolvedLogo !== '');
 
   return (

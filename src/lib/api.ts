@@ -99,7 +99,14 @@ export async function getStoreNavigationOptions(options: {
 
 /** Public store CMS page (About, Contact, …) */
 export type StorefrontPagePayload = {
-  data: { id: number; title: string; handle: string; body: string | null };
+  data: {
+    id: number;
+    title: string;
+    handle: string;
+    body: string | null;
+    excerpt: string | null;
+    featured_image: string | null;
+  };
   store: { id: number; name: string; slug: string };
 };
 

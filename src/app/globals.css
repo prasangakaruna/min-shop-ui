@@ -146,3 +146,66 @@ button, a, input, select, textarea {
 ::-webkit-scrollbar-thumb:hover {
   background: #38B2AC;
 }
+
+/* CMS page body + TipTap: block image alignment (data-align survives API sanitizer) */
+.cms-tiptap-body img[data-align='center'],
+.cms-page-body img[data-align='center'] {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cms-tiptap-body img[data-align='right'],
+.cms-page-body img[data-align='right'] {
+  display: block;
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.cms-tiptap-body img[data-align='left'],
+.cms-page-body img[data-align='left'] {
+  display: block;
+  margin-right: auto;
+  margin-left: 0;
+}
+
+/* TipTap: ProseMirror adds ProseMirror-selectednode on NodeSelection; PM base CSS is not imported in Next */
+.cms-tiptap-body .ProseMirror img {
+  cursor: pointer;
+}
+
+.cms-tiptap-body .ProseMirror-selectednode {
+  outline: 3px solid #4fd1c7;
+  outline-offset: 4px;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 0 1px rgba(79, 209, 199, 0.25);
+}
+
+/* CMS images: width presets (data-size survives sanitizer; beats prose img max-width) */
+.cms-tiptap-body.prose img[data-size='sm'],
+.cms-page-body.prose img[data-size='sm'] {
+  max-width: 33%;
+  width: auto;
+  height: auto;
+}
+
+.cms-tiptap-body.prose img[data-size='md'],
+.cms-page-body.prose img[data-size='md'] {
+  max-width: 50%;
+  width: auto;
+  height: auto;
+}
+
+.cms-tiptap-body.prose img[data-size='lg'],
+.cms-page-body.prose img[data-size='lg'] {
+  max-width: 75%;
+  width: auto;
+  height: auto;
+}
+
+.cms-tiptap-body.prose img[data-size='full'],
+.cms-page-body.prose img[data-size='full'] {
+  max-width: 100%;
+  width: 100%;
+  height: auto;
+}
