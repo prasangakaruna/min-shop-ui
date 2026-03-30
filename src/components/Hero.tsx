@@ -12,13 +12,11 @@ import {
   type HeroSearchCategory,
 } from '@/lib/storefrontHomeTheme';
 
-const POPULAR_CATEGORY_LIMIT = 8;
-
 type HeroProps = {
   variant?: 'default' | 'video';
   /** From theme section `default_hero` (admin Theme editor). */
   settings?: Record<string, unknown> | null;
-  /** When set, hero loads category dropdown + popular links from GET /storefront/browse-categories */
+  /** When set, hero loads the category dropdown from GET /storefront/browse-categories */
   storeSlug?: string | null;
 };
 
@@ -63,17 +61,19 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
     return hero.searchCategories ?? [];
   }, [catalogCategories, hero.searchCategories]);
 
+  /** Theme-only quick links; hidden when catalog API fills the dropdown (same categories would repeat). */
   const popularLinks: HeroPopularLink[] = useMemo(() => {
     if (catalogCategories !== null && catalogCategories.length > 0) {
-      return catalogCategories.slice(0, POPULAR_CATEGORY_LIMIT).map((c) => ({
-        label: formatCategoryLabel(c.id),
-        url: storeSlug
-          ? `/products?category=${encodeURIComponent(c.id)}&store=${encodeURIComponent(storeSlug)}`
-          : `/products?category=${encodeURIComponent(c.id)}`,
-      }));
+      return [];
     }
-    return hero.popularLinks ?? [];
-  }, [catalogCategories, hero.popularLinks, storeSlug]);
+    const raw = hero.popularLinks ?? [];
+    const seen = new Set<string>();
+    return raw.filter((p) => {
+      if (seen.has(p.url)) return false;
+      seen.add(p.url);
+      return true;
+    });
+  }, [catalogCategories, hero.popularLinks]);
 
   useEffect(() => {
     if (searchCategories.length === 0) return;
@@ -264,12 +264,14 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
             </button>
           </form>
 
-          <div className="mt-4 flex flex-wrap items-center gap-3 animate-fade-in delay-300">
-            <span className="text-sm text-gray-600 font-medium">Popular:</span>
-            {popularLinks.map((item) => (
-              <HeroPopularPill key={`${item.label}-${item.url}`} item={item} primary={primary} accent={accent} />
-            ))}
-          </div>
+          {popularLinks.length > 0 ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3 animate-fade-in delay-300">
+              <span className="text-sm text-gray-600 font-medium">Popular:</span>
+              {popularLinks.map((item) => (
+                <HeroPopularPill key={`${item.label}-${item.url}`} item={item} primary={primary} accent={accent} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
