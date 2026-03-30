@@ -8,6 +8,7 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { getCartCount, CART_UPDATED_EVENT, getImageDisplayUrl } from '@/lib/api';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
 import { storeSlugFromHostname } from '@/lib/storeSlug';
+import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
 
 const USER_TYPE_COOKIE = 'USER_TYPE';
 const USER_TYPE_TO_REGISTER = 'USER_TYPE_TO_REGISTER';
@@ -120,7 +121,7 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
   const handleProfileClick = () => {
     if (status !== 'authenticated') {
       // Not logged in: redirect to Keycloak login
-      void signIn('keycloak', { callbackUrl: '/auth/after-login', redirect: true });
+      void signIn('keycloak', { callbackUrl: keycloakCallbackUrl('/auth/after-login'), redirect: true });
       return;
     }
     setUserMenuOpen((open) => !open);

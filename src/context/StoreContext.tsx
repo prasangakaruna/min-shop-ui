@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { signOut, getSession } from 'next-auth/react';
 import { apiRequest, type StoreSummary, type StoreListResponse } from '@/lib/api';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 
 interface StoreContextValue {
   stores: StoreSummary[];
@@ -44,7 +45,10 @@ export function StoreProvider({
       const list = Array.isArray(data) ? data : (data as StoreListResponse).data ?? [];
       setStores(list);
       const savedId = typeof window !== 'undefined' ? localStorage.getItem(STORE_KEY) : null;
-      const selected = list.find((s) => String(s.id) === savedId) ?? list[0] ?? null;
+      const hostSlug = typeof window !== 'undefined' ? storeSlugFromHostname() : null;
+      const fromSubdomain = hostSlug ? list.find((s) => s.slug === hostSlug) : null;
+      const selected =
+        fromSubdomain ?? list.find((s) => String(s.id) === savedId) ?? list[0] ?? null;
       setCurrentStoreState(selected);
       if (selected && typeof window !== 'undefined') {
         localStorage.setItem(STORE_KEY, String(selected.id));

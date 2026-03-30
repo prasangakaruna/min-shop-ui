@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { signIn } from 'next-auth/react';
+import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
 
 const USER_TYPE_COOKIE = 'USER_TYPE_TO_REGISTER';
 const COOKIE_MAX_AGE = 600; // 10 minutes
@@ -18,7 +19,7 @@ function setRegisterTypeCookie(userType: 'customer' | 'store_admin') {
 export default function SignUpPage() {
   const handleChoose = (userType: 'customer' | 'store_admin') => {
     setRegisterTypeCookie(userType);
-    signIn('keycloak', { callbackUrl: '/auth/after-login', redirect: true });
+    signIn('keycloak', { callbackUrl: keycloakCallbackUrl('/auth/after-login'), redirect: true });
   };
 
   return (
