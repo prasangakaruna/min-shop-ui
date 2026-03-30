@@ -85,14 +85,25 @@ if (
 /** Optional e.g. .mint-shop.pro — share session across *.mint-shop.pro (requires __Secure- CSRF name, not __Host-). */
 const authCookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
 
+function mintRootDomain(): string | undefined {
+  const fromCookie = authCookieDomain?.replace(/^\./, '').trim();
+  const fromPublic = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  return fromCookie || fromPublic || undefined;
+}
+
+function hostnameUnderMintRoot(hostname: string, root: string): boolean {
+  return hostname === root || hostname.endsWith(`.${root}`);
+}
+
+/** Allow post-login redirects between apex and store subdomains when NEXT_PUBLIC_MINT_ROOT_DOMAIN (or AUTH_COOKIE_DOMAIN) is set. */
 function hostAllowedForRedirect(url: string, baseUrl: string): boolean {
   try {
     const u = new URL(url);
     const b = new URL(baseUrl);
     if (u.origin === b.origin) return true;
-    if (!authCookieDomain) return false;
-    const root = authCookieDomain.replace(/^\./, '');
-    return u.hostname === root || u.hostname.endsWith(`.${root}`);
+    const root = mintRootDomain();
+    if (!root) return false;
+    return hostnameUnderMintRoot(u.hostname, root) && hostnameUnderMintRoot(b.hostname, root);
   } catch {
     return false;
   }
