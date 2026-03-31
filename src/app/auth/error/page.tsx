@@ -45,10 +45,14 @@ export default async function AuthErrorPage({
 
         {isConfiguration && (
           <p className="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md p-3">
-            <strong>Why it only says &quot;Configuration&quot;:</strong> Auth.js hides the real error in the URL. Open the{' '}
-            <strong>terminal where you run</strong> <code className="bg-gray-200 px-1 rounded">next dev</code> and look for the
-            latest <code className="bg-gray-200 px-1 rounded">[auth]</code> log line, <code className="bg-gray-200 px-1 rounded">OAuth</code>,{' '}
-            <code className="bg-gray-200 px-1 rounded">CallbackRouteError</code>, or stack trace—that message is the actual cause.
+            <strong>Why it only says &quot;Configuration&quot;:</strong> Auth.js deliberately does not put the real provider error in
+            the URL (that could leak details to bookmarks, referrers, or logs). Many Keycloak/OAuth failures are grouped as{' '}
+            <code className="bg-gray-200 px-1 rounded">Configuration</code>. Open the{' '}
+            <strong>terminal where you run</strong> <code className="bg-gray-200 px-1 rounded">next dev</code> and look for{' '}
+            <code className="bg-gray-200 px-1 rounded">CallbackRouteError</code>, <code className="bg-gray-200 px-1 rounded">OAuth</code>, or a
+            stack trace—that line is the actual cause. For more detail locally, set{' '}
+            <code className="bg-gray-200 px-1 rounded">AUTH_DEBUG=1</code> in <code className="bg-gray-200 px-1 rounded">.env.local</code> and
+            restart the dev server.
           </p>
         )}
 

@@ -294,4 +294,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/auth/error',
   },
   trustHost: true,
+  /** Verbose Auth.js logs in the Next.js terminal (set AUTH_DEBUG=1 in .env.local). Never enable in production. */
+  debug: process.env.AUTH_DEBUG === '1' || process.env.AUTH_DEBUG === 'true',
 });
