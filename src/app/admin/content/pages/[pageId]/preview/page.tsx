@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, getImageDisplayUrl } from '@/lib/api';
 import type { StoreContentPage } from '@/lib/storePages';
+import { normalizeCmsPageStatus } from '@/lib/storePages';
 import { cmsPageMainMaxWidthClass } from '@/lib/storePages';
 
 export default function AdminPagePreview() {
@@ -33,10 +34,24 @@ export default function AdminPagePreview() {
   }, [token, currentStore, pageId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const status = page ? normalizeCmsPageStatus(page.status, page.published) : null;
+  const statusNote =
+    status === 'draft'
+      ? 'Draft'
+      : status === 'pending'
+        ? 'Pending review'
+        : status === 'scheduled'
+          ? 'Scheduled'
+          : status === 'private'
+            ? 'Private'
+            : status === 'published'
+              ? 'Published'
+              : 'Preview';
+
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="border-b border-amber-200 bg-amber-100 px-4 py-2 text-center text-sm text-amber-950">
-        Draft preview — this is how the page will look on your store (including drafts).{' '}
+        {statusNote} preview — how this page appears on the storefront (content is not limited by public visibility rules here).{' '}
         <Link href={`/admin/content/pages/${pageId}`} className="font-semibold underline">
           ← Back to editor
         </Link>

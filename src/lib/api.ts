@@ -83,6 +83,7 @@ export type NavigationPageOption = {
   handle: string;
   url: string;
   published: boolean;
+  status?: string;
 };
 
 export type NavigationCollectionOption = { name: string; url: string };
@@ -113,7 +114,7 @@ export type StorefrontPagePayload = {
 
 export async function getStorefrontPage(
   handle: string,
-  options: { storeSlug?: string; storeId?: number }
+  options: { storeSlug?: string; storeId?: number; token?: string | null } = {}
 ): Promise<StorefrontPagePayload> {
   const base = getBaseUrl();
   if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
@@ -122,7 +123,9 @@ export async function getStorefrontPage(
   else if (options.storeId != null) params.set('store_id', String(options.storeId));
   const q = params.toString();
   const url = `${base}/storefront/pages/${encodeURIComponent(handle)}${q ? `?${q}` : ''}`;
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (options.token) headers.Authorization = `Bearer ${options.token}`;
+  const res = await fetch(url, { headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err: ApiError = (data?.message && { message: data.message }) || { message: res.statusText };

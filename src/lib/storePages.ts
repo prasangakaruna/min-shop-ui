@@ -1,3 +1,25 @@
+/** WordPress-like page workflow */
+export type CmsPageStatus = 'draft' | 'pending' | 'published' | 'scheduled' | 'private';
+
+export const CMS_PAGE_STATUS_OPTIONS: { value: CmsPageStatus; label: string; hint: string }[] = [
+  { value: 'draft', label: 'Draft', hint: 'Only visible in admin preview until you publish.' },
+  { value: 'pending', label: 'Pending review', hint: 'Awaiting review before publishing.' },
+  { value: 'published', label: 'Published', hint: 'Visible on the storefront to everyone.' },
+  { value: 'scheduled', label: 'Scheduled', hint: 'Goes live automatically at the date and time you set.' },
+  {
+    value: 'private',
+    label: 'Private',
+    hint: 'Hidden from the public site; store staff can open it when signed in with the same account that manages the store.',
+  },
+];
+
+export function normalizeCmsPageStatus(v: string | null | undefined, publishedFallback: boolean): CmsPageStatus {
+  if (v === 'draft' || v === 'pending' || v === 'published' || v === 'scheduled' || v === 'private') {
+    return v;
+  }
+  return publishedFallback ? 'published' : 'draft';
+}
+
 /** Max width of the page column on the storefront (main + preview). */
 export type CmsPageLayoutWidth = 'narrow' | 'default' | 'wide' | 'full';
 
@@ -30,6 +52,9 @@ export function cmsPageMainMaxWidthClass(layout: string | null | undefined): str
   }
 }
 
+/** WordPress-style meta rows (plain text; sanitized on the API). */
+export type CmsPageCustomField = { name: string; value: string };
+
 export type StoreContentPage = {
   id: string;
   title: string;
@@ -40,10 +65,19 @@ export type StoreContentPage = {
   layout_width?: CmsPageLayoutWidth | string | null;
   parent_id: string | null;
   published: boolean;
+  status?: CmsPageStatus | string | null;
+  published_at?: string | null;
+  custom_fields?: CmsPageCustomField[];
   sort_order: number;
   created_at?: string | null;
   updated_at?: string | null;
 };
+
+export function normalizeCustomFields(raw: CmsPageCustomField[] | null | undefined): CmsPageCustomField[] {
+  if (!raw || !Array.isArray(raw)) return [{ name: '', value: '' }];
+  const rows = raw.map((r) => ({ name: String(r.name ?? ''), value: String(r.value ?? '') }));
+  return rows.length > 0 ? rows : [{ name: '', value: '' }];
+}
 
 /** URL segment: lowercase letters, numbers, hyphens; must start with alphanumeric. */
 export function slugifyPageHandle(title: string): string {

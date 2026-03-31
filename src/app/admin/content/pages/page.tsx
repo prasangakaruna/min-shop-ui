@@ -7,6 +7,7 @@ import { useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
 import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
 import type { StoreContentPage } from '@/lib/storePages';
+import { normalizeCmsPageStatus } from '@/lib/storePages';
 
 type ContentResponse = {
   data: {
@@ -19,6 +20,30 @@ function formatDate(input: string | null | undefined): string {
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return input;
   return date.toLocaleDateString();
+}
+
+function formatStatusLine(p: StoreContentPage): { label: string; sub?: string; className: string } {
+  const s = normalizeCmsPageStatus(p.status, p.published);
+  const pubAt = p.published_at ? new Date(p.published_at) : null;
+  const pubOk = pubAt && !Number.isNaN(pubAt.getTime());
+  switch (s) {
+    case 'draft':
+      return { label: 'Draft', className: 'bg-gray-100 text-gray-700' };
+    case 'pending':
+      return { label: 'Pending review', className: 'bg-amber-100 text-amber-900' };
+    case 'published':
+      return { label: 'Published', className: 'bg-emerald-100 text-emerald-800' };
+    case 'scheduled':
+      return {
+        label: 'Scheduled',
+        sub: pubOk ? pubAt.toLocaleString() : undefined,
+        className: 'bg-sky-100 text-sky-900',
+      };
+    case 'private':
+      return { label: 'Private', className: 'bg-violet-100 text-violet-900' };
+    default:
+      return { label: p.published ? 'Published' : 'Draft', className: 'bg-gray-100 text-gray-600' };
+  }
 }
 
 export default function AdminContentPagesListPage() {
@@ -93,11 +118,6 @@ export default function AdminContentPagesListPage() {
         <div className="flex flex-col gap-3 px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pages</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              WordPress-style pages: visual editor, draft or published, featured image, excerpt, and parent page. URLs are{' '}
-              <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">/pages/your-slug</code>. Add links under{' '}
-              <strong className="font-medium">Content → Menus</strong>.
-            </p>
           </div>
           <Link
             href="/admin/content/pages/new"
@@ -135,6 +155,7 @@ export default function AdminContentPagesListPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Title</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Slug</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Author</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
                   </tr>
@@ -142,12 +163,14 @@ export default function AdminContentPagesListPage() {
                 <tbody className="divide-y divide-gray-100">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
+                      <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
                         No pages yet. Click <strong>Add new</strong> to create one.
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((p) => (
+                    filtered.map((p) => {
+                      const st = formatStatusLine(p);
+                      return (
                       <tr key={p.id} className="hover:bg-gray-50/80">
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
@@ -157,15 +180,16 @@ export default function AdminContentPagesListPage() {
                             >
                               {p.title}
                             </Link>
-                            <span
-                              className={`w-fit rounded-full px-2 py-0.5 text-xs ${p.published ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}`}
-                            >
-                              {p.published ? 'Published' : 'Draft'}
-                            </span>
                           </div>
                         </td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-600">/pages/{p.handle}</td>
                         <td className="px-4 py-3 text-gray-500">—</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-0.5">
+                            <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${st.className}`}>{st.label}</span>
+                            {st.sub ? <span className="text-xs text-gray-500">{st.sub}</span> : null}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-gray-600">{formatDate(p.updated_at ?? p.created_at)}</td>
                         <td className="px-4 py-3 text-right">
                           <button type="button" onClick={() => void removePage(p.id)} className="text-sm text-red-600 hover:underline">
@@ -173,7 +197,8 @@ export default function AdminContentPagesListPage() {
                           </button>
                         </td>
                       </tr>
-                    ))
+                    );
+                    })
                   )}
                 </tbody>
               </table>

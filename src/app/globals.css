@@ -147,6 +147,17 @@ button, a, input, select, textarea {
   background: #38B2AC;
 }
 
+/*
+ * TipTap textStyle (color) + Bold: typography plugin sets .prose strong { color: var(--tw-prose-bold) },
+ * which wins over a parent span’s inline color when DOM is <span style="color:…"><strong>…</strong></span>.
+ */
+.cms-tiptap-body.prose strong,
+.cms-tiptap-body.prose b,
+.cms-page-body.prose strong,
+.cms-page-body.prose b {
+  color: inherit;
+}
+
 /* CMS page body + TipTap: block image alignment (data-align survives API sanitizer) */
 .cms-tiptap-body img[data-align='center'],
 .cms-page-body img[data-align='center'] {
@@ -181,6 +192,39 @@ button, a, input, select, textarea {
   box-shadow: 0 0 0 1px rgba(79, 209, 199, 0.25);
 }
 
+/* Tables in CMS editor: wrapper + selected cell overlay (prosemirror-tables) + whole-table NodeSelection */
+.cms-tiptap-body .ProseMirror .tableWrapper {
+  overflow-x: auto;
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.cms-tiptap-body .ProseMirror td,
+.cms-tiptap-body .ProseMirror th {
+  position: relative;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.cms-tiptap-body .ProseMirror .selectedCell::after {
+  z-index: 2;
+  position: absolute;
+  content: '';
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(79, 209, 199, 0.22);
+  pointer-events: none;
+}
+
+.cms-tiptap-body .ProseMirror table.ProseMirror-selectednode {
+  outline: 3px solid #4fd1c7;
+  outline-offset: 3px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(79, 209, 199, 0.2);
+}
+
 /* CMS images: width presets (data-size survives sanitizer; beats prose img max-width) */
 .cms-tiptap-body.prose img[data-size='sm'],
 .cms-page-body.prose img[data-size='sm'] {
@@ -208,4 +252,63 @@ button, a, input, select, textarea {
   max-width: 100%;
   width: 100%;
   height: auto;
+}
+
+/* WordPress-like Columns block (TipTap → data-cms-columns / data-cms-column) */
+.cms-tiptap-body [data-cms-columns],
+.cms-page-body [data-cms-columns] {
+  display: grid;
+  width: 100%;
+  gap: 1.5rem;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  align-items: start;
+}
+
+.cms-tiptap-body [data-cms-column],
+.cms-page-body [data-cms-column] {
+  min-width: 0;
+}
+
+.cms-tiptap-body [data-cms-columns][data-layout='equal-2'],
+.cms-page-body [data-cms-columns][data-layout='equal-2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cms-tiptap-body [data-cms-columns][data-layout='equal-3'],
+.cms-page-body [data-cms-columns][data-layout='equal-3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cms-tiptap-body [data-cms-columns][data-layout='equal-4'],
+.cms-page-body [data-cms-columns][data-layout='equal-4'] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.cms-tiptap-body [data-cms-columns][data-layout='30-70'],
+.cms-page-body [data-cms-columns][data-layout='30-70'] {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
+}
+
+.cms-tiptap-body [data-cms-columns][data-layout='70-30'],
+.cms-page-body [data-cms-columns][data-layout='70-30'] {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+}
+
+.cms-tiptap-body [data-cms-columns][data-layout='25-50-25'],
+.cms-page-body [data-cms-columns][data-layout='25-50-25'] {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+}
+
+@media (max-width: 640px) {
+  .cms-tiptap-body [data-cms-columns],
+  .cms-page-body [data-cms-columns] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+.cms-tiptap-body .ProseMirror-selectednode[data-cms-columns] {
+  outline: 3px solid #4fd1c7;
+  outline-offset: 4px;
+  border-radius: 0.5rem;
 }

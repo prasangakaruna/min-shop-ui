@@ -5,12 +5,15 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { useSession } from 'next-auth/react';
 import { getStorefrontPage, getImageDisplayUrl } from '@/lib/api';
 import { cmsPageMainMaxWidthClass, normalizeCmsPageLayoutWidth } from '@/lib/storePages';
 
 function StorePageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const token = (session as { access_token?: string } | null)?.access_token ?? null;
   const handle = typeof params.handle === 'string' ? params.handle : '';
   const storeSlug = searchParams.get('store') ?? '';
   const storeIdParam = searchParams.get('store_id');
@@ -40,7 +43,10 @@ function StorePageInner() {
 
     setLoading(true);
     setError(null);
-    getStorefrontPage(handle, storeSlug ? { storeSlug } : { storeId })
+    getStorefrontPage(handle, {
+      ...(storeSlug ? { storeSlug } : { storeId }),
+      token: token ?? undefined,
+    })
       .then((res) => {
         setTitle(res.data.title);
         setBody(res.data.body);
@@ -51,7 +57,7 @@ function StorePageInner() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Page not found'))
       .finally(() => setLoading(false));
-  }, [handle, storeSlug, storeId]);
+  }, [handle, storeSlug, storeId, token]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const storeQuery = storeSlug ? `?store=${encodeURIComponent(storeSlug)}` : `?store_id=${storeId}`;
