@@ -50,6 +50,15 @@ function hasSuperAdminRole(payload: Record<string, unknown>): boolean {
 // NextAuth requires AUTH_SECRET or NEXTAUTH_SECRET for session signing. Without it, /api/auth/session returns 500.
 const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
 
+/** Session + encoded JWT cookie lifetime (seconds). Default 1 year; override with AUTH_SESSION_MAX_AGE. Keycloak SSO must allow refresh for that long — see Mint e-commerce-api/docs/KEYCLOAK.md */
+const DEFAULT_SESSION_MAX_AGE = 365 * 24 * 60 * 60;
+function sessionMaxAgeSeconds(): number {
+  const raw = process.env.AUTH_SESSION_MAX_AGE?.trim();
+  if (!raw) return DEFAULT_SESSION_MAX_AGE;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 300 ? n : DEFAULT_SESSION_MAX_AGE;
+}
+
 /**
  * OAuth redirect_uri sent to Keycloak (single URI for all store subdomains).
  * Use the marketplace apex only, e.g. https://mint-shop.pro — do NOT use AUTH_URL for this:
@@ -200,6 +209,10 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       body: body.toString(),
     });
     if (!res.ok) {
+      if (process.env.NODE_ENV === 'development') {
+        const text = await res.text().catch(() => '');
+        console.warn('[auth] Keycloak refresh_token exchange failed:', res.status, text.slice(0, 500));
+      }
       return token;
     }
     const refreshed = (await res.json()) as {
@@ -223,6 +236,9 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret,
+  session: {
+    maxAge: sessionMaxAgeSeconds(),
+  },
   providers: [
     Keycloak({
       clientId: process.env.KEYCLOAK_CLIENT_ID ?? 'mint-ecommerce',
