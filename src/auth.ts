@@ -78,6 +78,14 @@ const keycloakRedirectOrigin = resolveKeycloakRedirectOrigin();
 const keycloakRedirectProxyBase =
   keycloakRedirectOrigin.length > 0 ? `${keycloakRedirectOrigin}/api/auth` : undefined;
 
+if (typeof window === 'undefined' && keycloakRedirectProxyBase && !process.env.AUTH_COOKIE_DOMAIN?.trim()) {
+  console.warn(
+    '[auth] AUTH_KEYCLOAK_REDIRECT_ORIGIN (or production root domain) is set but AUTH_COOKIE_DOMAIN is not. ' +
+      'Sign-in from store subdomains will fail PKCE unless OAuth cookies are shared. Set AUTH_COOKIE_DOMAIN=.yourroot.com ' +
+      '(leading dot) to match NEXT_PUBLIC_MINT_ROOT_DOMAIN, or sign in only from the apex host.'
+  );
+}
+
 const canonicalAuthEnv = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim();
 if (
   process.env.NODE_ENV === 'production' &&
@@ -189,7 +197,7 @@ function crossSubdomainCookieOptions(): Record<
 // Keycloak issuer: no trailing slash (must match Keycloak's .well-known/openid-configuration)
 const keycloakIssuer = (process.env.KEYCLOAK_ISSUER ?? 'http://localhost:9091/realms/mint').replace(/\/$/, '').trim();
 // Only send client_secret if client is confidential; for public client leave KEYCLOAK_CLIENT_SECRET unset
-const keycloakClientSecret = process.env.KEYCLOAK_CLIENT_SECRET || undefined;
+const keycloakClientSecret = process.env.KEYCLOAK_CLIENT_SECRET?.trim() || undefined;
 
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   if (!token.refresh_token) return token;
@@ -244,6 +252,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.KEYCLOAK_CLIENT_ID ?? 'mint-ecommerce',
       clientSecret: keycloakClientSecret,
       issuer: keycloakIssuer,
+      // Public Keycloak clients must not use client_secret at the token endpoint; Auth.js defaults to client_secret_basic otherwise.
+      ...(keycloakClientSecret
+        ? {}
+        : { client: { token_endpoint_auth_method: 'none' as const } }),
       ...(keycloakRedirectProxyBase ? { redirectProxyUrl: keycloakRedirectProxyBase } : {}),
     }),
   ],
