@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
+import { mintDeployRootHostname, normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
 
 function internalListenPorts(): Set<string> {
   return new Set(['3000', process.env.PORT].filter(Boolean) as string[]);
@@ -9,10 +9,36 @@ function edgeHostname(host: string): string {
   return host.split(':')[0]?.toLowerCase() ?? '';
 }
 
+function cloneRequestWithUrl(href: string, req: NextRequest): NextRequest {
+  if (req.body) {
+    return new NextRequest(href, {
+      headers: req.headers,
+      method: req.method,
+      body: req.body,
+      duplex: 'half',
+    });
+  }
+  return new NextRequest(href, {
+    headers: req.headers,
+    method: req.method,
+  });
+}
+
 /**
  * Next.js behind nginx: `req.url` can be `https://localhost:3000/...` or `https://mint-shop.pro:3000/...`.
  * Auth.js uses `req.url` for redirects. Normalize using forwarded headers and strip internal listen ports.
  */
+function urlShowsInternalPortOnHost(urlStr: string, hostname: string): boolean {
+  const u = urlStr.toLowerCase();
+  const h = hostname.toLowerCase();
+  for (const p of internalListenPorts()) {
+    if (u.includes(`://${h}:${p}/`) || u.includes(`://${h}:${p}?`) || u.endsWith(`://${h}:${p}`)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function rewriteAuthRequestUrlForProxy(req: NextRequest): NextRequest {
   const parsed = new URL(req.url);
 
@@ -35,15 +61,17 @@ export function rewriteAuthRequestUrlForProxy(req: NextRequest): NextRequest {
   const badPort = !!parsed.port && internalListenPorts().has(parsed.port);
   const loopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
 
-  const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  const root = mintDeployRootHostname();
   const onMintDomain =
     !!root &&
-    (parsed.hostname === root || parsed.hostname.endsWith(`.${root}`));
+    (parsed.hostname === root || parsed.hostname.toLowerCase().endsWith(`.${root.toLowerCase()}`));
 
   const edge = edgeHostname(forwardedNorm);
   const hostAlignsWithEdge =
     !!edge &&
     (parsed.hostname.toLowerCase() === edge || parsed.hostname.toLowerCase().endsWith(`.${edge}`));
+
+  const stringPortLeak = isHttps && onMintDomain && urlShowsInternalPortOnHost(req.url, parsed.hostname);
 
   let needsRewrite = false;
 
@@ -51,7 +79,7 @@ export function rewriteAuthRequestUrlForProxy(req: NextRequest): NextRequest {
     needsRewrite = true;
     parsed.protocol = `${proto}:`;
     parsed.host = forwardedNorm;
-  } else if (badPort && isHttps && onMintDomain) {
+  } else if (isHttps && onMintDomain && (badPort || stringPortLeak)) {
     needsRewrite = true;
     parsed.protocol = `${proto}:`;
     parsed.port = '';
@@ -63,17 +91,5 @@ export function rewriteAuthRequestUrlForProxy(req: NextRequest): NextRequest {
 
   if (!needsRewrite) return req;
 
-  if (req.body) {
-    return new NextRequest(parsed.href, {
-      headers: req.headers,
-      method: req.method,
-      body: req.body,
-      duplex: 'half',
-    });
-  }
-
-  return new NextRequest(parsed.href, {
-    headers: req.headers,
-    method: req.method,
-  });
+  return cloneRequestWithUrl(parsed.href, req);
 }

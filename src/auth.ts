@@ -3,7 +3,7 @@ import Keycloak from 'next-auth/providers/keycloak';
 import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import { headers } from 'next/headers';
-import { normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
+import { mintDeployRootHostname, normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
 
 declare module 'next-auth' {
   interface Session {
@@ -71,7 +71,7 @@ function resolveKeycloakRedirectOrigin(): string {
   if (explicit) return explicit;
   // Avoid forcing production apex OAuth when developing on localhost with NEXT_PUBLIC_MINT_ROOT_DOMAIN set.
   if (process.env.NODE_ENV !== 'production') return '';
-  const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  const root = mintDeployRootHostname();
   if (root) return `https://${root}`;
   return '';
 }
@@ -88,15 +88,26 @@ if (typeof window === 'undefined' && keycloakRedirectProxyBase && !process.env.A
 }
 
 const canonicalAuthEnv = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim();
+function authEnvOriginSameAsKeycloakApex(): boolean {
+  if (!canonicalAuthEnv || !keycloakRedirectOrigin) return false;
+  try {
+    const a = new URL(canonicalAuthEnv.startsWith('http') ? canonicalAuthEnv : `https://${canonicalAuthEnv}`).origin;
+    const b = new URL(keycloakRedirectOrigin).origin;
+    return a === b;
+  } catch {
+    return false;
+  }
+}
 if (
   process.env.NODE_ENV === 'production' &&
   canonicalAuthEnv &&
-  keycloakRedirectProxyBase
+  keycloakRedirectProxyBase &&
+  !authEnvOriginSameAsKeycloakApex()
 ) {
   console.warn(
-    '[auth] Remove AUTH_URL / NEXTAUTH_URL in production when using AUTH_KEYCLOAK_REDIRECT_ORIGIN (or MINT_ROOT_DOMAIN) — ' +
-      'next-auth rewrites the request host to the apex, PKCE cookies stay on the store subdomain, and Keycloak callback on the apex fails. ' +
-      'Unset them and set AUTH_TRUST_HOST=true instead.'
+    '[auth] AUTH_URL / NEXTAUTH_URL differs from AUTH_KEYCLOAK_REDIRECT_ORIGIN — ' +
+      'next-auth rewrites the request host; PKCE cookies on a store subdomain can break the apex Keycloak callback. ' +
+      'Either unset AUTH_URL and rely on proxy headers + src/lib/authProxyRequest.ts, or set AUTH_URL to the same origin as AUTH_KEYCLOAK_REDIRECT_ORIGIN (e.g. https://mint-shop.pro).'
   );
 }
 

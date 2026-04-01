@@ -5,6 +5,25 @@ function internalListenPorts(): Set<string> {
 }
 
 /**
+ * Root hostname for this deployment. Prefer server-safe vars: many hosts only inject
+ * KEYCLOAK / cookie env at runtime, while NEXT_PUBLIC_* can be missing on the Node process.
+ */
+export function mintDeployRootHostname(): string | undefined {
+  const fromPublic = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  if (fromPublic) return fromPublic;
+  const redirect = process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '').trim();
+  if (redirect) {
+    try {
+      return new URL(redirect.startsWith('http') ? redirect : `https://${redirect}`).hostname;
+    } catch {
+      /* ignore */
+    }
+  }
+  const cookie = process.env.AUTH_COOKIE_DOMAIN?.replace(/^\./, '').trim();
+  return cookie || undefined;
+}
+
+/**
  * Host / X-Forwarded-Host may incorrectly include the Node listen port (e.g. `mint-shop.pro:3000`)
  * while TLS terminates on 443. Strip only known internal ports when the request is HTTPS.
  */
@@ -36,7 +55,7 @@ export function publicOriginFromNextRequest(req: NextRequest): string {
   const isHttps = proto === 'https';
 
   if (!raw) {
-    const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+    const root = mintDeployRootHostname();
     if (root) return `https://${root}`;
     try {
       const u = new URL(req.url);
