@@ -1,3 +1,5 @@
+import { mintPublicRootHostname } from '@/lib/mintPublicRootDomain';
+
 /**
  * Client-only: next-auth/react and callback URLs must not use `window.location.origin` when the
  * address bar shows `https://public-domain:3000` (Node port leaked to the browser). That value
@@ -16,7 +18,7 @@ export function getCanonicalBrowserOrigin(): string {
 
   try {
     const u = new URL(window.location.href);
-    const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+    const root = mintPublicRootHostname();
     const onMint =
       !!root &&
       (u.hostname === root || u.hostname.toLowerCase().endsWith(`.${root.toLowerCase()}`));

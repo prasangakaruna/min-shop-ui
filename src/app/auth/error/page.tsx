@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import { mintPublicApexHttpsUrl, mintPublicRootHostname } from '@/lib/mintPublicRootDomain';
 import { normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
 
 export default async function AuthErrorPage({
@@ -24,17 +25,13 @@ export default async function AuthErrorPage({
   const host = normalizeHostHeaderForPublicHttps(hostRaw, isHttps);
   const envBase = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const apexRedirect =
-    process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '') ||
-    (process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN
-      ? `https://${process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN.replace(/^\./, '')}`
-      : '');
+    process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '') || mintPublicApexHttpsUrl() || '';
   const origin = hostRaw && host ? `${scheme}://${host}` : envBase;
   const callbackUrlThisHost = `${origin}/api/auth/callback/keycloak`;
   const callbackUrlApex = apexRedirect ? `${apexRedirect}/api/auth/callback/keycloak` : '';
   const canonicalAuthEnv = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim();
   const redirectProxyConfigured = !!(
-    process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.trim() ||
-    process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.trim()
+    process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.trim() || mintPublicRootHostname()
   );
   const nextAuthUrlBreaksTenantOAuth = !!(canonicalAuthEnv && redirectProxyConfigured);
 
@@ -51,13 +48,14 @@ export default async function AuthErrorPage({
         {isConfiguration && (
           <p className="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md p-3">
             <strong>Why it only says &quot;Configuration&quot;:</strong> Auth.js deliberately does not put the real provider error in
-            the URL (that could leak details to bookmarks, referrers, or logs). Many Keycloak/OAuth failures are grouped as{' '}
-            <code className="bg-gray-200 px-1 rounded">Configuration</code>. Open the{' '}
-            <strong>terminal where you run</strong> <code className="bg-gray-200 px-1 rounded">next dev</code> and look for{' '}
-            <code className="bg-gray-200 px-1 rounded">CallbackRouteError</code>, <code className="bg-gray-200 px-1 rounded">OAuth</code>, or a
-            stack trace—that line is the actual cause. For more detail locally, set{' '}
-            <code className="bg-gray-200 px-1 rounded">AUTH_DEBUG=1</code> in <code className="bg-gray-200 px-1 rounded">.env.local</code> and
-            restart the dev server.
+            the URL. Many Keycloak/OAuth failures are grouped as{' '}
+            <code className="bg-gray-200 px-1 rounded">Configuration</code>.{' '}
+            <strong>Production:</strong> check the Next.js process logs (<code className="bg-gray-200 px-1 rounded">pm2 logs</code>,{' '}
+            <code className="bg-gray-200 px-1 rounded">journalctl</code>, or Docker logs) at the moment you click sign-in — look for{' '}
+            <code className="bg-gray-200 px-1 rounded">OAuthCallbackError</code>, <code className="bg-gray-200 px-1 rounded">CallbackRouteError</code>, or
+            Keycloak <code className="bg-gray-200 px-1 rounded">invalid_grant</code>.{' '}
+            <strong>Local dev:</strong> use the terminal running <code className="bg-gray-200 px-1 rounded">next dev</code>. For extra detail, set{' '}
+            <code className="bg-gray-200 px-1 rounded">AUTH_DEBUG=1</code> in env, restart the app, reproduce once, then remove it.
           </p>
         )}
 

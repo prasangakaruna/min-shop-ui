@@ -4,6 +4,7 @@ import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import { headers } from 'next/headers';
 import { mintDeployRootHostname, normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
+import { mintPublicRootHostname } from '@/lib/mintPublicRootDomain';
 
 declare module 'next-auth' {
   interface Session {
@@ -116,8 +117,7 @@ const authCookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || undefined;
 
 function mintRootDomain(): string | undefined {
   const fromCookie = authCookieDomain?.replace(/^\./, '').trim();
-  const fromPublic = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
-  return fromCookie || fromPublic || undefined;
+  return fromCookie || mintPublicRootHostname() || undefined;
 }
 
 function hostnameUnderMintRoot(hostname: string, root: string): boolean {

@@ -1,3 +1,5 @@
+import { mintPublicRootHostname } from '@/lib/mintPublicRootDomain';
+
 /**
  * Store slug from hostname: subdomain of the marketplace root (e.g. istanbulfoodpazar.mint-shop.pro).
  * On apex hosts like mint-shop.pro there is no subdomain — do not treat "mint-shop" as a slug.
@@ -19,9 +21,7 @@ export function storeSlugFromHost(hostname: string): string | null {
   if (!hostRaw || hostRaw === 'localhost' || hostRaw === '127.0.0.1') return null;
 
   const root =
-    (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN
-      ? String(process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN).toLowerCase().trim().replace(/^\./, '')
-      : '') || '';
+    typeof process !== 'undefined' ? (mintPublicRootHostname()?.toLowerCase() ?? '') : '';
 
   if (root) {
     if (hostRaw === root || hostRaw === `www.${root}`) return null;

@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { mintPublicRootHostname } from '@/lib/mintPublicRootDomain';
 
 function internalListenPorts(): Set<string> {
   return new Set(['3000', process.env.PORT].filter(Boolean) as string[]);
@@ -9,7 +10,7 @@ function internalListenPorts(): Set<string> {
  * KEYCLOAK / cookie env at runtime, while NEXT_PUBLIC_* can be missing on the Node process.
  */
 export function mintDeployRootHostname(): string | undefined {
-  const fromPublic = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  const fromPublic = mintPublicRootHostname();
   if (fromPublic) return fromPublic;
   const redirect = process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '').trim();
   if (redirect) {
