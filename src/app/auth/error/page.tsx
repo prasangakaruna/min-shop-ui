@@ -56,6 +56,17 @@ export default async function AuthErrorPage({
             Keycloak <code className="bg-gray-200 px-1 rounded">invalid_grant</code>.{' '}
             <strong>Local dev:</strong> use the terminal running <code className="bg-gray-200 px-1 rounded">next dev</code>. For extra detail, set{' '}
             <code className="bg-gray-200 px-1 rounded">AUTH_DEBUG=1</code> in env, restart the app, reproduce once, then remove it.
+            <br />
+            <span className="block mt-2">
+              This app logs the real Keycloak HTTP errors under the prefix{' '}
+              <code className="bg-gray-200 px-1 rounded">[mint-shop-auth]</code> (token/userinfo response body). Grep your server logs for that
+              string right after a failed sign-in.
+            </span>
+            <span className="block mt-2 text-gray-600">
+              Optional: set <code className="bg-gray-200 px-1 rounded">AUTH_DIAG_SECRET</code> on the server, then open{' '}
+              <code className="bg-gray-200 px-1 rounded">/api/internal/auth-health?key=…</code> to verify the app can reach Keycloak&apos;s
+              OpenID metadata from production.
+            </span>
           </p>
         )}
 

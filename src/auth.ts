@@ -1,4 +1,4 @@
-import NextAuth from 'next-auth';
+import NextAuth, { AuthError, customFetch } from 'next-auth';
 import Keycloak from 'next-auth/providers/keycloak';
 import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
@@ -226,6 +226,61 @@ const keycloakIssuer = (process.env.KEYCLOAK_ISSUER ?? 'http://localhost:9091/re
 // Only send client_secret if client is confidential; for public client leave KEYCLOAK_CLIENT_SECRET unset
 const keycloakClientSecret = process.env.KEYCLOAK_CLIENT_SECRET?.trim() || undefined;
 
+const red = '\x1b[31m';
+const reset = '\x1b[0m';
+
+function oauthRequestHref(input: RequestInfo | URL): string {
+  if (typeof input === 'string') return input;
+  if (input instanceof URL) return input.href;
+  return input.url;
+}
+
+/** Logs Keycloak token/userinfo HTTP errors (Auth.js maps many of these to error=Configuration). */
+const keycloakOAuthLoggingFetch: typeof fetch = async (input, init) => {
+  const res = await fetch(input, init);
+  if (res.ok) return res;
+  const href = oauthRequestHref(input as RequestInfo | URL);
+  const lower = href.toLowerCase();
+  if (
+    lower.includes('/protocol/openid-connect/token') ||
+    lower.includes('/protocol/openid-connect/userinfo')
+  ) {
+    let body = '';
+    try {
+      body = (await res.clone().text()).slice(0, 1500);
+    } catch {
+      /* ignore */
+    }
+    console.error(
+      `${red}[mint-shop-auth]${reset} Keycloak OAuth HTTP ${res.status} ${href.split('?')[0]} — ${body || '(empty body)'}`
+    );
+  }
+  return res;
+};
+
+function mintShopAuthLoggerError(error: Error) {
+  const name = error instanceof AuthError ? error.type : error.name;
+  console.error(`${red}[mint-shop-auth][error]${reset} ${name}: ${error.message}`);
+  if (error.cause != null) {
+    console.error(`${red}[mint-shop-auth][cause]${reset}`, error.cause);
+  }
+  if (
+    error.cause &&
+    typeof error.cause === 'object' &&
+    'err' in error.cause &&
+    (error.cause as { err?: unknown }).err instanceof Error
+  ) {
+    const { err, ...data } = error.cause as { err: Error; [k: string]: unknown };
+    console.error(`${red}[mint-shop-auth][nested]${reset}`, err.stack);
+    if (Object.keys(data).length > 0) {
+      console.error(`${red}[mint-shop-auth][details]${reset}`, JSON.stringify(data, null, 2));
+    }
+  } else if (error.stack) {
+    const rest = error.stack.replace(/^[^\n]*\n?/, '');
+    if (rest.trim()) console.error(rest);
+  }
+}
+
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   if (!token.refresh_token) return token;
   try {
@@ -244,9 +299,13 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       body: body.toString(),
     });
     if (!res.ok) {
+      const text = await res.text().catch(() => '');
       if (process.env.NODE_ENV === 'development') {
-        const text = await res.text().catch(() => '');
         console.warn('[auth] Keycloak refresh_token exchange failed:', res.status, text.slice(0, 500));
+      } else {
+        console.error(
+          `${red}[mint-shop-auth]${reset} Keycloak refresh_token HTTP ${res.status} — ${text.slice(0, 800)}`
+        );
       }
       return token;
     }
@@ -279,6 +338,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       clientId: process.env.KEYCLOAK_CLIENT_ID ?? 'mint-ecommerce',
       clientSecret: keycloakClientSecret,
       issuer: keycloakIssuer,
+      [customFetch]: keycloakOAuthLoggingFetch,
       // Public Keycloak clients must not use client_secret at the token endpoint; Auth.js defaults to client_secret_basic otherwise.
       ...(keycloakClientSecret
         ? {}
@@ -333,6 +393,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/auth/error',
   },
   trustHost: true,
+  logger: {
+    error: mintShopAuthLoggerError,
+  },
   /** Verbose Auth.js logs in the Next.js terminal (set AUTH_DEBUG=1 in .env.local). Never enable in production. */
   debug: process.env.AUTH_DEBUG === '1' || process.env.AUTH_DEBUG === 'true',
 });
