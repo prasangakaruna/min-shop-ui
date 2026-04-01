@@ -176,15 +176,19 @@ function CartPageInner() {
         ? parseFloat(cart?.discount_total ?? '0') || 0
         : 0;
   const volumePromo = cart?.volume_promo;
+  const volumeScheduleOk = volumePromo?.schedule_active !== false;
   const volumeDiscountNum = parseFloat(volumePromo?.discount_amount ?? '0') || 0;
   const remainingForVolume =
     volumePromo?.enabled &&
+    volumeScheduleOk &&
     volumePromo.remaining_to_qualify != null &&
     volumePromo.remaining_to_qualify !== ''
       ? parseFloat(volumePromo.remaining_to_qualify)
       : null;
   const showVolumeProgress =
-    !isEmpty && volumePromo?.enabled && remainingForVolume != null && remainingForVolume > 0;
+    !isEmpty && volumePromo?.enabled && volumeScheduleOk && remainingForVolume != null && remainingForVolume > 0;
+  const showVolumeSchedulePaused =
+    !isEmpty && volumePromo?.enabled && volumePromo.schedule_active === false;
 
   return (
     <div className="min-h-screen bg-white">
@@ -269,6 +273,19 @@ function CartPageInner() {
                 </li>
               ))}
             </ul>
+
+            {showVolumeSchedulePaused ? (
+              <div
+                className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                role="status"
+              >
+                <p className="font-semibold">Bulk promo is not active right now</p>
+                <p className="mt-1 text-amber-900/90">
+                  This store&apos;s volume discount is outside its scheduled start or end time. Your cart still works;
+                  check back when the promotion is running.
+                </p>
+              </div>
+            ) : null}
 
             {showVolumeProgress ? (
               <div

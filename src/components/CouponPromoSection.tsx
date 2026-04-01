@@ -8,7 +8,12 @@ type StorefrontCouponRow = { code: string; summary: string; min_subtotal?: strin
 
 type StorefrontCouponsResponse = {
   data?: StorefrontCouponRow[];
-  volume_promo?: { min_subtotal: string; percent: number } | null;
+  volume_promo?: {
+    min_subtotal: string;
+    percent: number;
+    starts_at?: string | null;
+    ends_at?: string | null;
+  } | null;
 };
 
 /**
@@ -80,6 +85,17 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                   <span className="font-semibold text-mint-dark">Bulk savings: </span>
                   orders of ${parseFloat(volumePromo.min_subtotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} or more save{' '}
                   {volumePromo.percent}% automatically at checkout—no code needed (can combine with coupons).
+                  {(volumePromo.starts_at || volumePromo.ends_at) && (
+                    <span className="mt-1.5 block text-xs font-normal text-gray-600">
+                      {(() => {
+                        const s = volumePromo.starts_at ? new Date(volumePromo.starts_at).toLocaleString() : null;
+                        const e = volumePromo.ends_at ? new Date(volumePromo.ends_at).toLocaleString() : null;
+                        if (s && e) return `Scheduled: ${s} – ${e}.`;
+                        if (s) return `Starts ${s}.`;
+                        return `Ends ${e}.`;
+                      })()}
+                    </span>
+                  )}
                 </p>
               ) : null}
               {coupons.length > 0 ? (

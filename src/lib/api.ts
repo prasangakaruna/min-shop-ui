@@ -288,6 +288,8 @@ export interface StoreSettings {
     enabled?: boolean;
     min_subtotal?: number;
     percent?: number;
+    starts_at?: string | null;
+    ends_at?: string | null;
   } | null;
 }
 
@@ -553,6 +555,10 @@ export interface StorefrontVolumePromo {
   discount_amount: string;
   /** Amount still needed to unlock the promo; null when qualified or disabled. */
   remaining_to_qualify?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  /** False when outside optional start/end window. */
+  schedule_active?: boolean;
 }
 
 export interface StorefrontCart {

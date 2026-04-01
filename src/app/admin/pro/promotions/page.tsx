@@ -14,6 +14,40 @@ function formatMoney(n: number): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function toDatetimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (x: number) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatScheduleRange(startsAt: string, endsAt: string): string | null {
+  if (!startsAt.trim() && !endsAt.trim()) return null;
+  const opts: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
+  const a = startsAt.trim() ? new Date(startsAt) : null;
+  const b = endsAt.trim() ? new Date(endsAt) : null;
+  if (a && Number.isNaN(a.getTime())) return null;
+  if (b && Number.isNaN(b.getTime())) return null;
+  if (a && b) return `${a.toLocaleString(undefined, opts)} → ${b.toLocaleString(undefined, opts)}`;
+  if (a) return `Starts ${a.toLocaleString(undefined, opts)}`;
+  if (b) return `Ends ${b.toLocaleString(undefined, opts)}`;
+  return null;
+}
+
+function scheduleActiveFromInputs(startsAt: string, endsAt: string): boolean {
+  const now = Date.now();
+  if (startsAt.trim()) {
+    const t = new Date(startsAt).getTime();
+    if (!Number.isNaN(t) && now < t) return false;
+  }
+  if (endsAt.trim()) {
+    const t = new Date(endsAt).getTime();
+    if (!Number.isNaN(t) && now > t) return false;
+  }
+  return true;
+}
+
 function IconBulk({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
@@ -48,6 +82,8 @@ export default function ProPromotionsPage() {
   const [enabled, setEnabled] = useState(true);
   const [minSubtotal, setMinSubtotal] = useState(String(DEFAULT_MIN));
   const [percent, setPercent] = useState(String(DEFAULT_PCT));
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
 
   const applyFromStore = useCallback((s: StoreSummary) => {
     const vol = s.settings?.storefront_volume_promo;
@@ -62,11 +98,15 @@ export default function ProPromotionsPage() {
       setPercent(
         vol.percent != null && !Number.isNaN(Number(vol.percent)) ? String(vol.percent) : String(DEFAULT_PCT)
       );
+      setStartsAt(typeof vol.starts_at === 'string' ? toDatetimeLocalValue(vol.starts_at) : '');
+      setEndsAt(typeof vol.ends_at === 'string' ? toDatetimeLocalValue(vol.ends_at) : '');
     } else {
       setHasStoreOverride(false);
       setEnabled(true);
       setMinSubtotal(String(DEFAULT_MIN));
       setPercent(String(DEFAULT_PCT));
+      setStartsAt('');
+      setEndsAt('');
     }
   }, []);
 
@@ -93,6 +133,9 @@ export default function ProPromotionsPage() {
   const minValid = !Number.isNaN(minNum) && minNum >= 0;
   const pctValid = !Number.isNaN(pctNum) && pctNum >= 0 && pctNum <= 100;
 
+  const scheduleInWindow = scheduleActiveFromInputs(startsAt, endsAt);
+  const scheduleRangeLabel = useMemo(() => formatScheduleRange(startsAt, endsAt), [startsAt, endsAt]);
+
   const preview = useMemo(() => {
     if (!minValid || !pctValid) return null;
     const exampleCart = minNum + 1200;
@@ -115,6 +158,14 @@ export default function ProPromotionsPage() {
       setError('Percent must be between 0 and 100.');
       return;
     }
+    if (startsAt.trim() && endsAt.trim()) {
+      const t0 = new Date(startsAt).getTime();
+      const t1 = new Date(endsAt).getTime();
+      if (!Number.isNaN(t0) && !Number.isNaN(t1) && t1 < t0) {
+        setError('End date must be on or after the start date.');
+        return;
+      }
+    }
     setSaving(true);
     setError(null);
     setSavedAt(null);
@@ -129,6 +180,8 @@ export default function ProPromotionsPage() {
               enabled,
               min_subtotal: min,
               percent: pct,
+              starts_at: startsAt.trim() ? new Date(startsAt).toISOString() : null,
+              ends_at: endsAt.trim() ? new Date(endsAt).toISOString() : null,
             },
           },
         },
@@ -169,6 +222,8 @@ export default function ProPromotionsPage() {
       setEnabled(true);
       setMinSubtotal(String(DEFAULT_MIN));
       setPercent(String(DEFAULT_PCT));
+      setStartsAt('');
+      setEndsAt('');
       setSavedAt('Reset — using platform defaults');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not reset');
@@ -229,12 +284,16 @@ export default function ProPromotionsPage() {
                       </span>
                       <span
                         className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide ring-1 ${
-                          enabled
+                          enabled && scheduleInWindow
                             ? 'bg-white/20 text-white ring-white/30'
                             : 'bg-black/25 text-white/80 ring-white/10'
                         }`}
                       >
-                        {enabled ? 'Live on storefront' : 'Paused'}
+                        {!enabled
+                          ? 'Paused'
+                          : scheduleInWindow
+                            ? 'Live on storefront'
+                            : 'Outside date window'}
                       </span>
                     </div>
                     <h2 className="mt-6 text-xl font-bold leading-tight sm:text-2xl">Bulk order discount</h2>
@@ -242,10 +301,22 @@ export default function ProPromotionsPage() {
                       Reward larger carts: when subtotal crosses your threshold, Mint knocks a percent off the whole
                       order—no code to remember.
                     </p>
-                    <div className="mt-6 rounded-2xl bg-black/20 p-4 ring-1 ring-white/15 backdrop-blur-sm">
+                    {scheduleRangeLabel ? (
+                      <p className="mt-4 text-xs text-teal-100/90">
+                        <span className="font-semibold text-white">Schedule: </span>
+                        {scheduleRangeLabel}
+                      </p>
+                    ) : (
+                      <p className="mt-4 text-xs text-teal-100/80">No start/end — promo can run anytime (when enabled).</p>
+                    )}
+                    <div className="mt-4 rounded-2xl bg-black/20 p-4 ring-1 ring-white/15 backdrop-blur-sm">
                       <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-100/90">Shoppers see</p>
                       <p className="mt-2 text-lg font-bold sm:text-xl">
-                        {enabled && minValid && pctValid ? (
+                        {!enabled ? (
+                          <span className="text-teal-100/80">Turn on the toggle to activate</span>
+                        ) : !scheduleInWindow ? (
+                          <span className="text-teal-100/80">No discount during this period — outside start/end dates</span>
+                        ) : minValid && pctValid ? (
                           <>
                             Spend <span className="text-cyan-200">${formatMoney(minNum)}</span>+, save{' '}
                             <span className="text-cyan-200">{pctNum}%</span> on this order
@@ -274,13 +345,18 @@ export default function ProPromotionsPage() {
                       <p className="mt-3 rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-600">
                         Toggle is off — shoppers won&apos;t receive this discount until you enable it.
                       </p>
+                    ) : !scheduleInWindow ? (
+                      <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-amber-200/80">
+                        Current time is outside your start/end window — cart will not apply bulk savings until the schedule
+                        is active.
+                      </p>
                     ) : null}
                     <div className="mt-4 space-y-3 rounded-xl bg-gray-50/80 p-4 text-sm">
                       <div className="flex justify-between text-gray-600">
                         <span>Sample cart subtotal</span>
                         <span className="font-mono font-medium text-gray-900">${formatMoney(preview.exampleCart)}</span>
                       </div>
-                      {preview.qualifies ? (
+                      {preview.qualifies && scheduleInWindow ? (
                         <>
                           <div className="flex justify-between text-emerald-700">
                             <span>Bulk savings ({pctNum}%)</span>
@@ -291,6 +367,10 @@ export default function ProPromotionsPage() {
                             <span className="font-mono text-mint-dark">${formatMoney(preview.after)}</span>
                           </div>
                         </>
+                      ) : preview.qualifies && !scheduleInWindow ? (
+                        <p className="text-xs text-amber-800">
+                          Sample cart qualifies by amount, but dates block the discount right now.
+                        </p>
                       ) : (
                         <p className="text-xs text-amber-800">Below threshold—no bulk discount on this sample amount.</p>
                       )}
@@ -420,6 +500,40 @@ export default function ProPromotionsPage() {
                         <p className="mt-2 text-xs leading-relaxed text-gray-600">
                           Off the cart subtotal. Stacks with coupons; total discount never exceeds subtotal.
                         </p>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <p className="text-sm font-medium text-gray-900">Promo window (optional)</p>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Leave both empty for no date limit. Uses your browser&apos;s local timezone until saved (stored in
+                          UTC on the server).
+                        </p>
+                        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label htmlFor="vol-start" className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Starts
+                            </label>
+                            <input
+                              id="vol-start"
+                              type="datetime-local"
+                              value={startsAt}
+                              onChange={(e) => setStartsAt(e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2.5 text-sm text-gray-900 focus:border-mint focus:bg-white focus:outline-none focus:ring-2 focus:ring-mint/20"
+                            />
+                          </div>
+                          <div>
+                            <label htmlFor="vol-end" className="block text-xs font-medium text-gray-700 mb-1.5">
+                              Expires
+                            </label>
+                            <input
+                              id="vol-end"
+                              type="datetime-local"
+                              value={endsAt}
+                              onChange={(e) => setEndsAt(e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3 py-2.5 text-sm text-gray-900 focus:border-mint focus:bg-white focus:outline-none focus:ring-2 focus:ring-mint/20"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
