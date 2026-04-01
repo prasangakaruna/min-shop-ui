@@ -36,10 +36,12 @@ function categoryPath(c: CustomCategoryRow, custom: CustomCategoryRow[], default
   while (cur && guard++ < 50) {
     names.unshift(cur.name);
     if (cur.parent_id) {
-      cur = custom.find((x) => x.id === cur.parent_id);
+      const parentId: number = cur.parent_id;
+      cur = custom.find((x) => x.id === parentId);
     } else if (cur.parent_default_id) {
-      const d = defaults.find((x) => x.id === cur.parent_default_id);
-      names.unshift(d?.name ?? cur.parent_default_id);
+      const defaultId: string = cur.parent_default_id;
+      const d = defaults.find((x) => x.id === defaultId);
+      names.unshift(d?.name ?? defaultId);
       break;
     } else {
       break;
