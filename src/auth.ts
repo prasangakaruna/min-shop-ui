@@ -157,7 +157,7 @@ async function getTrustedRequestOrigin(): Promise<string> {
     const h = await headers();
     const hostRaw = (h.get('x-forwarded-host') ?? h.get('host') ?? '').split(',')[0].trim();
     if (!hostRaw) {
-      const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+      const root = mintDeployRootHostname();
       if (root) return `https://${root}`;
       const apex = process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '').trim();
       if (apex) return apex;
@@ -169,9 +169,21 @@ async function getTrustedRequestOrigin(): Promise<string> {
       .replace(/:$/, '');
     const isHttps = proto === 'https';
     const host = normalizeHostHeaderForPublicHttps(hostRaw, isHttps);
-    return `${proto}://${host}`;
+    let origin = `${proto}://${host}`;
+    if (process.env.NODE_ENV === 'production' && isHttps) {
+      try {
+        const u = new URL(origin);
+        if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1') {
+          u.port = '';
+          origin = u.origin;
+        }
+      } catch {
+        /* keep origin */
+      }
+    }
+    return origin;
   } catch {
-    const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+    const root = mintDeployRootHostname();
     if (root) return `https://${root}`;
     return 'http://localhost:3000';
   }

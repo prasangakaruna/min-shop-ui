@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { signIn } from 'next-auth/react';
+import { getCanonicalBrowserOrigin } from '@/lib/browserAuthOrigin';
 import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
 
 export default function LoginPage() {
@@ -16,7 +17,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const origin = window.location.origin;
+    const origin = getCanonicalBrowserOrigin();
     const defaultAfterLogin = keycloakCallbackUrl('/auth/after-login');
     try {
       const url = new URL(window.location.href);
