@@ -61,12 +61,12 @@ function usePromoCountdown(endIso: string | null | undefined): CountdownParts | 
 }
 
 const promoCtaClassName =
-  'group inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2';
+  'group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-b from-slate-800 to-slate-950 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_8px_24px_-6px_rgba(15,23,42,0.45)] transition duration-200 hover:-translate-y-0.5 hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_12px_28px_-8px_rgba(20,184,166,0.25)] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 active:translate-y-0';
 
 function CtaArrow() {
   return (
     <svg
-      className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+      className="relative h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -77,40 +77,76 @@ function CtaArrow() {
   );
 }
 
+/** Editorial countdown: glass cells, colon separators, subtle depth */
+function CountdownStrip({ parts, label = 'Ends in' }: { parts: CountdownParts; label?: string }) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const cells = [
+    { v: pad(parts.days), l: 'Days' },
+    { v: pad(parts.hours), l: 'Hrs' },
+    { v: pad(parts.mins), l: 'Min' },
+    { v: pad(parts.secs), l: 'Sec' },
+  ];
+  return (
+    <div className="w-full">
+      <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.25em] text-teal-800/90">{label}</p>
+      <div
+        className="flex flex-wrap items-start justify-center gap-y-2"
+        role="timer"
+        aria-live="polite"
+        aria-atomic="true"
+        aria-label={`${label}: ${cells.map((c) => `${c.v} ${c.l}`).join(', ')}`}
+      >
+        {cells.map((c, i) => (
+          <React.Fragment key={c.l}>
+            {i > 0 ? (
+              <span
+                className="mx-0.5 mb-8 hidden text-xl font-extralight leading-none text-teal-300/80 sm:mx-1 sm:inline"
+                aria-hidden
+              >
+                :
+              </span>
+            ) : null}
+            <div className="flex min-w-[3.5rem] flex-col items-center px-1 sm:min-w-[3.75rem]">
+              <div className="w-full rounded-2xl border border-white/90 bg-gradient-to-b from-white to-slate-100/90 px-2 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,1),0_4px_14px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,118,110,0.06)] sm:py-3">
+                <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900 sm:text-2xl">{c.v}</span>
+              </div>
+              <span className="mt-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-teal-700/85">{c.l}</span>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CountdownBoxes({
   days,
   hours,
   mins,
   secs,
-  size = 'default',
 }: {
   days: number;
   hours: number;
   mins: number;
   secs?: number;
-  size?: 'default' | 'compact';
 }) {
+  if (secs !== undefined) {
+    return <CountdownStrip parts={{ days, hours, mins, secs }} />;
+  }
   const pad = (n: number) => String(n).padStart(2, '0');
   const cells = [
     { value: pad(days), label: 'DAYS' },
     { value: pad(hours), label: 'HRS' },
     { value: pad(mins), label: 'MIN' },
-    ...(secs !== undefined ? ([{ value: pad(secs), label: 'SEC' }] as const) : []),
   ];
-  const box =
-    size === 'compact'
-      ? 'flex min-w-[2.35rem] items-center justify-center rounded-lg bg-white px-1.5 py-1.5 text-sm font-bold tabular-nums text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:min-w-[2.5rem] sm:text-base'
-      : 'flex min-w-[2.65rem] items-center justify-center rounded-lg bg-white px-2 py-2 text-base font-bold tabular-nums text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:min-w-[2.85rem] sm:text-lg';
-  const labelCls = size === 'compact' ? 'mt-1 text-[8px]' : 'mt-1 text-[9px]';
   return (
-    <div
-      className={`flex flex-wrap justify-center gap-1.5 sm:gap-2 ${cells.length > 3 ? 'max-w-[20rem] sm:max-w-none' : ''}`}
-      aria-label="Offer ends in"
-    >
+    <div className="flex flex-wrap justify-center gap-2 sm:gap-3" aria-label="Offer ends in">
       {cells.map((c) => (
         <div key={c.label} className="flex flex-col items-center">
-          <div className={box}>{c.value}</div>
-          <span className={`${labelCls} font-semibold uppercase tracking-widest text-slate-400`}>{c.label}</span>
+          <div className="flex min-w-[2.65rem] items-center justify-center rounded-xl border border-white/80 bg-gradient-to-b from-white to-slate-50 px-2 py-2 text-base font-bold tabular-nums text-slate-900 shadow-[0_2px_8px_rgba(15,23,42,0.06)] sm:min-w-[2.85rem] sm:text-lg">
+            {c.value}
+          </div>
+          <span className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-slate-400">{c.label}</span>
         </div>
       ))}
     </div>
@@ -119,6 +155,14 @@ function CountdownBoxes({
 
 type VolumePromo = NonNullable<StorefrontCouponsResponse['volume_promo']>;
 
+function EyebrowPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full border border-teal-200/60 bg-gradient-to-r from-teal-50/90 to-cyan-50/50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800 shadow-sm">
+      {children}
+    </span>
+  );
+}
+
 function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; productsHref: string }) {
   const countdown = usePromoCountdown(volume.ends_at ?? null);
   const timed = Boolean(volume.ends_at?.trim());
@@ -126,68 +170,70 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
   return (
     <div
       id="store-volume-promo"
-      className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-7 shadow-sm sm:p-8"
+      className="group/card relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200/50 bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-24px_rgba(15,23,42,0.2),0_0_0_1px_rgba(255,255,255,0.5)]"
       aria-labelledby="volume-promo-title"
     >
       <div
-        className="pointer-events-none absolute right-0 top-0 h-40 w-40 translate-x-1/4 -translate-y-1/4 rounded-full bg-teal-500/[0.06]"
+        className="pointer-events-none absolute -right-12 top-0 h-56 w-56 rounded-full bg-gradient-to-br from-teal-300/25 via-cyan-200/15 to-transparent blur-2xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-16 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-teal-500/10 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/40 to-transparent"
         aria-hidden
       />
 
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-700">
-        {timed ? 'Limited run' : 'Volume deal'}
-      </p>
+      <div className="relative p-7 sm:p-8">
+        <EyebrowPill>{timed ? 'Limited run' : 'Volume deal'}</EyebrowPill>
 
-      {countdown ? (
-        <div
-          className="mt-4 rounded-xl bg-gradient-to-b from-teal-50/90 via-slate-50/80 to-slate-50/40 px-3 py-3.5 ring-1 ring-teal-100/80"
-          role="timer"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800">Ends in</p>
-          <CountdownBoxes
-            days={countdown.days}
-            hours={countdown.hours}
-            mins={countdown.mins}
-            secs={countdown.secs}
-            size="compact"
-          />
-        </div>
-      ) : (
-        <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/70 px-3 py-3 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Offer status</p>
-          <p className="mt-1 text-xs leading-snug text-slate-600">
-            This rate is <span className="font-medium text-slate-800">live</span>. Your savings show up at checkout when your
-            order meets the minimum.
-          </p>
-        </div>
-      )}
+        {countdown ? (
+          <div className="relative mt-5 overflow-hidden rounded-2xl border border-teal-200/40 bg-gradient-to-br from-teal-50/95 via-white to-cyan-50/30 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+            <div
+              className="pointer-events-none absolute -left-6 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-teal-400/20 blur-xl"
+              aria-hidden
+            />
+            <CountdownStrip parts={countdown} />
+          </div>
+        ) : (
+          <div className="relative mt-5 overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-4 text-center shadow-inner">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Offer status</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              This rate is <span className="font-semibold text-slate-800">live</span>. Savings appear at checkout when your
+              order meets the minimum.
+            </p>
+          </div>
+        )}
 
-      <div className="mt-5 flex items-end gap-0.5">
-        <span className="text-5xl font-black leading-none tracking-tight text-slate-900 sm:text-6xl">{volume.percent}</span>
-        <div className="mb-0.5 ml-0.5 flex flex-col leading-none">
-          <span className="text-2xl font-bold text-slate-900 sm:text-3xl">%</span>
-          <span className="text-xs font-bold uppercase tracking-wide text-teal-700">off</span>
+        <div className="relative mt-6 flex items-end gap-1">
+          <span className="bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-5xl font-black leading-none tracking-tight text-transparent sm:text-6xl">
+            {volume.percent}
+          </span>
+          <div className="mb-1 flex flex-col leading-none">
+            <span className="text-2xl font-bold text-slate-800 sm:text-3xl">%</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-teal-700">off</span>
+          </div>
         </div>
+
+        <h2 id="volume-promo-title" className="mt-4 text-lg font-bold leading-snug tracking-tight text-slate-900 sm:text-xl">
+          Automatic savings on large orders — no code.
+        </h2>
+
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          From <span className="font-semibold text-slate-800">${formatMoney(volume.min_subtotal)}</span> your cart gets{' '}
+          <span className="font-semibold text-teal-800">{volume.percent}%</span> off at checkout. Stack a coupon when your
+          store allows it.
+        </p>
       </div>
 
-      <h2 id="volume-promo-title" className="mt-4 text-lg font-bold leading-snug text-slate-900 sm:text-xl">
-        Automatic savings on large orders — no code.
-      </h2>
-
-      <p className="mt-2 text-sm leading-relaxed text-slate-600">
-        From <span className="font-semibold text-slate-800">${formatMoney(volume.min_subtotal)}</span> your cart gets{' '}
-        <span className="font-semibold text-slate-800">{volume.percent}%</span> off at checkout. Combine with a coupon when
-        allowed.
-      </p>
-
-      <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-6">
+      <div className="relative mt-auto border-t border-slate-100/80 bg-gradient-to-b from-slate-50/30 to-white px-7 py-6 sm:px-8">
         <Link href={productsHref} className={promoCtaClassName}>
-          <span>Shop the sale</span>
+          <span className="relative">Shop the sale</span>
           <CtaArrow />
         </Link>
-        <p className="text-center text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500">
           Exclusions may apply. Final total in cart and checkout.
         </p>
       </div>
@@ -196,7 +242,7 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
 }
 
 /**
- * Homepage promotions: coupon-focused card + optional volume card (no duplicated bulk copy when both show).
+ * Homepage promotions: coupon-focused card + optional volume card.
  */
 export default function CouponPromoSection({ storeSlug }: { storeSlug?: string | null }) {
   const [coupons, setCoupons] = useState<StorefrontCouponRow[]>([]);
@@ -243,23 +289,39 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
 
   return (
     <section
-      className="relative w-full border-b border-slate-100 bg-slate-50/80 py-12 sm:py-14"
+      className="relative w-full overflow-hidden border-b border-slate-200/60 bg-slate-100/60 py-14 sm:py-16"
       aria-labelledby="promo-card-heading"
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div
-          className={`grid gap-5 ${showVolumeColumn ? 'lg:grid-cols-2 lg:gap-6 xl:grid-cols-[1.05fr_0.95fr]' : ''}`}
-        >
-          <div className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-7 shadow-sm sm:p-8 lg:min-h-[320px]">
-            <div className="pointer-events-none absolute -left-20 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-teal-500/[0.04]" aria-hidden />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(45,212,191,0.12),transparent_55%),radial-gradient(ellipse_50%_40%_at_100%_50%,rgba(14,116,144,0.06),transparent)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.35] bg-[linear-gradient(rgba(148,163,184,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.07)_1px,transparent_1px)] bg-[size:32px_32px]"
+        aria-hidden
+      />
 
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+        <div
+          className={`grid gap-6 ${showVolumeColumn ? 'lg:grid-cols-2 lg:gap-8 xl:grid-cols-[1.08fr_0.92fr]' : ''}`}
+        >
+          <div className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200/50 bg-white/95 shadow-[0_1px_0_rgba(255,255,255,1)_inset,0_24px_56px_-28px_rgba(15,23,42,0.18),0_0_0_1px_rgba(255,255,255,0.6)] backdrop-blur-sm lg:min-h-[340px]">
+            <div
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/35 to-transparent"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute -left-24 top-1/3 h-72 w-72 rounded-full bg-gradient-to-tr from-teal-400/12 to-transparent blur-3xl"
+              aria-hidden
+            />
+
+            <div className="relative flex min-h-0 flex-1 flex-col p-7 sm:p-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
                 <div
-                  className="mx-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 ring-1 ring-amber-200/60 sm:mx-0"
+                  className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200/50 bg-gradient-to-br from-amber-50 to-amber-100/50 shadow-[0_4px_12px_rgba(245,158,11,0.12)] sm:mx-0"
                   aria-hidden
                 >
-                  <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -269,10 +331,10 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                   </svg>
                 </div>
                 <div className="min-w-0 flex-1 text-center sm:text-left">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal-700">Smart checkout</p>
+                  <EyebrowPill>Smart checkout</EyebrowPill>
                   <h2
                     id="promo-card-heading"
-                    className="mt-1.5 text-pretty text-2xl font-bold tracking-tight text-slate-900 sm:text-[1.65rem] sm:leading-snug"
+                    className="mt-3 text-pretty text-2xl font-bold leading-[1.2] tracking-tight text-slate-900 sm:text-[1.7rem]"
                   >
                     {!hasAnyDeal ? (
                       <>
@@ -291,19 +353,19 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                 </div>
               </div>
 
-              <div className="mt-6 flex min-h-0 flex-1 flex-col gap-5">
+              <div className="mt-7 flex min-h-0 flex-1 flex-col gap-6">
                 {!storeSlug ? (
                   <p className="mx-auto max-w-md text-pretty text-center text-sm leading-relaxed text-slate-600 sm:mx-0 sm:text-left">
                     Browse the marketplace and add items to your cart. Coupons and volume discounts apply on the cart page
                     before you pay.
                   </p>
                 ) : !loaded ? (
-                  <div className="flex flex-1 items-center justify-center py-10 sm:justify-start sm:py-8">
-                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600/25 border-t-teal-700" />
+                  <div className="flex flex-1 items-center justify-center py-12 sm:justify-start">
+                    <div className="h-9 w-9 animate-spin rounded-full border-2 border-teal-500/20 border-t-teal-600" />
                   </div>
                 ) : (
                   <>
-                    <p className="mx-auto max-w-xl text-pretty text-center text-sm leading-relaxed text-slate-600 sm:mx-0 sm:text-left">
+                    <p className="mx-auto max-w-xl text-pretty text-center text-[15px] leading-relaxed text-slate-600 sm:mx-0 sm:text-left">
                       {showVolumeColumn && hasCoupons ? (
                         <>
                           Paste a code on the{' '}
@@ -311,22 +373,22 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                           before payment.{' '}
                           <a
                             href="#store-volume-promo"
-                            className="font-medium text-teal-700 underline decoration-teal-700/30 underline-offset-2 hover:decoration-teal-700"
+                            className="font-medium text-teal-700 underline decoration-teal-400/40 underline-offset-[3px] transition hover:decoration-teal-600"
                           >
                             Volume savings
                           </a>{' '}
-                          are summarized beside this card.
+                          are on the companion card.
                         </>
                       ) : showVolumeColumn ? (
                         <>
                           <a
                             href="#store-volume-promo"
-                            className="font-medium text-teal-700 underline decoration-teal-700/30 underline-offset-2 hover:decoration-teal-700"
+                            className="font-medium text-teal-700 underline decoration-teal-400/40 underline-offset-[3px] transition hover:decoration-teal-600"
                           >
                             Volume pricing
                           </a>{' '}
-                          is on the right. If you receive a code, enter it on the{' '}
-                          <span className="font-medium text-slate-800">cart page</span> — your total updates before you pay.
+                          is on the right. If you have a code, use the{' '}
+                          <span className="font-medium text-slate-800">cart page</span> — totals update before you pay.
                         </>
                       ) : (
                         <>
@@ -337,15 +399,15 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                     </p>
 
                     {!showVolumeColumn && hasVolume ? (
-                      <div className="space-y-5 rounded-xl border border-teal-200/70 bg-teal-50/40 px-4 py-4 sm:px-5">
-                        <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-end sm:gap-5">
-                          <div className="flex items-end gap-0.5">
-                            <span className="text-5xl font-black leading-none text-slate-900 sm:text-6xl">
+                      <div className="space-y-5 overflow-hidden rounded-2xl border border-teal-200/50 bg-gradient-to-br from-teal-50/80 via-white to-cyan-50/20 p-5 shadow-inner">
+                        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:gap-6">
+                          <div className="flex items-end gap-1">
+                            <span className="bg-gradient-to-br from-slate-900 to-slate-600 bg-clip-text text-5xl font-black leading-none text-transparent sm:text-6xl">
                               {volumePromo!.percent}
                             </span>
-                            <div className="mb-0.5 ml-0.5 flex flex-col leading-none">
-                              <span className="text-2xl font-bold text-slate-900">%</span>
-                              <span className="text-xs font-bold uppercase text-teal-700">off</span>
+                            <div className="mb-0.5 flex flex-col leading-none">
+                              <span className="text-2xl font-bold text-slate-800">%</span>
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700">off</span>
                             </div>
                           </div>
                           <p className="max-w-md text-center text-sm text-slate-600 sm:text-left">
@@ -367,10 +429,7 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                           </p>
                         )}
                         {countdown ? (
-                          <div>
-                            <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:text-left">
-                              Ends in
-                            </p>
+                          <div className="border-t border-teal-100/80 pt-4">
                             <CountdownBoxes days={countdown.days} hours={countdown.hours} mins={countdown.mins} secs={countdown.secs} />
                           </div>
                         ) : null}
@@ -379,20 +438,21 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
 
                     {hasCoupons ? (
                       <div>
-                        <p className="mb-2.5 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700 sm:text-left">
+                        <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-teal-800 sm:text-left">
                           Active codes · this store
                         </p>
                         <ul
-                          className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-2"
+                          className="grid gap-3 sm:grid-cols-1 sm:gap-3 lg:max-w-xl"
                           aria-label="Active coupon codes for this store"
                         >
                           {coupons.map((c) => (
                             <li
                               key={c.code}
-                              className="flex flex-col gap-0.5 rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 text-left sm:min-w-[200px] sm:flex-1 sm:flex-none"
+                              className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-slate-50/40 to-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] ring-1 ring-slate-900/[0.03] transition hover:border-teal-200/50 hover:shadow-[0_8px_24px_-8px_rgba(20,184,166,0.15)]"
                             >
-                              <span className="font-mono text-sm font-semibold tracking-wide text-slate-900">{c.code}</span>
-                              <span className="text-xs text-slate-500">
+                              <div className="absolute right-3 top-3 h-8 w-8 rounded-full bg-teal-500/5 opacity-0 transition group-hover:opacity-100" aria-hidden />
+                              <span className="font-mono text-[15px] font-semibold tracking-wide text-slate-900">{c.code}</span>
+                              <span className="mt-1 block text-xs leading-relaxed text-slate-500">
                                 {c.summary}
                                 {c.min_subtotal ? ` · Min. $${formatMoney(c.min_subtotal)}` : null}
                               </span>
@@ -412,9 +472,9 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
               </div>
 
               {storeSlug && loaded ? (
-                <div className="mt-8 border-t border-slate-100 pt-6">
+                <div className="relative mt-8 overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-b from-slate-50/90 to-slate-100/30 p-5 shadow-inner">
                   <Link href={cartHref} className={promoCtaClassName}>
-                    <span>Apply code in cart</span>
+                    <span className="relative">Apply code in cart</span>
                     <CtaArrow />
                   </Link>
                   <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500 sm:text-left">
