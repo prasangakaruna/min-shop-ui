@@ -41,60 +41,73 @@ export default async function AuthErrorPage({
         <h1 className="text-xl font-semibold text-gray-900 mb-2">Sign-in error</h1>
         <p className="text-gray-600 mb-4">
           {isConfiguration
-            ? 'There is a problem with the server configuration. This often happens after registering or logging in with Keycloak when the callback fails.'
+            ? 'Sign-in could not finish after Keycloak. The browser only shows a generic code; the actual reason is recorded on the server.'
             : 'An error occurred during sign-in. Please try again.'}
         </p>
 
         {isConfiguration && (
-          <p className="mb-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-md p-3">
-            <strong>Why it only says &quot;Configuration&quot;:</strong> Auth.js deliberately does not put the real provider error in
-            the URL. Many Keycloak/OAuth failures are grouped as{' '}
-            <code className="bg-gray-200 px-1 rounded">Configuration</code>.{' '}
-            <strong>Production:</strong> check the Next.js process logs (<code className="bg-gray-200 px-1 rounded">pm2 logs</code>,{' '}
-            <code className="bg-gray-200 px-1 rounded">journalctl</code>, or Docker logs) at the moment you click sign-in — look for{' '}
-            <code className="bg-gray-200 px-1 rounded">OAuthCallbackError</code>, <code className="bg-gray-200 px-1 rounded">CallbackRouteError</code>, or
-            Keycloak <code className="bg-gray-200 px-1 rounded">invalid_grant</code>.{' '}
-            <strong>Local dev:</strong> use the terminal running <code className="bg-gray-200 px-1 rounded">next dev</code>. For extra detail, set{' '}
-            <code className="bg-gray-200 px-1 rounded">AUTH_DEBUG=1</code> in env, restart the app, reproduce once, then remove it.
-            <br />
-            <span className="block mt-2">
-              This app logs the real Keycloak HTTP errors under the prefix{' '}
-              <code className="bg-gray-200 px-1 rounded">[mint-shop-auth]</code> (token/userinfo response body). Grep your server logs for that
-              string right after a failed sign-in.
-            </span>
-            <span className="block mt-2 text-gray-600">
-              Optional: set <code className="bg-gray-200 px-1 rounded">AUTH_DIAG_SECRET</code> on the server, then open{' '}
-              <code className="bg-gray-200 px-1 rounded">/api/internal/auth-health?key=…</code> to verify the app can reach Keycloak&apos;s
-              OpenID metadata from production.
-            </span>
-          </p>
+          <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+            <p className="font-semibold text-emerald-900">What to do next</p>
+            <ol className="mt-2 list-decimal list-inside space-y-1.5">
+              <li>
+                Reproduce sign-in once, then search the Next.js server logs for{' '}
+                <code className="rounded bg-white/80 px-1 py-0.5 text-xs ring-1 ring-emerald-200">[mint-shop-auth]</code>. That line includes
+                Keycloak&apos;s HTTP status and response body (for example <code className="text-xs">invalid_client</code> or{' '}
+                <code className="text-xs">invalid_grant</code>).
+              </li>
+              <li>
+                Production: <code className="text-xs">pm2 logs</code>, Docker logs, or journalctl for the Node process. Local: the terminal
+                running <code className="text-xs">next dev</code>.
+              </li>
+            </ol>
+          </div>
+        )}
+
+        {isConfiguration && (
+          <details className="mb-3 rounded-md border border-gray-200 bg-white text-sm text-gray-700 open:shadow-sm">
+            <summary className="cursor-pointer select-none px-3 py-2.5 font-medium text-gray-900 hover:bg-gray-50">
+              Why it says &quot;Configuration&quot; and extra logging
+            </summary>
+            <div className="border-t border-gray-100 px-3 py-3 space-y-2 text-gray-600">
+              <p>
+                Auth.js does not put provider errors in the URL, so many OAuth failures look the same. For more detail you can set{' '}
+                <code className="rounded bg-gray-100 px-1">AUTH_DEBUG=1</code>, restart once, reproduce, then turn it off.
+              </p>
+              <p>
+                Optional: set <code className="rounded bg-gray-100 px-1">AUTH_DIAG_SECRET</code> on the server, then open{' '}
+                <code className="rounded bg-gray-100 px-1 text-xs">/api/internal/auth-health?key=…</code> to confirm the app can reach Keycloak
+                OpenID metadata from that environment.
+              </p>
+            </div>
+          </details>
         )}
 
         {isConfiguration && isLocal && (
-          <div className="mb-4 p-4 bg-sky-50 border border-sky-200 rounded-md text-left">
-            <p className="font-semibold text-sky-900 mb-2">Local development (localhost:3000)</p>
-            <ul className="list-disc list-inside text-sm text-sky-900 space-y-1">
+          <details className="mb-3 rounded-md border border-sky-200 bg-sky-50/80 text-sm text-sky-950">
+            <summary className="cursor-pointer select-none px-3 py-2.5 font-medium text-sky-900 hover:bg-sky-100/80">
+              Local development (localhost)
+            </summary>
+            <ul className="list-disc list-inside space-y-1.5 border-t border-sky-200/80 px-3 py-3 text-sky-900">
               <li>
-                <strong>Keycloak must match <code className="bg-sky-100 px-1 rounded">KEYCLOAK_ISSUER</code></strong> — If it points to{' '}
-                <code className="bg-sky-100 px-1 rounded">http://localhost:9091/realms/...</code>, run Keycloak locally (or change the issuer to a
-                reachable server).
+                <strong>Keycloak must match KEYCLOAK_ISSUER</strong> — e.g. if it is{' '}
+                <code className="rounded bg-sky-100 px-1 text-xs">http://localhost:9091/realms/...</code>, that host must be reachable from your
+                machine.
               </li>
               <li>
-                In that Keycloak client, add{' '}
-                <code className="bg-sky-100 px-1 rounded">http://localhost:3000/api/auth/callback/keycloak</code> under{' '}
-                <strong>Valid redirect URIs</strong>.
+                In the Keycloak client, add{' '}
+                <code className="rounded bg-sky-100 px-1 text-xs">http://localhost:3000/api/auth/callback/keycloak</code> under Valid redirect
+                URIs.
               </li>
               <li>
-                If your <code className="bg-sky-100 px-1 rounded">.env</code> still has{' '}
-                <code className="bg-sky-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN=https://mint-shop.pro</code> from production, Keycloak will
-                send the browser to the <strong>production</strong> callback after login—not localhost. Remove that variable for local Keycloak, or
-                add the same production callback URI in Keycloak and accept testing against the deployed site.
+                If <code className="rounded bg-sky-100 px-1 text-xs">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> points at production, the browser will
+                return to production after login, not localhost — remove it for local Keycloak or add the production callback in Keycloak.
               </li>
               <li>
-                Confidential client: <code className="bg-sky-100 px-1 rounded">KEYCLOAK_CLIENT_SECRET</code> in <code className="bg-sky-100 px-1 rounded">.env</code> must match Keycloak exactly.
+                Confidential client: <code className="rounded bg-sky-100 px-1 text-xs">KEYCLOAK_CLIENT_SECRET</code> in <code className="text-xs">.env</code>{' '}
+                must match Keycloak.
               </li>
             </ul>
-          </div>
+          </details>
         )}
 
         {isConfiguration && nextAuthUrlBreaksTenantOAuth && (
@@ -118,64 +131,51 @@ export default async function AuthErrorPage({
         )}
 
         {isConfiguration && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-md text-left">
-            <p className="font-medium text-amber-900 mb-2">Check the following in Keycloak and your app:</p>
-            <ul className="list-disc list-inside text-sm text-amber-800 space-y-1">
+          <details className="mb-6 rounded-md border border-amber-200 bg-amber-50/90 text-left text-sm text-amber-950 open:shadow-sm">
+            <summary className="cursor-pointer select-none px-3 py-2.5 font-medium text-amber-900 hover:bg-amber-100/80">
+              Keycloak checklist (redirect URI, client type, AUTH_SECRET)
+            </summary>
+            <ul className="list-disc list-inside space-y-2 border-t border-amber-200/80 px-3 py-3 text-amber-900">
               <li>
                 <strong>Redirect URI</strong> — Path must be exactly{' '}
-                <code className="bg-amber-100 px-1 rounded">/api/auth/callback/keycloak</code> (not{' '}
-                <code className="bg-amber-100 px-1 rounded">/keyclo</code>). In Keycloak, for client{' '}
-                <code className="bg-amber-100 px-1 rounded">mint-ecommerce</code>, add <strong>Valid redirect URIs</strong>:
+                <code className="rounded bg-amber-100 px-1 text-xs">/api/auth/callback/keycloak</code>. In Keycloak for client{' '}
+                <code className="rounded bg-amber-100 px-1 text-xs">mint-ecommerce</code>, valid redirect URIs:
                 {callbackUrlApex ? (
                   <>
-                    <span className="block mt-1 text-amber-900/90">
-                      With <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> (or{' '}
-                      <code className="bg-amber-100 px-1 rounded">NEXT_PUBLIC_MINT_ROOT_DOMAIN</code>), register the{' '}
-                      <strong>apex</strong> callback only:
+                    <span className="mt-1 block opacity-90">
+                      With apex redirect, register the <strong>apex</strong> callback:
                     </span>
-                    <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">
-                      {callbackUrlApex}
-                    </code>
-                    <span className="block mt-1 text-amber-900/90">Plus localhost if you use it:</span>
-                    <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">
+                    <code className="mt-1 block break-all rounded border border-amber-200 bg-white p-2 text-xs">{callbackUrlApex}</code>
+                    <span className="mt-1 block opacity-90">Plus localhost if needed:</span>
+                    <code className="mt-1 block break-all rounded border border-amber-200 bg-white p-2 text-xs">
                       http://localhost:3000/api/auth/callback/keycloak
                     </code>
                   </>
                 ) : (
                   <>
-                    <span className="block mt-1 text-amber-900/90">
-                      Either one URI per host (this request&apos;s host), e.g.:
-                    </span>
-                    <code className="block mt-1 p-2 bg-white rounded text-xs break-all border border-amber-200">
-                      {callbackUrlThisHost}
-                    </code>
-                    <span className="block mt-1 text-amber-900/90">
-                      For <strong>many stores</strong> without listing each subdomain, set{' '}
-                      <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN=https://your-apex.com</code> in the UI env and
-                      register only that apex callback, or use a Keycloak <strong>wildcard</strong> if your version supports it (e.g.{' '}
-                      <code className="bg-amber-100 px-1 rounded">https://*.mint-shop.pro/*</code>).
+                    <span className="mt-1 block opacity-90">For this host, e.g.:</span>
+                    <code className="mt-1 block break-all rounded border border-amber-200 bg-white p-2 text-xs">{callbackUrlThisHost}</code>
+                    <span className="mt-1 block opacity-90">
+                      For many subdomains, set <code className="rounded bg-amber-100 px-1 text-xs">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code> and register
+                      only the apex callback (or a supported wildcard in Keycloak).
                     </span>
                   </>
                 )}
               </li>
               <li>
-                <strong>Client type</strong> — If the client is <strong>Public</strong>, leave <code className="bg-amber-100 px-1 rounded">KEYCLOAK_CLIENT_SECRET</code> empty in <code className="bg-amber-100 px-1 rounded">.env</code>. If it is <strong>Confidential</strong>, set the client secret.
+                <strong>Client type</strong> — Public client: leave <code className="rounded bg-amber-100 px-1 text-xs">KEYCLOAK_CLIENT_SECRET</code>{' '}
+                empty. Confidential: set the secret to match Keycloak.
               </li>
               <li>
-                <strong>NEXTAUTH_URL / AUTH_URL</strong> — For store subdomains with{' '}
-                <code className="bg-amber-100 px-1 rounded">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code>, <strong>omit both</strong>{' '}
-                in production (they rewrite the host and break PKCE on the apex callback). Use{' '}
-                <code className="bg-amber-100 px-1 rounded">AUTH_TRUST_HOST=true</code> behind your reverse proxy. Local dev
-                can keep <code className="bg-amber-100 px-1 rounded">NEXTAUTH_URL=http://localhost:3000</code> only if you are
-                not using the apex redirect on localhost.
+                <strong>NEXTAUTH_URL / AUTH_URL</strong> — With <code className="rounded bg-amber-100 px-1 text-xs">AUTH_KEYCLOAK_REDIRECT_ORIGIN</code>{' '}
+                and store subdomains, omit both in production; use <code className="rounded bg-amber-100 px-1 text-xs">AUTH_TRUST_HOST=true</code>{' '}
+                behind the proxy.
               </li>
               <li>
-                <strong>AUTH_SECRET</strong> — Must be set in production (e.g. <code className="bg-amber-100 px-1 rounded">openssl rand -base64 32</code>
-                ). Missing secret often surfaces as a configuration error.
+                <strong>AUTH_SECRET</strong> — Required in production (e.g. <code className="text-xs">openssl rand -base64 32</code>).
               </li>
-              <li>Check the server/terminal logs for the exact OAuth or Keycloak error.</li>
             </ul>
-          </div>
+          </details>
         )}
 
         <div className="flex flex-col sm:flex-row gap-3">
