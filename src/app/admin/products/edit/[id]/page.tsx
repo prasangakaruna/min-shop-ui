@@ -12,10 +12,77 @@ import {
   parseStoreProductCategoriesResponse,
   type Product,
   type ProductVariant,
+  type NutritionFacts,
+  type NutritionFactsRow,
 } from '@/lib/api';
 import ProductOptionGroupsPanel, {
   normalizeProductOptionGroups,
 } from '@/components/admin/ProductOptionGroupsPanel';
+
+function parseNutritionRowsText(text: string): NutritionFactsRow[] {
+  const rows: NutritionFactsRow[] = [];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split('|').map((p) => p.trim());
+    if (parts.length < 2) continue;
+    const label = parts[0] ?? '';
+    const amount = parts[1] ?? '';
+    const dv = (parts[2] ?? '').trim();
+    let indent = 0;
+    if (parts.length >= 4 && parts[3] !== undefined && parts[3] !== '') {
+      const n = parseInt(parts[3], 10);
+      if (!Number.isNaN(n)) indent = Math.min(3, Math.max(0, n));
+    }
+    const row: NutritionFactsRow = { label, amount, indent };
+    if (dv) row.dv = dv;
+    rows.push(row);
+  }
+  return rows;
+}
+
+function nutritionFormToPayload(form: {
+  nutrition_serves_about: string;
+  nutrition_serving_size: string;
+  nutrition_serving_weight: string;
+  nutrition_calories: string;
+  nutrition_rows_text: string;
+}): NutritionFacts | null {
+  const rows = parseNutritionRowsText(form.nutrition_rows_text);
+  const serves_about = form.nutrition_serves_about.trim();
+  const serving_size = form.nutrition_serving_size.trim();
+  const serving_weight = form.nutrition_serving_weight.trim();
+  const calories = form.nutrition_calories.trim();
+  if (!serves_about && !serving_size && !serving_weight && !calories && rows.length === 0) return null;
+  const out: NutritionFacts = { rows };
+  if (serves_about) out.serves_about = serves_about;
+  if (serving_size) out.serving_size = serving_size;
+  if (serving_weight) out.serving_weight = serving_weight;
+  if (calories) out.calories = calories;
+  return out;
+}
+
+function nutritionFieldsFromProduct(n: NutritionFacts | null | undefined) {
+  if (!n || typeof n !== 'object') {
+    return {
+      nutrition_serves_about: '',
+      nutrition_serving_size: '',
+      nutrition_serving_weight: '',
+      nutrition_calories: '',
+      nutrition_rows_text: '',
+    };
+  }
+  const rows = (n.rows ?? [])
+    .map((r) => `${r.label} | ${r.amount} | ${r.dv ?? ''} | ${r.indent ?? 0}`)
+    .join('\n');
+  return {
+    nutrition_serves_about: n.serves_about ?? '',
+    nutrition_serving_size: n.serving_size ?? '',
+    nutrition_serving_weight: n.serving_weight ?? '',
+    nutrition_calories: n.calories ?? '',
+    nutrition_rows_text: rows,
+  };
+}
 
 function asVariantOptionsMap(raw: unknown): Record<string, string> {
   if (!raw || typeof raw !== 'object') return {};
@@ -49,6 +116,22 @@ export default function EditProductPage() {
     key_features: string;
     category: string;
     status: string;
+    brand: string;
+    package_size: string;
+    weight_oz: string;
+    ingredients: string;
+    directions: string;
+    warnings: string;
+    specifications_text: string;
+    rating_average: string;
+    rating_count: string;
+    we_love_this_for: string;
+    ingredients_allergen: string;
+    nutrition_serves_about: string;
+    nutrition_serving_size: string;
+    nutrition_serving_weight: string;
+    nutrition_calories: string;
+    nutrition_rows_text: string;
   }>({
     title: '',
     description: '',
@@ -56,6 +139,22 @@ export default function EditProductPage() {
     key_features: '',
     category: '',
     status: 'active',
+    brand: '',
+    package_size: '',
+    weight_oz: '',
+    ingredients: '',
+    directions: '',
+    warnings: '',
+    specifications_text: '',
+    rating_average: '',
+    rating_count: '',
+    we_love_this_for: '',
+    ingredients_allergen: '',
+    nutrition_serves_about: '',
+    nutrition_serving_size: '',
+    nutrition_serving_weight: '',
+    nutrition_calories: '',
+    nutrition_rows_text: '',
   });
   const [optionGroups, setOptionGroups] = useState(normalizeProductOptionGroups(undefined));
   const [variantQty, setVariantQty] = useState<Record<number, number>>({});
@@ -143,6 +242,10 @@ export default function EditProductPage() {
         const keyFeaturesText = (data.key_features && Array.isArray(data.key_features))
           ? data.key_features.join('\n')
           : '';
+        const specsText =
+          data.specifications && Array.isArray(data.specifications)
+            ? data.specifications.map((r) => `${r.label} | ${r.value}`).join('\n')
+            : '';
         setForm({
           title: data.title ?? '',
           description: data.description ?? '',
@@ -150,6 +253,22 @@ export default function EditProductPage() {
           key_features: keyFeaturesText,
           category: data.category ?? '',
           status: data.status ?? 'active',
+          brand: data.brand ?? '',
+          package_size: data.package_size ?? '',
+          weight_oz: data.weight_oz != null && !Number.isNaN(Number(data.weight_oz)) ? String(data.weight_oz) : '',
+          ingredients: data.ingredients ?? '',
+          directions: data.directions ?? '',
+          warnings: data.warnings ?? '',
+          specifications_text: specsText,
+          rating_average:
+            data.rating?.average != null && !Number.isNaN(Number(data.rating.average)) ? String(data.rating.average) : '',
+          rating_count:
+            data.rating?.count != null && !Number.isNaN(Number(data.rating.count)) ? String(data.rating.count) : '',
+          we_love_this_for: Array.isArray(data.we_love_this_for)
+            ? data.we_love_this_for.filter((s): s is string => typeof s === 'string').join('\n')
+            : '',
+          ingredients_allergen: data.ingredients_allergen ?? '',
+          ...nutritionFieldsFromProduct(data.nutrition_facts),
         });
         const qty: Record<number, number> = {};
         const price: Record<number, string> = {};
@@ -186,6 +305,21 @@ export default function EditProductPage() {
     setSaving(true);
     setError('');
     try {
+      const specRows: { label: string; value: string }[] = [];
+      for (const line of form.specifications_text.split('\n')) {
+        const i = line.indexOf('|');
+        if (i < 0) continue;
+        const label = line.slice(0, i).trim();
+        const value = line.slice(i + 1).trim();
+        if (label && value) specRows.push({ label, value });
+      }
+      const weightTrim = form.weight_oz.trim();
+      const weightNum = weightTrim === '' ? null : parseFloat(weightTrim);
+      const ratingAvgTrim = form.rating_average.trim();
+      const ratingAvgNum = ratingAvgTrim === '' ? null : parseFloat(ratingAvgTrim);
+      const ratingCountTrim = form.rating_count.trim();
+      const ratingCountNum = ratingCountTrim === '' ? null : parseInt(ratingCountTrim, 10);
+
       const updated = await apiRequest<Product>(`/store/products/${id}`, {
         method: 'PATCH',
         token,
@@ -209,10 +343,52 @@ export default function EditProductPage() {
                 .map((v) => ({ id: v.id, label: v.label.trim() })),
             }))
             .filter((g) => g.name !== ''),
+          brand: form.brand.trim() || null,
+          package_size: form.package_size.trim() || null,
+          weight_oz: weightNum != null && !Number.isNaN(weightNum) && weightNum >= 0 ? weightNum : null,
+          ingredients: form.ingredients.trim() || null,
+          directions: form.directions.trim() || null,
+          warnings: form.warnings.trim() || null,
+          specifications: specRows.length ? specRows : null,
+          rating_average: ratingAvgNum != null && !Number.isNaN(ratingAvgNum) ? ratingAvgNum : null,
+          rating_count: ratingCountNum != null && !Number.isNaN(ratingCountNum) && ratingCountNum >= 0 ? ratingCountNum : null,
+          we_love_this_for: form.we_love_this_for
+            .split(/\n/)
+            .map((s) => s.trim())
+            .filter(Boolean),
+          ingredients_allergen: form.ingredients_allergen.trim() || null,
+          nutrition_facts: nutritionFormToPayload(form),
         },
       });
       setProduct(updated);
       setOptionGroups(normalizeProductOptionGroups(updated.option_groups));
+      const specsAfter =
+        updated.specifications && Array.isArray(updated.specifications)
+          ? updated.specifications.map((r) => `${r.label} | ${r.value}`).join('\n')
+          : '';
+      setForm((f) => ({
+        ...f,
+        brand: updated.brand ?? '',
+        package_size: updated.package_size ?? '',
+        weight_oz: updated.weight_oz != null && !Number.isNaN(Number(updated.weight_oz)) ? String(updated.weight_oz) : '',
+        ingredients: updated.ingredients ?? '',
+        directions: updated.directions ?? '',
+        warnings: updated.warnings ?? '',
+        specifications_text: specsAfter,
+        rating_average:
+          updated.rating?.average != null && !Number.isNaN(Number(updated.rating.average))
+            ? String(updated.rating.average)
+            : '',
+        rating_count:
+          updated.rating?.count != null && !Number.isNaN(Number(updated.rating.count))
+            ? String(updated.rating.count)
+            : '',
+        we_love_this_for: Array.isArray(updated.we_love_this_for)
+          ? updated.we_love_this_for.filter((s): s is string => typeof s === 'string').join('\n')
+          : '',
+        ingredients_allergen: updated.ingredients_allergen ?? '',
+        ...nutritionFieldsFromProduct(updated.nutrition_facts),
+      }));
 
       const priceTrim = newVariantForm.price.trim();
       if (priceTrim !== '') {
@@ -709,6 +885,244 @@ export default function EditProductPage() {
                   />
                   <p className="mt-1 text-xs text-gray-500">Shown as a bullet list on the product page.</p>
                 </div>
+
+                <div className="rounded-lg border border-teal-100 bg-teal-50/40 p-4">
+                  <h3 className="text-sm font-semibold text-gray-900">Storefront detail (Walmart-style extras)</h3>
+                  <p className="mt-1 text-xs text-gray-600">
+                    Optional fields for the public product page: brand, specs, ingredients, grocery-style tags and nutrition
+                    panel, unit pricing, and manual ratings until you wire real reviews.
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor="edit-brand" className="block text-xs font-medium text-gray-700 mb-1">
+                        Brand
+                      </label>
+                      <input
+                        id="edit-brand"
+                        type="text"
+                        value={form.brand}
+                        onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="e.g. Zatarain's"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-package" className="block text-xs font-medium text-gray-700 mb-1">
+                        Package size label
+                      </label>
+                      <input
+                        id="edit-package"
+                        type="text"
+                        value={form.package_size}
+                        onChange={(e) => setForm((f) => ({ ...f, package_size: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="e.g. 40 oz bag"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-weight-oz" className="block text-xs font-medium text-gray-700 mb-1">
+                        Net weight (oz)
+                      </label>
+                      <input
+                        id="edit-weight-oz"
+                        type="text"
+                        inputMode="decimal"
+                        value={form.weight_oz}
+                        onChange={(e) => setForm((f) => ({ ...f, weight_oz: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="e.g. 40"
+                      />
+                      <p className="mt-0.5 text-[11px] text-gray-500">Used with price to show ¢/oz on the product page.</p>
+                    </div>
+                    <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="edit-rating-avg" className="block text-xs font-medium text-gray-700 mb-1">
+                          Rating (0–5)
+                        </label>
+                        <input
+                          id="edit-rating-avg"
+                          type="text"
+                          inputMode="decimal"
+                          value={form.rating_average}
+                          onChange={(e) => setForm((f) => ({ ...f, rating_average: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                          placeholder="e.g. 4.6"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="edit-rating-count" className="block text-xs font-medium text-gray-700 mb-1">
+                          # of ratings
+                        </label>
+                        <input
+                          id="edit-rating-count"
+                          type="text"
+                          inputMode="numeric"
+                          value={form.rating_count}
+                          onChange={(e) => setForm((f) => ({ ...f, rating_count: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                          placeholder="e.g. 2210"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label htmlFor="edit-specs" className="block text-xs font-medium text-gray-700 mb-1">
+                      Specifications (one per line: Label | Value)
+                    </label>
+                    <textarea
+                      id="edit-specs"
+                      value={form.specifications_text}
+                      onChange={(e) => setForm((f) => ({ ...f, specifications_text: e.target.value }))}
+                      rows={4}
+                      placeholder={'Packaged meal type | Pasta Meals\nMeat type | Chicken'}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                    />
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4">
+                    <div>
+                      <label htmlFor="edit-ingredients" className="block text-xs font-medium text-gray-700 mb-1">
+                        Ingredients
+                      </label>
+                      <textarea
+                        id="edit-ingredients"
+                        value={form.ingredients}
+                        onChange={(e) => setForm((f) => ({ ...f, ingredients: e.target.value }))}
+                        rows={4}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-we-love" className="block text-xs font-medium text-gray-700 mb-1">
+                        We love this for (one tag per line)
+                      </label>
+                      <textarea
+                        id="edit-we-love"
+                        value={form.we_love_this_for}
+                        onChange={(e) => setForm((f) => ({ ...f, we_love_this_for: e.target.value }))}
+                        rows={4}
+                        placeholder={'Alfresco Dining\nBrunch All Day\nFamily Style'}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                      />
+                      <p className="mt-0.5 text-[11px] text-gray-500">
+                        Shown as tags in the optional grocery-style block on the product page (with allergen / nutrition if
+                        you fill those).
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="edit-ingredients-allergen" className="block text-xs font-medium text-gray-700 mb-1">
+                        Ingredients — allergen line
+                      </label>
+                      <input
+                        id="edit-ingredients-allergen"
+                        type="text"
+                        value={form.ingredients_allergen}
+                        onChange={(e) => setForm((f) => ({ ...f, ingredients_allergen: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="e.g. CONTAINS MILK."
+                      />
+                    </div>
+                    <div className="rounded-md border border-gray-200 bg-white/80 p-3">
+                      <p className="text-xs font-semibold text-gray-800">Nutrition facts (optional panel)</p>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label htmlFor="edit-nf-serves" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                            Serves about
+                          </label>
+                          <input
+                            id="edit-nf-serves"
+                            type="text"
+                            value={form.nutrition_serves_about}
+                            onChange={(e) => setForm((f) => ({ ...f, nutrition_serves_about: e.target.value }))}
+                            className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                            placeholder="10"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-nf-cal" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                            Calories per serving
+                          </label>
+                          <input
+                            id="edit-nf-cal"
+                            type="text"
+                            value={form.nutrition_calories}
+                            onChange={(e) => setForm((f) => ({ ...f, nutrition_calories: e.target.value }))}
+                            className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                            placeholder="70"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-nf-size" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                            Serving size
+                          </label>
+                          <input
+                            id="edit-nf-size"
+                            type="text"
+                            value={form.nutrition_serving_size}
+                            onChange={(e) => setForm((f) => ({ ...f, nutrition_serving_size: e.target.value }))}
+                            className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                            placeholder="2 Tbsp."
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="edit-nf-weight" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                            Serving weight
+                          </label>
+                          <input
+                            id="edit-nf-weight"
+                            type="text"
+                            value={form.nutrition_serving_weight}
+                            onChange={(e) => setForm((f) => ({ ...f, nutrition_serving_weight: e.target.value }))}
+                            className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                            placeholder="23g"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <label htmlFor="edit-nf-rows" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                          Nutrient rows (one per line: Label | Amount | %DV | indent)
+                        </label>
+                        <textarea
+                          id="edit-nf-rows"
+                          value={form.nutrition_rows_text}
+                          onChange={(e) => setForm((f) => ({ ...f, nutrition_rows_text: e.target.value }))}
+                          rows={6}
+                          placeholder={
+                            'Total Fat | 7g | 9% | 0\nSaturated Fat | 4.5g | 23% | 1\nTrans Fat | 0g | | 1'
+                          }
+                          className="w-full rounded border border-gray-200 px-2 py-1.5 font-mono text-xs"
+                        />
+                        <p className="mt-0.5 text-[10px] text-gray-500">
+                          Indent: 0 = main row, 1–3 = nested. Leave %DV empty if not applicable.
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="edit-directions" className="block text-xs font-medium text-gray-700 mb-1">
+                        Directions
+                      </label>
+                      <textarea
+                        id="edit-directions"
+                        value={form.directions}
+                        onChange={(e) => setForm((f) => ({ ...f, directions: e.target.value }))}
+                        rows={3}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="edit-warnings" className="block text-xs font-medium text-gray-700 mb-1">
+                        Warnings
+                      </label>
+                      <textarea
+                        id="edit-warnings"
+                        value={form.warnings}
+                        onChange={(e) => setForm((f) => ({ ...f, warnings: e.target.value }))}
+                        rows={2}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>

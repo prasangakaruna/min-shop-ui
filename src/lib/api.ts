@@ -370,6 +370,25 @@ export interface ProductOptionGroup {
   values: ProductOptionValue[];
 }
 
+/** Optional PDP fields (product metadata); shown on public product page. */
+export type ProductSpecificationRow = { label: string; value: string };
+
+/** Grocery-style nutrition panel (optional PDP block). */
+export type NutritionFactsRow = {
+  label: string;
+  amount: string;
+  dv?: string | null;
+  indent?: number;
+};
+
+export type NutritionFacts = {
+  serves_about?: string | null;
+  serving_size?: string | null;
+  serving_weight?: string | null;
+  calories?: string | null;
+  rows?: NutritionFactsRow[];
+};
+
 export interface Product {
   id: number;
   store_id: number;
@@ -388,6 +407,18 @@ export interface Product {
   /** Ordered option groups for variants (admin drag-and-drop). */
   option_groups?: ProductOptionGroup[];
   variants: ProductVariant[];
+  brand?: string | null;
+  ingredients?: string | null;
+  directions?: string | null;
+  warnings?: string | null;
+  package_size?: string | null;
+  /** Net weight in ounces; used with price for ¢/oz style unit pricing on PDP. */
+  weight_oz?: number | null;
+  specifications?: ProductSpecificationRow[];
+  rating?: { average: number; count: number } | null;
+  we_love_this_for?: string[];
+  ingredients_allergen?: string | null;
+  nutrition_facts?: NutritionFacts | null;
 }
 
 export interface ProductsResponse {
@@ -453,6 +484,17 @@ export interface StorefrontProduct {
   option_groups?: ProductOptionGroup[];
   variants: ProductVariant[];
   store: { id: number; name: string; slug: string } | null;
+  brand?: string | null;
+  ingredients?: string | null;
+  directions?: string | null;
+  warnings?: string | null;
+  package_size?: string | null;
+  weight_oz?: number | null;
+  specifications?: ProductSpecificationRow[];
+  rating?: { average: number; count: number } | null;
+  we_love_this_for?: string[];
+  ingredients_allergen?: string | null;
+  nutrition_facts?: NutritionFacts | null;
 }
 
 /** Fetch a single product for the storefront (no auth). */
