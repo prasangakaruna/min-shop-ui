@@ -1,51 +1,67 @@
 import { NextRequest } from 'next/server';
+import { normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
+
+function internalListenPorts(): Set<string> {
+  return new Set(['3000', process.env.PORT].filter(Boolean) as string[]);
+}
+
+function edgeHostname(host: string): string {
+  return host.split(':')[0]?.toLowerCase() ?? '';
+}
 
 /**
- * Next.js 16+ behind nginx: `req.url` can be wrong for Auth.js redirects:
- * - `https://localhost:3000/...` (forwarded proto + Node listen host/port)
- * - `https://mint-shop.pro:3000/...` (public Host + internal listen port still in URL)
- * Rebuild from `X-Forwarded-*` / `Host` when we detect loopback or that stray app port.
+ * Next.js behind nginx: `req.url` can be `https://localhost:3000/...` or `https://mint-shop.pro:3000/...`.
+ * Auth.js uses `req.url` for redirects. Normalize using forwarded headers and strip internal listen ports.
  */
 export function rewriteAuthRequestUrlForProxy(req: NextRequest): NextRequest {
   const parsed = new URL(req.url);
 
-  const forwardedHost =
+  const xfProto =
+    req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().replace(/:$/, '') ?? '';
+  const forwardedRaw =
     req.headers.get('x-forwarded-host')?.split(',')[0]?.trim() ||
-    req.headers.get('host')?.split(',')[0]?.trim();
-  if (!forwardedHost) return req;
+    req.headers.get('host')?.split(',')[0]?.trim() ||
+    '';
 
+  const proto =
+    xfProto ||
+    (forwardedRaw.includes('localhost') || forwardedRaw.startsWith('127.') ? 'http' : 'https');
+  const isHttps = proto === 'https';
+
+  const forwardedNorm = forwardedRaw
+    ? normalizeHostHeaderForPublicHttps(forwardedRaw, isHttps)
+    : '';
+
+  const badPort = !!parsed.port && internalListenPorts().has(parsed.port);
   const loopback = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
 
-  const xfProto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().replace(/:$/, '') ?? '';
-  const isPublicHttps = xfProto === 'https';
+  const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
+  const onMintDomain =
+    !!root &&
+    (parsed.hostname === root || parsed.hostname.endsWith(`.${root}`));
 
-  const forwardedHostname = forwardedHost.split(':')[0]?.toLowerCase() ?? '';
-  const urlHostname = parsed.hostname.toLowerCase();
-  const sameHostnameAsEdge = forwardedHostname.length > 0 && urlHostname === forwardedHostname;
+  const edge = edgeHostname(forwardedNorm);
+  const hostAlignsWithEdge =
+    !!edge &&
+    (parsed.hostname.toLowerCase() === edge || parsed.hostname.toLowerCase().endsWith(`.${edge}`));
 
-  const strayInternalPort =
-    parsed.port === '3000' || (!!process.env.PORT && parsed.port === process.env.PORT);
+  let needsRewrite = false;
 
-  // Nginx usually sends Host without :3000; if it already includes a port, keep it.
-  const forwardedHasExplicitPort = /^[^[\]]+:\d+$/.test(forwardedHost) || /]:/.test(forwardedHost);
+  if (loopback && forwardedNorm) {
+    needsRewrite = true;
+    parsed.protocol = `${proto}:`;
+    parsed.host = forwardedNorm;
+  } else if (badPort && isHttps && onMintDomain) {
+    needsRewrite = true;
+    parsed.protocol = `${proto}:`;
+    parsed.port = '';
+  } else if (badPort && isHttps && forwardedNorm && hostAlignsWithEdge) {
+    needsRewrite = true;
+    parsed.protocol = `${proto}:`;
+    parsed.host = forwardedNorm;
+  }
 
-  const shouldRewriteLoopback = loopback;
-  const shouldDropInternalPort =
-    !loopback &&
-    sameHostnameAsEdge &&
-    strayInternalPort &&
-    isPublicHttps &&
-    !forwardedHasExplicitPort;
-
-  if (!shouldRewriteLoopback && !shouldDropInternalPort) return req;
-
-  let proto =
-    req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ||
-    (forwardedHost.includes('localhost') || forwardedHost.startsWith('127.') ? 'http' : 'https');
-  proto = proto.replace(/:$/, '');
-
-  parsed.protocol = `${proto}:`;
-  parsed.host = forwardedHost;
+  if (!needsRewrite) return req;
 
   if (req.body) {
     return new NextRequest(parsed.href, {

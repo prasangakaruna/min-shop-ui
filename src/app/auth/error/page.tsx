@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import { normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
 
 export default async function AuthErrorPage({
   searchParams,
@@ -11,19 +12,23 @@ export default async function AuthErrorPage({
 
   const h = await headers();
   const forwardedHost = h.get('x-forwarded-host');
-  const host = (forwardedHost ?? h.get('host') ?? '').split(',')[0].trim();
-  const forwardedProto = h.get('x-forwarded-proto')?.split(',')[0].trim();
+  const hostRaw = (forwardedHost ?? h.get('host') ?? '').split(',')[0].trim();
+  const forwardedProto = h.get('x-forwarded-proto')?.split(',')[0].trim().replace(/:$/, '') ?? '';
   const isLocal =
-    !host || host.startsWith('localhost') || host.startsWith('127.') || host.includes('localhost:');
+    !hostRaw ||
+    hostRaw.startsWith('localhost') ||
+    hostRaw.startsWith('127.') ||
+    hostRaw.includes('localhost:');
   const scheme = forwardedProto || (isLocal ? 'http' : 'https');
+  const isHttps = scheme === 'https';
+  const host = normalizeHostHeaderForPublicHttps(hostRaw, isHttps);
   const envBase = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? 'http://localhost:3000').replace(/\/$/, '');
   const apexRedirect =
     process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '') ||
     (process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN
       ? `https://${process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN.replace(/^\./, '')}`
       : '');
-  const origin =
-    host && !isLocal ? `${scheme}://${host}` : host && isLocal ? `${scheme}://${host}` : envBase;
+  const origin = hostRaw && host ? `${scheme}://${host}` : envBase;
   const callbackUrlThisHost = `${origin}/api/auth/callback/keycloak`;
   const callbackUrlApex = apexRedirect ? `${apexRedirect}/api/auth/callback/keycloak` : '';
   const canonicalAuthEnv = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL)?.trim();

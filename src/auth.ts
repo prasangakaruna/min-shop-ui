@@ -3,6 +3,7 @@ import Keycloak from 'next-auth/providers/keycloak';
 import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
 import { headers } from 'next/headers';
+import { normalizeHostHeaderForPublicHttps } from '@/lib/proxyPublicOrigin';
 
 declare module 'next-auth' {
   interface Session {
@@ -143,17 +144,20 @@ function localhostSameHostIgnoreScheme(url: string, baseUrl: string): boolean {
 async function getTrustedRequestOrigin(): Promise<string> {
   try {
     const h = await headers();
-    const host = (h.get('x-forwarded-host') ?? h.get('host') ?? '').split(',')[0].trim();
-    if (!host) {
+    const hostRaw = (h.get('x-forwarded-host') ?? h.get('host') ?? '').split(',')[0].trim();
+    if (!hostRaw) {
       const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
       if (root) return `https://${root}`;
       const apex = process.env.AUTH_KEYCLOAK_REDIRECT_ORIGIN?.replace(/\/$/, '').trim();
       if (apex) return apex;
       return 'http://localhost:3000';
     }
-    const proto = (h.get('x-forwarded-proto') ?? (host.includes('localhost') ? 'http' : 'https'))
+    let proto = (h.get('x-forwarded-proto') ?? (hostRaw.includes('localhost') ? 'http' : 'https'))
       .split(',')[0]
-      .trim();
+      .trim()
+      .replace(/:$/, '');
+    const isHttps = proto === 'https';
+    const host = normalizeHostHeaderForPublicHttps(hostRaw, isHttps);
     return `${proto}://${host}`;
   } catch {
     const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.replace(/^\./, '').trim();
