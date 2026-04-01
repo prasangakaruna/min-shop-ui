@@ -266,6 +266,10 @@ export default function ProAdminDashboard() {
             <Link href="/admin/pro/customize" className="font-medium text-mint hover:text-mint-dark">
               Customize Pro home
             </Link>
+            . Manage bulk discounts and related rules in{' '}
+            <Link href="/admin/pro/promotions" className="font-medium text-mint hover:text-mint-dark">
+              Promotions
+            </Link>
             .
           </p>
         </div>

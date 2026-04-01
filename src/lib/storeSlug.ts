@@ -53,3 +53,11 @@ export function resolveStorefrontStoreSlug(): string | null {
   if (fromQuery && fromQuery.trim() !== '') return fromQuery.trim();
   return storeSlugFromHostname();
 }
+
+/**
+ * Where to send shoppers after auth. On a tenant host (e.g. istanbulfoodpazar.mint-shop.pro) use `/` so
+ * they stay on that store for browsing and checkout; on the marketplace apex, use `/dashboard`.
+ */
+export function customerPostAuthPath(hostname: string): string {
+  return storeSlugFromHost(hostname) ? '/' : '/dashboard';
+}

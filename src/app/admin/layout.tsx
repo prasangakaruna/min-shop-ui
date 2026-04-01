@@ -63,11 +63,13 @@ const menuItems: MenuItem[] = [
     icon: '📊',
     children: [
       { href: '/admin/pro', label: 'Overview' },
+      { href: '/admin/pro/promotions', label: 'Promotions' },
       { href: '/admin/pro/api-settings', label: 'API Settings' },
       { href: '/admin/pro/integration', label: 'Integration' },
     ],
   },
   { href: '/admin/pro/customize', label: 'Customize Pro home', icon: '🎨' },
+  { href: '/admin/pro/promotions', label: 'Promotions', icon: '🏷️' },
   { href: '/admin/pro/api-settings', label: 'API Settings', icon: '🔑' },
   { href: '/admin/finance', label: 'Finance', icon: '💰' },
 ];
@@ -290,6 +292,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   .filter((item) => {
                     if (item.href === '/admin/pro' && userType !== 'pro_admin') return false;
                     if (item.href === '/admin/pro/customize' && userType !== 'pro_admin') return false;
+                    if (item.href === '/admin/pro/promotions' && userType !== 'pro_admin') return false;
                     if (item.href === '/admin/pro/api-settings' && userType !== 'pro_admin') return false;
                     return true;
                   })
@@ -301,6 +304,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       item.href === '/admin/statistics' ||
                       item.href === '/admin/pro' ||
                       item.href === '/admin/pro/customize' ||
+                      item.href === '/admin/pro/promotions' ||
                       item.href === '/admin/finance';
                     /** "Pro & Admin" stays active for Pro sub-routes except the standalone Customize page. */
                     const isActiveTop =
@@ -329,9 +333,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     const isExpanded =
                       expandedSections[item.href] !== undefined
                         ? expandedSections[item.href]
-                        : item.href === '/admin/pro'
-                          ? false
-                          : isActiveTop || anyChildActive || !item.children;
+                        : isActiveTop || anyChildActive || !item.children;
 
                     if (item.href === '/admin/settings') {
                       return (

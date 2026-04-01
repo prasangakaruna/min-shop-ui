@@ -35,6 +35,33 @@ export type HeroSearchCategory = { value: string; label: string };
 /** Quick links under the hero search (“Popular”). */
 export type HeroPopularLink = { label: string; url: string };
 
+/** One hero carousel slide; empty optional fields fall back to section-wide defaults after merge. */
+export type HeroSlide = {
+  imageUrl: string;
+  badgeText?: string;
+  headlineLine1?: string;
+  headlineAccent?: string;
+  description?: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+};
+
+export type HeroCarouselSettings = {
+  /** 0 = off. Default 6000 when there are 2+ slides and this is omitted. */
+  autoplayMs?: number;
+};
+
+/** Fully resolved slide for rendering (all copy fields filled from defaults). */
+export type ResolvedHeroSlide = {
+  imageUrl: string;
+  badgeText: string;
+  headlineLine1: string;
+  headlineAccent: string;
+  description: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+};
+
 /** Default hero art for the marketplace and any store that has not set a custom hero image. */
 export const DEFAULT_MARKETPLACE_HERO_IMAGE_URL =
   'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80';
@@ -60,6 +87,12 @@ export type DefaultHeroSectionSettings = {
   searchPlaceholder?: string;
   /** Store-only custom full-bleed background. Omit or leave empty to use {@link DEFAULT_MARKETPLACE_HERO_IMAGE_URL}. */
   backgroundImageUrl?: string;
+  /**
+   * When non-empty, the hero uses these slides only (carousel if 2+). Per-slide copy overrides
+   * section fields when set. The single `backgroundImageUrl` is ignored until all slides are removed.
+   */
+  heroSlides?: HeroSlide[];
+  heroCarousel?: HeroCarouselSettings;
   searchCategories?: HeroSearchCategory[];
   popularLinks?: HeroPopularLink[];
 };
@@ -114,6 +147,100 @@ function parseHeroPopularLinks(raw: unknown): HeroPopularLink[] | undefined {
   return out.length > 0 ? out : undefined;
 }
 
+function parseHeroSlides(raw: unknown): HeroSlide[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: HeroSlide[] = [];
+  for (const row of raw) {
+    if (!row || typeof row !== 'object') continue;
+    const r = row as Record<string, unknown>;
+    const imageUrl = typeof r.imageUrl === 'string' ? r.imageUrl.trim() : '';
+    if (imageUrl === '') continue;
+    const slide: HeroSlide = { imageUrl };
+    if (typeof r.badgeText === 'string' && r.badgeText.trim() !== '') slide.badgeText = r.badgeText.trim();
+    if (typeof r.headlineLine1 === 'string' && r.headlineLine1.trim() !== '') slide.headlineLine1 = r.headlineLine1.trim();
+    if (typeof r.headlineAccent === 'string' && r.headlineAccent.trim() !== '') slide.headlineAccent = r.headlineAccent.trim();
+    if (typeof r.description === 'string' && r.description.trim() !== '') slide.description = r.description.trim();
+    if (typeof r.ctaLabel === 'string' && r.ctaLabel.trim() !== '') slide.ctaLabel = r.ctaLabel.trim();
+    if (typeof r.ctaUrl === 'string' && r.ctaUrl.trim() !== '') slide.ctaUrl = r.ctaUrl.trim();
+    out.push(slide);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function parseHeroCarousel(raw: unknown): HeroCarouselSettings | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const autoplayMs = r.autoplayMs;
+  if (typeof autoplayMs !== 'number' || !Number.isFinite(autoplayMs) || autoplayMs < 0) return undefined;
+  return { autoplayMs };
+}
+
+/**
+ * When `heroSlides` is set, returns those slides with defaults applied per slide.
+ * Otherwise a single slide from `backgroundImageUrl` + section copy.
+ */
+export function resolveHeroSlidesForRender(merged: DefaultHeroSectionSettings): ResolvedHeroSlide[] {
+  const badgeText = merged.badgeText ?? DEFAULT_HERO_SECTION_SETTINGS.badgeText!;
+  const headlineLine1 = merged.headlineLine1 ?? DEFAULT_HERO_SECTION_SETTINGS.headlineLine1!;
+  const headlineAccent = merged.headlineAccent ?? DEFAULT_HERO_SECTION_SETTINGS.headlineAccent!;
+  const description = merged.description ?? DEFAULT_HERO_SECTION_SETTINGS.description!;
+
+  const fromSlide = (s: HeroSlide): ResolvedHeroSlide => {
+    const row: ResolvedHeroSlide = {
+      imageUrl: s.imageUrl,
+      badgeText: s.badgeText?.trim() || badgeText,
+      headlineLine1: s.headlineLine1?.trim() || headlineLine1,
+      headlineAccent: s.headlineAccent?.trim() || headlineAccent,
+      description: s.description?.trim() || description,
+    };
+    const ctaL = s.ctaLabel?.trim() ?? '';
+    const ctaU = s.ctaUrl?.trim() ?? '';
+    if (ctaL !== '' && ctaU !== '') {
+      row.ctaLabel = ctaL;
+      row.ctaUrl = ctaU;
+    }
+    return row;
+  };
+
+  const slides = merged.heroSlides;
+  if (slides && slides.length > 0) {
+    return slides.map(fromSlide);
+  }
+
+  let bg = merged.backgroundImageUrl?.trim() ?? '';
+  if (bg === '' || isDefaultMarketplaceHeroImageUrl(bg)) {
+    bg = DEFAULT_MARKETPLACE_HERO_IMAGE_URL;
+  }
+  return [
+    {
+      imageUrl: bg,
+      badgeText,
+      headlineLine1,
+      headlineAccent,
+      description,
+    },
+  ];
+}
+
+/** Autoplay interval in ms; 0 when disabled or only one slide. */
+export function getHeroCarouselAutoplayMs(merged: DefaultHeroSectionSettings, slideCount: number): number {
+  if (slideCount < 2) return 0;
+  const v = merged.heroCarousel?.autoplayMs;
+  if (v === 0) return 0;
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return v;
+  return 6000;
+}
+
+function themeHasHeroSlideImages(raw: Record<string, unknown>): boolean {
+  const slides = raw.heroSlides;
+  if (!Array.isArray(slides)) return false;
+  return slides.some((row) => {
+    if (!row || typeof row !== 'object') return false;
+    const u = String((row as Record<string, unknown>).imageUrl ?? '').trim();
+    return u !== '';
+  });
+}
+
 /** Merge saved section.settings with built-in defaults for the marketplace hero. */
 export function mergeDefaultHeroSettings(
   raw: Record<string, unknown> | undefined | null
@@ -138,6 +265,11 @@ export function mergeDefaultHeroSettings(
   if (cats) base.searchCategories = cats;
   const pop = parseHeroPopularLinks(raw.popularLinks);
   if (pop) base.popularLinks = pop;
+
+  const heroSlides = parseHeroSlides(raw.heroSlides);
+  if (heroSlides) base.heroSlides = heroSlides;
+  const heroCarousel = parseHeroCarousel(raw.heroCarousel);
+  if (heroCarousel) base.heroCarousel = heroCarousel;
 
   return base;
 }
@@ -203,8 +335,9 @@ export function resolveStorefrontHeroSettings(
       : {};
   const themeBg = typeof raw.backgroundImageUrl === 'string' ? raw.backgroundImageUrl.trim() : '';
   const themeHasRealCustomBg = themeBg !== '' && !isDefaultMarketplaceHeroImageUrl(themeBg);
+  const hasSlideImages = themeHasHeroSlideImages(raw);
 
-  if (proDashboardHeroImageUrl && !themeHasRealCustomBg) {
+  if (proDashboardHeroImageUrl && !themeHasRealCustomBg && !hasSlideImages) {
     return { ...raw, backgroundImageUrl: proDashboardHeroImageUrl };
   }
   return raw;

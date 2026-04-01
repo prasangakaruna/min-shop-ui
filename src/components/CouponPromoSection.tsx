@@ -6,13 +6,17 @@ import { storefrontRequest } from '@/lib/storefrontApi';
 
 type StorefrontCouponRow = { code: string; summary: string; min_subtotal?: string };
 
-type StorefrontCouponsResponse = { data?: StorefrontCouponRow[] };
+type StorefrontCouponsResponse = {
+  data?: StorefrontCouponRow[];
+  volume_promo?: { min_subtotal: string; percent: number } | null;
+};
 
 /**
  * Homepage promo: drives shoppers to the cart; when `storeSlug` is set, lists active coupons from the API.
  */
 export default function CouponPromoSection({ storeSlug }: { storeSlug?: string | null }) {
   const [coupons, setCoupons] = useState<StorefrontCouponRow[]>([]);
+  const [volumePromo, setVolumePromo] = useState<StorefrontCouponsResponse['volume_promo']>(null);
 
   const cartHref = (() => {
     const base = '/cart';
@@ -23,6 +27,7 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
   useEffect(() => {
     if (!storeSlug) {
       setCoupons([]);
+      setVolumePromo(null);
       return;
     }
     let cancelled = false;
@@ -30,9 +35,13 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
       .then((res) => {
         if (cancelled) return;
         setCoupons(Array.isArray(res.data) ? res.data : []);
+        setVolumePromo(res.volume_promo ?? null);
       })
       .catch(() => {
-        if (!cancelled) setCoupons([]);
+        if (!cancelled) {
+          setCoupons([]);
+          setVolumePromo(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -66,6 +75,13 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                 <strong className="font-semibold text-gray-800">cart</strong> page (before checkout). Newsletter deals,
                 social drops, and partner promos update your order total in one click—no surprises at payment.
               </p>
+              {volumePromo ? (
+                <p className="mt-3 max-w-xl rounded-xl border border-mint/25 bg-white/70 px-3 py-2 text-sm text-gray-800 ring-1 ring-mint/10">
+                  <span className="font-semibold text-mint-dark">Bulk savings: </span>
+                  orders of ${parseFloat(volumePromo.min_subtotal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} or more save{' '}
+                  {volumePromo.percent}% automatically at checkout—no code needed (can combine with coupons).
+                </p>
+              ) : null}
               {coupons.length > 0 ? (
                 <div className="mt-4 flex flex-col gap-2 sm:items-start">
                   <p className="text-xs font-semibold uppercase tracking-wide text-mint-dark">Active codes — this store</p>

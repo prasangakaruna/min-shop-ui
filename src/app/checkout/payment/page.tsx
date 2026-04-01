@@ -116,6 +116,15 @@ function PaymentPageInner() {
   const computedSubtotal = lines.reduce((sum, l) => sum + parseFloat(l.price) * l.quantity, 0);
   const subtotalNum = cart?.subtotal != null ? parseFloat(cart.subtotal) : computedSubtotal;
   const discountNum = parseFloat(cart?.discount_total ?? '0') || 0;
+  const rawCouponDisc = cart?.coupon_discount;
+  const couponDiscPay =
+    rawCouponDisc !== undefined && rawCouponDisc !== null
+      ? parseFloat(rawCouponDisc) || 0
+      : cart?.coupon_code
+        ? parseFloat(cart?.discount_total ?? '0') || 0
+        : 0;
+  const volumeDiscPay = parseFloat(cart?.volume_promo?.discount_amount ?? '0') || 0;
+  const volPromo = cart?.volume_promo;
   const totalNum = cart?.total != null ? parseFloat(cart.total) : Math.max(0, subtotalNum - discountNum);
   const subtotalFormatted = `$${subtotalNum.toFixed(2)}`;
   const shipping = 0;
@@ -443,9 +452,24 @@ function PaymentPageInner() {
                       <span>Subtotal</span>
                       <span className="font-medium">{subtotalFormatted}</span>
                     </div>
-                    {discountNum > 0 && cart?.coupon_code ? (
+                    {couponDiscPay > 0 && cart?.coupon_code ? (
                       <div className="flex justify-between text-green-700 text-sm">
-                        <span>Discount ({cart.coupon_code})</span>
+                        <span>Coupon ({cart.coupon_code})</span>
+                        <span className="font-medium">−${couponDiscPay.toFixed(2)}</span>
+                      </div>
+                    ) : null}
+                    {volumeDiscPay > 0 ? (
+                      <div className="flex justify-between text-green-700 text-sm">
+                        <span>
+                          Volume promo ({volPromo?.percent}% on $
+                          {parseFloat(volPromo?.min_subtotal ?? '0').toFixed(2)}+ orders)
+                        </span>
+                        <span className="font-medium">−${volumeDiscPay.toFixed(2)}</span>
+                      </div>
+                    ) : null}
+                    {discountNum > 0 && couponDiscPay === 0 && volumeDiscPay === 0 ? (
+                      <div className="flex justify-between text-green-700 text-sm">
+                        <span>Discount</span>
                         <span className="font-medium">−${discountNum.toFixed(2)}</span>
                       </div>
                     ) : null}

@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import type { Me, UserType } from '@/lib/api';
+import { customerPostAuthPath } from '@/lib/storeSlug';
 
 const USER_TYPE_PERSIST = 'USER_TYPE';
 
@@ -37,7 +38,7 @@ export default function ChooseTypePage() {
           } else if (me.user_type === 'pro_admin') {
             router.replace('/admin/pro');
           } else {
-            router.replace('/dashboard');
+            router.replace(customerPostAuthPath(typeof window !== 'undefined' ? window.location.hostname : ''));
           }
         }
       })
@@ -63,7 +64,7 @@ export default function ChooseTypePage() {
       } else if (userType === 'pro_admin') {
         router.replace('/admin/pro');
       } else {
-        router.replace('/dashboard');
+        router.replace(customerPostAuthPath(typeof window !== 'undefined' ? window.location.hostname : ''));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save. Try again.');

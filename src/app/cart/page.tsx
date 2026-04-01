@@ -168,6 +168,23 @@ function CartPageInner() {
   const subtotal = cart?.subtotal ?? computedSubtotal.toFixed(2);
   const discountTotal = parseFloat(cart?.discount_total ?? '0') || 0;
   const total = cart?.total ?? Math.max(0, computedSubtotal - discountTotal).toFixed(2);
+  const rawCouponDisc = cart?.coupon_discount;
+  const couponDiscountNum =
+    rawCouponDisc !== undefined && rawCouponDisc !== null
+      ? parseFloat(rawCouponDisc) || 0
+      : cart?.coupon_code
+        ? parseFloat(cart?.discount_total ?? '0') || 0
+        : 0;
+  const volumePromo = cart?.volume_promo;
+  const volumeDiscountNum = parseFloat(volumePromo?.discount_amount ?? '0') || 0;
+  const remainingForVolume =
+    volumePromo?.enabled &&
+    volumePromo.remaining_to_qualify != null &&
+    volumePromo.remaining_to_qualify !== ''
+      ? parseFloat(volumePromo.remaining_to_qualify)
+      : null;
+  const showVolumeProgress =
+    !isEmpty && volumePromo?.enabled && remainingForVolume != null && remainingForVolume > 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -253,6 +270,21 @@ function CartPageInner() {
               ))}
             </ul>
 
+            {showVolumeProgress ? (
+              <div
+                className="mb-4 rounded-xl border border-mint/25 bg-gradient-to-r from-mint/10 to-white px-4 py-3 text-sm text-gray-800"
+                role="status"
+              >
+                <p className="font-semibold text-mint-dark">
+                  Spend ${remainingForVolume!.toFixed(2)} more for {volumePromo!.percent}% off
+                </p>
+                <p className="mt-1 text-gray-600">
+                  Orders of ${parseFloat(volumePromo!.min_subtotal).toFixed(2)} or more save{' '}
+                  {volumePromo!.percent}% on this purchase (stacks with valid coupon codes).
+                </p>
+              </div>
+            ) : null}
+
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
               <p className="text-sm font-medium text-gray-700">Discount code</p>
               {cart?.coupon_code ? (
@@ -322,7 +354,21 @@ function CartPageInner() {
                 <span>Subtotal</span>
                 <span className="font-medium">${subtotal}</span>
               </div>
-              {discountTotal > 0 ? (
+              {couponDiscountNum > 0 && cart?.coupon_code ? (
+                <div className="flex justify-between items-center text-green-700 text-sm">
+                  <span>Coupon ({cart.coupon_code})</span>
+                  <span className="font-medium">−${couponDiscountNum.toFixed(2)}</span>
+                </div>
+              ) : null}
+              {volumeDiscountNum > 0 ? (
+                <div className="flex justify-between items-center text-green-700 text-sm">
+                  <span>
+                    Volume promo ({volumePromo?.percent}% on ${parseFloat(volumePromo?.min_subtotal ?? '0').toFixed(2)}+ orders)
+                  </span>
+                  <span className="font-medium">−${volumeDiscountNum.toFixed(2)}</span>
+                </div>
+              ) : null}
+              {discountTotal > 0 && couponDiscountNum === 0 && volumeDiscountNum === 0 ? (
                 <div className="flex justify-between items-center text-green-700">
                   <span>Discount</span>
                   <span className="font-medium">−${discountTotal.toFixed(2)}</span>

@@ -283,6 +283,12 @@ export interface StoreSettings {
   storefront_home?: StorefrontHomeTheme | null;
   /** Third-party script embeds (analytics, chat, etc.); see Theme editor App Embeds. */
   storefront_app_embeds?: StorefrontAppEmbed[] | null;
+  /** Bulk-order auto discount; omit to use server env defaults (see /admin/pro/promotions). */
+  storefront_volume_promo?: {
+    enabled?: boolean;
+    min_subtotal?: number;
+    percent?: number;
+  } | null;
 }
 
 export interface StoreSummary {
@@ -539,6 +545,16 @@ export interface StorefrontCartLine {
   image_url: string | null;
 }
 
+/** Bulk-order auto discount (API: config mint.volume_promo + optional store settings). */
+export interface StorefrontVolumePromo {
+  enabled: boolean;
+  min_subtotal: string;
+  percent: number;
+  discount_amount: string;
+  /** Amount still needed to unlock the promo; null when qualified or disabled. */
+  remaining_to_qualify?: string | null;
+}
+
 export interface StorefrontCart {
   id: number;
   store_id: number;
@@ -547,9 +563,13 @@ export interface StorefrontCart {
   cart_token?: string;
   /** Line totals before discount (API v2). */
   subtotal?: string;
+  /** Coupon portion only (for breakdown). */
+  coupon_discount?: string;
+  /** Coupon + volume promo (capped at subtotal). */
   discount_total?: string;
   total?: string;
   coupon_code?: string | null;
+  volume_promo?: StorefrontVolumePromo | null;
 }
 
 export async function getStorefrontCart(storeId: number, cartToken?: string | null): Promise<StorefrontCart> {

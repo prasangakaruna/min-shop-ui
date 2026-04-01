@@ -1,7 +1,13 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiRequest, type StoreSummary, type StorefrontAppEmbed } from '@/lib/api';
+import {
+  apiRequest,
+  getImageDisplayUrl,
+  uploadProductImage,
+  type StoreSummary,
+  type StorefrontAppEmbed,
+} from '@/lib/api';
 import {
   SECTION_CATALOG,
   BUILTIN_THEME_PRESETS,
@@ -16,9 +22,11 @@ import {
   isMintMarketplaceSectionOrder,
   DEFAULT_MARKETPLACE_HERO_IMAGE_URL,
   mergeDefaultHeroSettings,
+  resolveHeroSlidesForRender,
   DEFAULT_HERO_SECTION_SETTINGS,
   type HeroSearchCategory,
   type HeroPopularLink,
+  type HeroSlide,
 } from '@/lib/storefrontHomeTheme';
 
 const FONT_OPTIONS: { value: string; label: string }[] = [
@@ -578,7 +586,12 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                     </div>
                   )}
                   {selected.type === 'default_hero' && (
-                    <DefaultHeroSectionEditor selected={selected} updateSection={updateSection} />
+                    <DefaultHeroSectionEditor
+                      selected={selected}
+                      updateSection={updateSection}
+                      token={token}
+                      storeId={store.id}
+                    />
                   )}
                   {selected.type !== 'announcement_bar' &&
                     selected.type !== 'video_hero' &&
@@ -879,18 +892,106 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
   );
 }
 
+const HERO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const HERO_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/svg+xml';
+
+function normalizeHeroSlideRows(raw: Record<string, unknown>): HeroSlide[] {
+  if (!Array.isArray(raw.heroSlides)) return [];
+  return (raw.heroSlides as HeroSlide[]).map((row) =>
+    row && typeof row === 'object'
+      ? {
+          imageUrl: typeof row.imageUrl === 'string' ? row.imageUrl : '',
+          ...(typeof row.badgeText === 'string' ? { badgeText: row.badgeText } : {}),
+          ...(typeof row.headlineLine1 === 'string' ? { headlineLine1: row.headlineLine1 } : {}),
+          ...(typeof row.headlineAccent === 'string' ? { headlineAccent: row.headlineAccent } : {}),
+          ...(typeof row.description === 'string' ? { description: row.description } : {}),
+          ...(typeof row.ctaLabel === 'string' ? { ctaLabel: row.ctaLabel } : {}),
+          ...(typeof row.ctaUrl === 'string' ? { ctaUrl: row.ctaUrl } : {}),
+        }
+      : { imageUrl: '' },
+  );
+}
+
 function DefaultHeroSectionEditor({
   selected,
   updateSection,
+  token,
+  storeId,
 }: {
   selected: HomeSection;
   updateSection: (id: string, patch: Partial<HomeSection>) => void;
+  token: string;
+  storeId: number;
 }) {
   const eff = mergeDefaultHeroSettings(selected.settings ?? null);
   const raw = selected.settings ?? {};
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<'background' | number | null>(null);
+  const [uploadBusy, setUploadBusy] = useState<false | 'background' | number>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const set = (patch: Record<string, unknown>) =>
     updateSection(selected.id, { settings: { ...raw, ...patch } });
+
+  const slideRows = normalizeHeroSlideRows(raw);
+
+  const updateSlideRow = (index: number, patch: Partial<HeroSlide>) => {
+    const next = slideRows.map((row, i) => (i === index ? { ...row, ...patch } : row));
+    set({ heroSlides: next });
+  };
+
+  const addSlide = () => {
+    const firstUrl =
+      slideRows.length === 0 && typeof raw.backgroundImageUrl === 'string' ? raw.backgroundImageUrl.trim() : '';
+    set({ heroSlides: [...slideRows, { imageUrl: firstUrl }] });
+  };
+
+  const removeSlide = (index: number) => {
+    const next = slideRows.filter((_, i) => i !== index);
+    set({ heroSlides: next.length > 0 ? next : [] });
+  };
+
+  const openHeroImagePicker = (target: 'background' | number) => {
+    setUploadError(null);
+    uploadTargetRef.current = target;
+    fileInputRef.current?.click();
+  };
+
+  const onHeroImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const target = uploadTargetRef.current;
+    uploadTargetRef.current = null;
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please choose an image file.');
+      return;
+    }
+    if (file.size > HERO_IMAGE_MAX_BYTES) {
+      setUploadError(`Image must be under ${HERO_IMAGE_MAX_BYTES / 1024 / 1024}MB.`);
+      return;
+    }
+    setUploadError(null);
+    try {
+      if (target === 'background') {
+        setUploadBusy('background');
+        const { url } = await uploadProductImage(file, { token, storeId });
+        set({ backgroundImageUrl: url });
+        return;
+      }
+      if (typeof target === 'number') {
+        setUploadBusy(target);
+        const { url } = await uploadProductImage(file, { token, storeId });
+        const rows = normalizeHeroSlideRows(raw);
+        const next = rows.map((row, i) => (i === target ? { ...row, imageUrl: url } : row));
+        set({ heroSlides: next });
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
 
   const categories: HeroSearchCategory[] = eff.searchCategories ?? DEFAULT_HERO_SECTION_SETTINGS.searchCategories!;
   const popular: HeroPopularLink[] = eff.popularLinks ?? DEFAULT_HERO_SECTION_SETTINGS.popularLinks!;
@@ -919,8 +1020,24 @@ function DefaultHeroSectionEditor({
     set({ popularLinks: popular.filter((_, i) => i !== index) });
   };
 
+  const carouselRaw =
+    raw.heroCarousel && typeof raw.heroCarousel === 'object'
+      ? (raw.heroCarousel as Record<string, unknown>)
+      : null;
+  const autoplayInput =
+    carouselRaw && typeof carouselRaw.autoplayMs === 'number' && Number.isFinite(carouselRaw.autoplayMs)
+      ? String(carouselRaw.autoplayMs)
+      : '';
+
   return (
     <div className="space-y-4 text-sm">
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="sr-only"
+        accept={HERO_IMAGE_ACCEPT}
+        onChange={onHeroImageFile}
+      />
       <p className="text-xs text-gray-600 leading-relaxed">
         Headline, search, and hero background. Accent colors come from <span className="font-medium text-gray-800">Colors & fonts</span>.
       </p>
@@ -966,16 +1083,181 @@ function DefaultHeroSectionEditor({
       />
       <label className="block text-xs font-medium text-gray-700">Hero background image URL</label>
       <p className="text-[11px] text-gray-500 mb-1.5 leading-snug">
-        Leave empty to keep the default Mint marketplace hero (villa) for this layout. Paste or upload a URL to show
-        your own image on <span className="font-medium text-gray-700">this store only</span>.
+        Leave empty to keep the default Mint marketplace hero (villa) for this layout. Paste a URL or upload — files are
+        stored like product images on <span className="font-medium text-gray-700">this store only</span>.
       </p>
-      <input
-        type="url"
-        value={eff.backgroundImageUrl ?? ''}
-        onChange={(e) => set({ backgroundImageUrl: e.target.value })}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono"
-        placeholder="Empty = default marketplace hero"
-      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="url"
+          value={eff.backgroundImageUrl ?? ''}
+          onChange={(e) => set({ backgroundImageUrl: e.target.value })}
+          className="w-full min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs font-mono"
+          placeholder="Empty = default marketplace hero"
+        />
+        <button
+          type="button"
+          onClick={() => openHeroImagePicker('background')}
+          disabled={uploadBusy !== false}
+          className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-800 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50"
+        >
+          {uploadBusy === 'background' ? 'Uploading…' : 'Upload image'}
+        </button>
+      </div>
+      {eff.backgroundImageUrl?.trim() ? (
+        <div className="rounded-lg border border-gray-200 bg-white overflow-hidden max-h-28">
+          {/* eslint-disable-next-line @next/next/no-img-element -- admin preview; URL may be API upload path */}
+          <img
+            src={getImageDisplayUrl(eff.backgroundImageUrl.trim())}
+            alt=""
+            className="w-full h-24 object-cover"
+          />
+        </div>
+      ) : null}
+
+      <div className="border-t border-gray-200 pt-4 mt-4 space-y-3">
+        <div>
+          <p className="text-xs font-medium text-gray-800">Hero slides</p>
+          <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+            Leave empty to use the single background URL above. With <span className="font-medium text-gray-700">one</span> slide, you get a fixed hero with that image and optional per-slide copy. With{' '}
+            <span className="font-medium text-gray-700">two or more</span> slides, the storefront shows a carousel (dots, arrows, swipe, autoplay). The search bar is shared across slides. When any slide row exists, only slides are used — the single background URL field is ignored until you remove all slides.
+          </p>
+        </div>
+        {uploadError ? (
+          <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">{uploadError}</p>
+        ) : null}
+        <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] text-gray-600">
+                  {slideRows.length === 0
+                    ? 'No slides'
+                    : slideRows.length === 1
+                      ? '1 slide (static)'
+                      : `${slideRows.length} slides (carousel)`}
+                </span>
+                <button type="button" onClick={addSlide} className="text-[11px] font-medium text-mint hover:underline">
+                  Add slide
+                </button>
+              </div>
+
+              {slideRows.length >= 2 ? (
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1">Autoplay (ms)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={500}
+                    value={autoplayInput}
+                    onChange={(e) => {
+                      const t = e.target.value.trim();
+                      if (t === '') {
+                        set({ heroCarousel: undefined });
+                        return;
+                      }
+                      const n = parseInt(t, 10);
+                      if (!Number.isFinite(n) || n < 0) return;
+                      set({ heroCarousel: { autoplayMs: n } });
+                    }}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs"
+                    placeholder="6000 (default when 2+ slides)"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">Use 0 to turn autoplay off.</p>
+                </div>
+              ) : null}
+
+              <ul className="space-y-4">
+                {slideRows.map((row, i) => (
+                  <li key={i} className="rounded-xl border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-gray-800">Slide {i + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeSlide(i)}
+                        className="text-[11px] text-red-600 hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <label className="block text-[10px] font-medium text-gray-600">Image URL</label>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <input
+                        type="url"
+                        value={row.imageUrl}
+                        onChange={(e) => updateSlideRow(i, { imageUrl: e.target.value })}
+                        className="w-full min-w-0 flex-1 rounded border border-gray-200 px-2 py-1.5 text-xs font-mono"
+                        placeholder="https://…"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => openHeroImagePicker(i)}
+                        disabled={uploadBusy !== false}
+                        className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-medium text-gray-800 hover:bg-gray-50 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        {uploadBusy === i ? 'Uploading…' : 'Upload image'}
+                      </button>
+                    </div>
+                    {row.imageUrl.trim() ? (
+                      <div className="mt-1 rounded-lg border border-gray-200 bg-white overflow-hidden max-h-24">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- admin preview; URL may be API upload path */}
+                        <img
+                          src={getImageDisplayUrl(row.imageUrl)}
+                          alt=""
+                          className="w-full h-20 object-cover"
+                        />
+                      </div>
+                    ) : null}
+                    <p className="text-[10px] text-gray-500">Optional overrides (leave blank to use section defaults above):</p>
+                    <input
+                      type="text"
+                      value={row.badgeText ?? ''}
+                      onChange={(e) => updateSlideRow(i, { badgeText: e.target.value || undefined })}
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs"
+                      placeholder="Badge"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={row.headlineLine1 ?? ''}
+                        onChange={(e) => updateSlideRow(i, { headlineLine1: e.target.value || undefined })}
+                        className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                        placeholder="Headline line 1"
+                      />
+                      <input
+                        type="text"
+                        value={row.headlineAccent ?? ''}
+                        onChange={(e) => updateSlideRow(i, { headlineAccent: e.target.value || undefined })}
+                        className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                        placeholder="Accent"
+                      />
+                    </div>
+                    <textarea
+                      value={row.description ?? ''}
+                      onChange={(e) => updateSlideRow(i, { description: e.target.value || undefined })}
+                      rows={2}
+                      className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs"
+                      placeholder="Description"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={row.ctaLabel ?? ''}
+                        onChange={(e) => updateSlideRow(i, { ctaLabel: e.target.value || undefined })}
+                        className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs"
+                        placeholder="CTA label"
+                      />
+                      <input
+                        type="text"
+                        value={row.ctaUrl ?? ''}
+                        onChange={(e) => updateSlideRow(i, { ctaUrl: e.target.value || undefined })}
+                        className="flex-1 min-w-0 rounded border border-gray-200 px-2 py-1.5 text-xs font-mono"
+                        placeholder="/products or https://"
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+        </>
+      </div>
+
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className="text-xs font-medium text-gray-700">Search category dropdown</span>
@@ -1113,7 +1395,15 @@ function PreviewBlock({
 
   if (section.type === 'default_hero') {
     const hero = mergeDefaultHeroSettings(section.settings ?? null);
-    const bgUrl = hero.backgroundImageUrl?.trim() || DEFAULT_MARKETPLACE_HERO_IMAGE_URL;
+    const resolvedSlides = resolveHeroSlidesForRender(hero);
+    const first = resolvedSlides[0]!;
+    const bgUrl = getImageDisplayUrl(first.imageUrl);
+    const carouselNote =
+      resolvedSlides.length > 1 ? (
+        <span className="ml-1 rounded bg-mint/15 px-1.5 py-0.5 text-[7px] font-semibold text-mint">
+          {resolvedSlides.length} slides
+        </span>
+      ) : null;
     return (
       <div
         className={`${pad} bg-cover bg-center relative overflow-hidden`}
@@ -1123,16 +1413,17 @@ function PreviewBlock({
       >
         <div className="relative z-10 max-w-[95%]">
           <p className="text-[8px] font-semibold text-mint mb-1.5 inline-flex items-center gap-1 rounded-full bg-mint/10 px-2 py-0.5">
-            {hero.badgeText}
+            {first.badgeText}
+            {carouselNote}
           </p>
           <p
             className={`font-extrabold text-gray-900 leading-tight mb-1 ${device === 'desktop' ? 'text-sm' : 'text-xs'}`}
             style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
           >
-            {hero.headlineLine1}{' '}
-            <span style={{ color: primary }}>{hero.headlineAccent}</span>
+            {first.headlineLine1}{' '}
+            <span style={{ color: primary }}>{first.headlineAccent}</span>
           </p>
-          <p className="text-[8px] text-gray-600 mb-2 leading-snug line-clamp-2">{hero.description}</p>
+          <p className="text-[8px] text-gray-600 mb-2 leading-snug line-clamp-2">{first.description}</p>
           <div className="flex gap-1.5">
             <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400 truncate">
               {hero.searchPlaceholder}

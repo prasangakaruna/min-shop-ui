@@ -6,10 +6,12 @@ import { getImageDisplayUrl } from '@/lib/api';
 import { formatCategoryLabel } from '@/lib/categories';
 import { storefrontRequest, type StorefrontBrowseCategoriesResponse } from '@/lib/storefrontApi';
 import {
-  DEFAULT_MARKETPLACE_HERO_IMAGE_URL,
   mergeDefaultHeroSettings,
+  resolveHeroSlidesForRender,
+  getHeroCarouselAutoplayMs,
   type HeroPopularLink,
   type HeroSearchCategory,
+  type ResolvedHeroSlide,
 } from '@/lib/storefrontHomeTheme';
 
 type HeroProps = {
@@ -31,6 +33,7 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale categories before refetch
     setCatalogCategories(null);
     storefrontRequest<StorefrontBrowseCategoriesResponse>('/storefront/browse-categories', {
       ...(storeSlug ? { store: storeSlug } : {}),
@@ -78,14 +81,50 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
   useEffect(() => {
     if (searchCategories.length === 0) return;
     const ok = searchCategories.some((c) => c.value === selectedCategory);
-    if (!ok) setSelectedCategory(searchCategories[0].value);
+    if (!ok) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- align selection when category list updates
+      setSelectedCategory(searchCategories[0].value);
+    }
   }, [searchCategories, selectedCategory]);
 
-  const bgUrl = useMemo(() => {
-    const u = hero.backgroundImageUrl?.trim() ?? '';
-    if (!u) return DEFAULT_MARKETPLACE_HERO_IMAGE_URL;
-    return getImageDisplayUrl(u);
-  }, [hero.backgroundImageUrl]);
+  const slides: ResolvedHeroSlide[] = useMemo(() => resolveHeroSlidesForRender(hero), [hero]);
+
+  const displaySlides = useMemo(
+    () =>
+      slides.map((s) => ({
+        ...s,
+        imageUrl: getImageDisplayUrl(s.imageUrl),
+      })),
+    [slides],
+  );
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const slideCount = displaySlides.length;
+  const safeActiveIndex = Math.min(activeIndex, Math.max(0, slideCount - 1));
+  const autoplayMs = useMemo(() => getHeroCarouselAutoplayMs(hero, slideCount), [hero, slideCount]);
+  const [pauseAutoplay, setPauseAutoplay] = useState(false);
+  const touchStartX = React.useRef<number | null>(null);
+
+  useEffect(() => {
+    if (autoplayMs <= 0 || pauseAutoplay || slideCount < 2) return;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const t = window.setInterval(() => {
+      setActiveIndex((i) => {
+        const s = Math.min(i, slideCount - 1);
+        return (s + 1) % slideCount;
+      });
+    }, autoplayMs);
+    return () => window.clearInterval(t);
+  }, [autoplayMs, pauseAutoplay, slideCount]);
+
+  const go = (dir: -1 | 1) => {
+    setActiveIndex((i) => {
+      const s = Math.min(i, slideCount - 1);
+      return (s + dir + slideCount) % slideCount;
+    });
+  };
+
+  const activeSlide = displaySlides[safeActiveIndex] ?? displaySlides[0];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,14 +191,58 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
   const accent = 'var(--sf-color-accent, #99f6e4)';
 
   return (
-    <section className="relative h-[500px] md:h-[550px] overflow-hidden">
+    <section
+      className="relative h-[500px] md:h-[550px] overflow-hidden outline-none"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (slideCount < 2) return;
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          go(-1);
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          go(1);
+        }
+      }}
+      onMouseEnter={() => setPauseAutoplay(true)}
+      onMouseLeave={() => setPauseAutoplay(false)}
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(e) => {
+        const x0 = touchStartX.current;
+        touchStartX.current = null;
+        if (x0 == null || slideCount < 2) return;
+        const x1 = e.changedTouches[0]?.clientX ?? x0;
+        const dx = x1 - x0;
+        if (dx > 56) go(-1);
+        if (dx < -56) go(1);
+      }}
+      aria-roledescription="carousel"
+    >
       <div className="absolute inset-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{
-            backgroundImage: `url("${bgUrl.replace(/"/g, '\\"')}")`,
-          }}
-        />
+        <div className="absolute inset-0 overflow-hidden z-[1]">
+          <div
+            className="flex h-full transition-transform duration-700 ease-out motion-reduce:transition-none"
+            style={{
+              width: `${slideCount * 100}%`,
+              transform: `translateX(-${(safeActiveIndex * 100) / slideCount}%)`,
+            }}
+          >
+            {displaySlides.map((s, i) => (
+              <div
+                key={`${s.imageUrl}-${i}`}
+                className="h-full shrink-0 bg-cover bg-center bg-no-repeat"
+                style={{
+                  width: `${100 / slideCount}%`,
+                  backgroundImage: `url("${s.imageUrl.replace(/"/g, '\\"')}")`,
+                }}
+                aria-hidden={i !== safeActiveIndex}
+              />
+            ))}
+          </div>
+        </div>
 
         <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85 z-10" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-50/20 to-white/95 z-10" />
@@ -180,38 +263,107 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
         <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300" />
       </div>
 
+      {slideCount > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={() => go(-1)}
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 rounded-full p-2.5 bg-white/90 shadow-lg border border-gray-200/80 text-gray-800 hover:bg-white transition-opacity motion-reduce:transition-none"
+            aria-label="Previous slide"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => go(1)}
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 rounded-full p-2.5 bg-white/90 shadow-lg border border-gray-200/80 text-gray-800 hover:bg-white transition-opacity motion-reduce:transition-none"
+            aria-label="Next slide"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2"
+            role="tablist"
+            aria-label="Hero slides"
+          >
+            {displaySlides.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                role="tab"
+                aria-selected={i === safeActiveIndex}
+                aria-label={`Slide ${i + 1} of ${slideCount}`}
+                onClick={() => setActiveIndex(i)}
+                className="h-2.5 rounded-full transition-all motion-reduce:transition-none"
+                style={{
+                  width: i === safeActiveIndex ? 28 : 10,
+                  backgroundColor: i === safeActiveIndex ? primary : `color-mix(in srgb, ${primary} 35%, white)`,
+                  opacity: i === safeActiveIndex ? 1 : 0.65,
+                }}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      <div
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >{`Slide ${safeActiveIndex + 1} of ${slideCount}: ${activeSlide.headlineLine1} ${activeSlide.headlineAccent}`}</div>
+
       <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center pointer-events-auto">
         <div className="max-w-2xl" style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}>
-          <div
-            className="inline-flex items-center backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border shadow-md"
-            style={{
-              backgroundColor: `color-mix(in srgb, ${accent} 22%, transparent)`,
-              color: primary,
-              borderColor: `color-mix(in srgb, ${primary} 25%, transparent)`,
-            }}
-          >
-            <span
-              className="w-2 h-2 rounded-full mr-2 animate-pulse shrink-0"
-              style={{ backgroundColor: primary }}
-            />
-            {hero.badgeText}
-          </div>
-
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 animate-slide-up leading-tight">
-            {hero.headlineLine1}{' '}
-            <span
-              className="bg-clip-text text-transparent"
+          <div key={safeActiveIndex} className="motion-reduce:animate-none">
+            <div
+              className="inline-flex items-center backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border shadow-md"
               style={{
-                backgroundImage: `linear-gradient(to right, ${primary}, color-mix(in srgb, ${primary} 65%, #0f172a))`,
+                backgroundColor: `color-mix(in srgb, ${accent} 22%, transparent)`,
+                color: primary,
+                borderColor: `color-mix(in srgb, ${primary} 25%, transparent)`,
               }}
             >
-              {hero.headlineAccent}
-            </span>
-          </h1>
+              <span
+                className="w-2 h-2 rounded-full mr-2 animate-pulse shrink-0"
+                style={{ backgroundColor: primary }}
+              />
+              {activeSlide.badgeText}
+            </div>
 
-          <p className="text-lg md:text-xl text-gray-700 mb-6 animate-slide-up delay-100 leading-relaxed max-w-xl">
-            {hero.description}
-          </p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 animate-slide-up leading-tight">
+              {activeSlide.headlineLine1}{' '}
+              <span
+                className="bg-clip-text text-transparent"
+                style={{
+                  backgroundImage: `linear-gradient(to right, ${primary}, color-mix(in srgb, ${primary} 65%, #0f172a))`,
+                }}
+              >
+                {activeSlide.headlineAccent}
+              </span>
+            </h1>
+
+            <p
+              className={`text-lg md:text-xl text-gray-700 animate-slide-up delay-100 leading-relaxed max-w-xl ${
+                activeSlide.ctaLabel && activeSlide.ctaUrl ? 'mb-4' : 'mb-6'
+              }`}
+            >
+              {activeSlide.description}
+            </p>
+
+            {activeSlide.ctaLabel && activeSlide.ctaUrl ? (
+              <HeroSlideCta
+                label={activeSlide.ctaLabel}
+                url={activeSlide.ctaUrl}
+                primary={primary}
+                accent={accent}
+                className="mb-6 animate-slide-up delay-100"
+              />
+            ) : null}
+          </div>
 
           <form
             onSubmit={handleSearch}
@@ -275,6 +427,52 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
         </div>
       </div>
     </section>
+  );
+}
+
+function HeroSlideCta({
+  label,
+  url,
+  primary,
+  accent,
+  className,
+}: {
+  label: string;
+  url: string;
+  primary: string;
+  accent: string;
+  className?: string;
+}) {
+  const router = useRouter();
+  const external =
+    /^https?:\/\//i.test(url) || url.startsWith('mailto:') || url.startsWith('tel:');
+
+  const style: React.CSSProperties = {
+    backgroundColor: `color-mix(in srgb, ${primary} 92%, #0f172a)`,
+    color: '#fff',
+    borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
+  };
+
+  const cls = `inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border shadow-sm transition hover:opacity-95 ${className ?? ''}`;
+
+  if (external) {
+    return (
+      <a href={url} className={cls} style={style} rel="noopener noreferrer">
+        {label}
+        <svg className="w-4 h-4 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+      </a>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => router.push(url)} className={cls} style={style}>
+      {label}
+      <svg className="w-4 h-4 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+      </svg>
+    </button>
   );
 }
 

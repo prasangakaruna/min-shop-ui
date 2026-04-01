@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
-import type { Me, UserType } from '@/lib/api';
+import type { Me } from '@/lib/api';
+import { storeSlugFromHost, customerPostAuthPath } from '@/lib/storeSlug';
 
 const USER_TYPE_COOKIE = 'USER_TYPE_TO_REGISTER';
 const USER_TYPE_PERSIST = 'USER_TYPE';
@@ -41,6 +42,9 @@ export default function AfterLoginPage() {
 
     (async () => {
       try {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+        const onStoreSubdomain = Boolean(storeSlugFromHost(hostname));
+
         const typeToRegister = getCookie(USER_TYPE_COOKIE);
         if (typeToRegister === 'customer' || typeToRegister === 'store_admin' || typeToRegister === 'pro_admin') {
           try {
@@ -51,10 +55,21 @@ export default function AfterLoginPage() {
           clearCookie(USER_TYPE_COOKIE);
         }
 
-        const me = await apiRequest<Me>('/me', { token });
-        const userType = me.user_type;
+        let me = await apiRequest<Me>('/me', { token });
+        let userType = me.user_type;
 
-        // First time: user has not set account type yet → choose type first (treat undefined as null)
+        // Store URL sign-in: treat as a shopper — default to customer without the global "choose type" step.
+        if (userType == null && onStoreSubdomain) {
+          try {
+            await apiRequest<Me>('/me/sync', { method: 'POST', token, body: { user_type: 'customer' } });
+            me = await apiRequest<Me>('/me', { token });
+            userType = me.user_type;
+          } catch {
+            // fall through to choose-type if sync fails
+          }
+        }
+
+        // First time on marketplace apex: still pick role (customer vs seller vs pro).
         if (userType == null) {
           router.replace('/auth/choose-type');
           return;
@@ -66,7 +81,7 @@ export default function AfterLoginPage() {
         } else if (userType === 'pro_admin') {
           router.replace('/admin/pro');
         } else {
-          router.replace('/dashboard');
+          router.replace(customerPostAuthPath(hostname));
         }
       } catch (e) {
         setMessage('Could not load your account. Try signing in again.');
