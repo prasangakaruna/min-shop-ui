@@ -190,6 +190,15 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
   const primary = 'var(--sf-color-primary, #0f766e)';
   const accent = 'var(--sf-color-accent, #99f6e4)';
 
+  const overlayEnabled = hero.heroImageOverlayEnabled !== false;
+  const overlayOpacityRaw =
+    typeof hero.heroImageOverlayOpacity === 'number' && Number.isFinite(hero.heroImageOverlayOpacity)
+      ? hero.heroImageOverlayOpacity
+      : 100;
+  const overlayStrength = Math.min(100, Math.max(0, overlayOpacityRaw)) / 100;
+  const showHeroOverlay = overlayEnabled && overlayStrength > 0;
+  const showHeroSearch = hero.heroSearchEnabled !== false;
+
   return (
     <section
       className="relative h-[500px] md:h-[550px] overflow-hidden outline-none"
@@ -244,23 +253,30 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
           </div>
         </div>
 
-        <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85 z-10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-50/20 to-white/95 z-10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent z-10" />
-        <div
-          className="absolute inset-0 z-10 animate-pulse opacity-90"
-          style={{
-            background: `linear-gradient(to bottom right, color-mix(in srgb, ${primary} 20%, transparent), transparent, color-mix(in srgb, #3b82f6 20%, transparent))`,
-          }}
-        />
-      </div>
-
-      <div className="absolute inset-0 z-10 overflow-hidden pointer-events-none">
-        <div
-          className="absolute top-20 right-20 w-72 h-72 rounded-full blur-3xl animate-pulse"
-          style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)` }}
-        />
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300" />
+        {showHeroOverlay ? (
+          <div
+            className="absolute inset-0 z-10 pointer-events-none"
+            style={{ opacity: overlayStrength }}
+            aria-hidden
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-50/20 to-white/95" />
+            <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
+            <div
+              className="absolute inset-0 animate-pulse opacity-90"
+              style={{
+                background: `linear-gradient(to bottom right, color-mix(in srgb, ${primary} 20%, transparent), transparent, color-mix(in srgb, #3b82f6 20%, transparent))`,
+              }}
+            />
+            <div className="absolute inset-0 overflow-hidden">
+              <div
+                className="absolute top-20 right-20 w-72 h-72 rounded-full blur-3xl animate-pulse"
+                style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)` }}
+              />
+              <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300" />
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {slideCount > 1 ? (
@@ -365,56 +381,58 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
             ) : null}
           </div>
 
-          <form
-            onSubmit={handleSearch}
-            className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 animate-slide-up delay-200 border border-white/20"
-          >
-            <div className="flex-1 relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5" style={{ color: primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {showHeroSearch ? (
+            <form
+              onSubmit={handleSearch}
+              className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-4 animate-slide-up delay-200 border border-white/20"
+            >
+              <div className="flex-1 relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5" style={{ color: primary }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={hero.searchPlaceholder}
+                  className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+                />
+              </div>
+              <div className="relative sm:w-[min(100%,11rem)] md:w-[min(100%,13rem)]">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm font-medium text-gray-800"
+                >
+                  {searchCategories.map((c) => (
+                    <option key={`${c.value}-${c.label}`} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="text-white px-8 py-3 font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 whitespace-nowrap hover:opacity-95"
+                style={{
+                  backgroundColor: primary,
+                  borderRadius: 'var(--sf-button-radius, 9999px)',
+                }}
+              >
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={hero.searchPlaceholder}
-                className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
-              />
-            </div>
-            <div className="relative">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm font-medium text-gray-800"
-              >
-                {searchCategories.map((c) => (
-                  <option key={`${c.value}-${c.label}`} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-            <button
-              type="submit"
-              className="text-white px-8 py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2 whitespace-nowrap hover:opacity-95"
-              style={{
-                backgroundColor: primary,
-                borderRadius: 'var(--sf-button-radius, 0.5rem)',
-              }}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <span>Search</span>
-            </button>
-          </form>
+                <span>Search</span>
+              </button>
+            </form>
+          ) : null}
 
           {popularLinks.length > 0 ? (
             <div className="mt-4 flex flex-wrap items-center gap-3 animate-fade-in delay-300">

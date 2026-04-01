@@ -95,6 +95,18 @@ export type DefaultHeroSectionSettings = {
   heroCarousel?: HeroCarouselSettings;
   searchCategories?: HeroSearchCategory[];
   popularLinks?: HeroPopularLink[];
+  /**
+   * Light wash + gradients over the hero photo. When false, the background image stays fully visible
+   * (text may need strong photos — tune headline colors in “Colors & fonts” if needed).
+   */
+  heroImageOverlayEnabled?: boolean;
+  /** 0–100; strength of the overlay stack. Ignored when `heroImageOverlayEnabled` is false. Default 100. */
+  heroImageOverlayOpacity?: number;
+  /**
+   * When false, the storefront hero hides the search field, category filter, and Search button (headline/CTA stay).
+   * Default true.
+   */
+  heroSearchEnabled?: boolean;
 };
 
 export const DEFAULT_HERO_SECTION_SETTINGS: DefaultHeroSectionSettings = {
@@ -117,6 +129,9 @@ export const DEFAULT_HERO_SECTION_SETTINGS: DefaultHeroSectionSettings = {
     { label: 'Electronics', url: '/electronics' },
     { label: 'Groceries', url: '/groceries' },
   ],
+  heroImageOverlayEnabled: true,
+  heroImageOverlayOpacity: 100,
+  heroSearchEnabled: true,
 };
 
 function parseHeroSearchCategories(raw: unknown): HeroSearchCategory[] | undefined {
@@ -270,6 +285,23 @@ export function mergeDefaultHeroSettings(
   if (heroSlides) base.heroSlides = heroSlides;
   const heroCarousel = parseHeroCarousel(raw.heroCarousel);
   if (heroCarousel) base.heroCarousel = heroCarousel;
+
+  if (typeof raw.heroImageOverlayEnabled === 'boolean') {
+    base.heroImageOverlayEnabled = raw.heroImageOverlayEnabled;
+  }
+  const opRaw = raw.heroImageOverlayOpacity;
+  if (typeof opRaw === 'number' && Number.isFinite(opRaw)) {
+    base.heroImageOverlayOpacity = Math.min(100, Math.max(0, opRaw));
+  } else if (typeof opRaw === 'string' && opRaw.trim() !== '') {
+    const n = parseFloat(opRaw);
+    if (Number.isFinite(n)) {
+      base.heroImageOverlayOpacity = Math.min(100, Math.max(0, n));
+    }
+  }
+
+  if (typeof raw.heroSearchEnabled === 'boolean') {
+    base.heroSearchEnabled = raw.heroSearchEnabled;
+  }
 
   return base;
 }

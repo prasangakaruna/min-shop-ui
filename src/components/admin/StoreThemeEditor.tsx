@@ -1073,6 +1073,22 @@ function DefaultHeroSectionEditor({
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
         placeholder={DEFAULT_HERO_SECTION_SETTINGS.description}
       />
+
+      <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={eff.heroSearchEnabled !== false}
+            onChange={(e) => set({ heroSearchEnabled: e.target.checked })}
+            className="rounded border-gray-300 text-mint focus:ring-mint/40"
+          />
+          <span className="text-sm font-medium text-gray-800">Show hero search bar</span>
+        </label>
+        <p className="text-[11px] text-gray-500 leading-snug pl-6">
+          Search field, category filter, and Search button on the storefront hero. Turn off for a headline-only hero.
+        </p>
+      </div>
+
       <label className="block text-xs font-medium text-gray-700">Search placeholder</label>
       <input
         type="text"
@@ -1081,6 +1097,46 @@ function DefaultHeroSectionEditor({
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
         placeholder={DEFAULT_HERO_SECTION_SETTINGS.searchPlaceholder}
       />
+
+      <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+        <div>
+          <p className="text-xs font-semibold text-gray-900">Hero image overlay</p>
+          <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+            Soft light wash over the photo so headline and search stay readable. Turn off for a full-bleed image, or lower
+            strength for a subtler fade.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={eff.heroImageOverlayEnabled !== false}
+            onChange={(e) => set({ heroImageOverlayEnabled: e.target.checked })}
+            className="rounded border-gray-300 text-mint focus:ring-mint/40"
+          />
+          <span className="text-sm text-gray-800">Show overlay on hero image</span>
+        </label>
+        <div>
+          <div className="flex justify-between text-[11px] font-medium text-gray-700 mb-1">
+            <label htmlFor="hero-overlay-opacity">Overlay strength</label>
+            <span className="tabular-nums text-gray-500">
+              {eff.heroImageOverlayEnabled === false ? '—' : `${eff.heroImageOverlayOpacity ?? 100}%`}
+            </span>
+          </div>
+          <input
+            id="hero-overlay-opacity"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            disabled={eff.heroImageOverlayEnabled === false}
+            value={eff.heroImageOverlayOpacity ?? 100}
+            onChange={(e) => set({ heroImageOverlayOpacity: parseInt(e.target.value, 10) })}
+            className="w-full h-2 accent-mint disabled:opacity-40"
+          />
+          <p className="text-[10px] text-gray-500 mt-1">0% = transparent wash (image shows through). 100% = full default strength.</p>
+        </div>
+      </div>
+
       <label className="block text-xs font-medium text-gray-700">Hero background image URL</label>
       <p className="text-[11px] text-gray-500 mb-1.5 leading-snug">
         Leave empty to keep the default Mint marketplace hero (villa) for this layout. Paste a URL or upload — files are
@@ -1119,7 +1175,7 @@ function DefaultHeroSectionEditor({
           <p className="text-xs font-medium text-gray-800">Hero slides</p>
           <p className="text-[11px] text-gray-500 mt-1 leading-snug">
             Leave empty to use the single background URL above. With <span className="font-medium text-gray-700">one</span> slide, you get a fixed hero with that image and optional per-slide copy. With{' '}
-            <span className="font-medium text-gray-700">two or more</span> slides, the storefront shows a carousel (dots, arrows, swipe, autoplay). The search bar is shared across slides. When any slide row exists, only slides are used — the single background URL field is ignored until you remove all slides.
+            <span className="font-medium text-gray-700">two or more</span> slides, the storefront shows a carousel (dots, arrows, swipe, autoplay). The search bar (if enabled) is shared across slides. When any slide row exists, only slides are used — the single background URL field is ignored until you remove all slides.
           </p>
         </div>
         {uploadError ? (
@@ -1398,6 +1454,10 @@ function PreviewBlock({
     const resolvedSlides = resolveHeroSlidesForRender(hero);
     const first = resolvedSlides[0]!;
     const bgUrl = getImageDisplayUrl(first.imageUrl);
+    const overlayOn = hero.heroImageOverlayEnabled !== false;
+    const op = Math.min(100, Math.max(0, hero.heroImageOverlayOpacity ?? 100)) / 100;
+    const whiteA = overlayOn ? 0.95 * op : 0;
+    const whiteB = overlayOn ? 0.88 * op : 0;
     const carouselNote =
       resolvedSlides.length > 1 ? (
         <span className="ml-1 rounded bg-mint/15 px-1.5 py-0.5 text-[7px] font-semibold text-mint">
@@ -1408,7 +1468,7 @@ function PreviewBlock({
       <div
         className={`${pad} bg-cover bg-center relative overflow-hidden`}
         style={{
-          backgroundImage: `linear-gradient(to right, rgba(255,255,255,0.95), rgba(255,255,255,0.88)), url(${bgUrl})`,
+          backgroundImage: `linear-gradient(to right, rgba(255,255,255,${whiteA}), rgba(255,255,255,${whiteB})), url(${bgUrl})`,
         }}
       >
         <div className="relative z-10 max-w-[95%]">
@@ -1424,14 +1484,18 @@ function PreviewBlock({
             <span style={{ color: primary }}>{first.headlineAccent}</span>
           </p>
           <p className="text-[8px] text-gray-600 mb-2 leading-snug line-clamp-2">{first.description}</p>
-          <div className="flex gap-1.5">
-            <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400 truncate">
-              {hero.searchPlaceholder}
+          {hero.heroSearchEnabled !== false ? (
+            <div className="flex gap-1.5">
+              <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400 truncate">
+                {hero.searchPlaceholder}
+              </div>
+              <div className="h-7 px-2 rounded-md text-[8px] font-semibold text-white flex items-center shrink-0" style={{ backgroundColor: primary }}>
+                Go
+              </div>
             </div>
-            <div className="h-7 px-2 rounded-md text-[8px] font-semibold text-white flex items-center shrink-0" style={{ backgroundColor: primary }}>
-              Go
-            </div>
-          </div>
+          ) : (
+            <p className="text-[7px] font-medium text-gray-400 italic">Search bar hidden</p>
+          )}
         </div>
       </div>
     );
