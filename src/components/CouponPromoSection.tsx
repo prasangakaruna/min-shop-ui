@@ -22,8 +22,10 @@ function formatMoney(s: string): string {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function usePromoCountdown(endIso: string | null | undefined): { days: number; hours: number; mins: number } | null {
-  const [parts, setParts] = useState<{ days: number; hours: number; mins: number } | null>(null);
+type CountdownParts = { days: number; hours: number; mins: number; secs: number };
+
+function usePromoCountdown(endIso: string | null | undefined): CountdownParts | null {
+  const [parts, setParts] = useState<CountdownParts | null>(null);
 
   useEffect(() => {
     if (!endIso) {
@@ -46,7 +48,8 @@ function usePromoCountdown(endIso: string | null | undefined): { days: number; h
       const days = Math.floor(totalSec / 86400);
       const hours = Math.floor((totalSec % 86400) / 3600);
       const mins = Math.floor((totalSec % 3600) / 60);
-      setParts({ days, hours, mins });
+      const secs = totalSec % 60;
+      setParts({ days, hours, mins, secs });
     };
 
     tick();
@@ -74,21 +77,40 @@ function CtaArrow() {
   );
 }
 
-function CountdownBoxes({ days, hours, mins }: { days: number; hours: number; mins: number }) {
+function CountdownBoxes({
+  days,
+  hours,
+  mins,
+  secs,
+  size = 'default',
+}: {
+  days: number;
+  hours: number;
+  mins: number;
+  secs?: number;
+  size?: 'default' | 'compact';
+}) {
   const pad = (n: number) => String(n).padStart(2, '0');
   const cells = [
     { value: pad(days), label: 'DAYS' },
-    { value: pad(hours), label: 'HOURS' },
-    { value: pad(mins), label: 'MINS' },
+    { value: pad(hours), label: 'HRS' },
+    { value: pad(mins), label: 'MIN' },
+    ...(secs !== undefined ? ([{ value: pad(secs), label: 'SEC' }] as const) : []),
   ];
+  const box =
+    size === 'compact'
+      ? 'flex min-w-[2.35rem] items-center justify-center rounded-lg bg-white px-1.5 py-1.5 text-sm font-bold tabular-nums text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:min-w-[2.5rem] sm:text-base'
+      : 'flex min-w-[2.65rem] items-center justify-center rounded-lg bg-white px-2 py-2 text-base font-bold tabular-nums text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:min-w-[2.85rem] sm:text-lg';
+  const labelCls = size === 'compact' ? 'mt-1 text-[8px]' : 'mt-1 text-[9px]';
   return (
-    <div className="flex justify-center gap-2 sm:gap-3" aria-label="Offer ends in">
+    <div
+      className={`flex flex-wrap justify-center gap-1.5 sm:gap-2 ${cells.length > 3 ? 'max-w-[20rem] sm:max-w-none' : ''}`}
+      aria-label="Offer ends in"
+    >
       {cells.map((c) => (
         <div key={c.label} className="flex flex-col items-center">
-          <div className="flex min-w-[2.75rem] items-center justify-center rounded-lg bg-white px-2.5 py-2 text-base font-bold tabular-nums text-slate-900 shadow-sm ring-1 ring-slate-200/90 sm:min-w-[3rem] sm:text-lg">
-            {c.value}
-          </div>
-          <span className="mt-1 text-[9px] font-semibold uppercase tracking-widest text-slate-400">{c.label}</span>
+          <div className={box}>{c.value}</div>
+          <span className={`${labelCls} font-semibold uppercase tracking-widest text-slate-400`}>{c.label}</span>
         </div>
       ))}
     </div>
@@ -99,7 +121,7 @@ type VolumePromo = NonNullable<StorefrontCouponsResponse['volume_promo']>;
 
 function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; productsHref: string }) {
   const countdown = usePromoCountdown(volume.ends_at ?? null);
-  const timed = Boolean(volume.ends_at);
+  const timed = Boolean(volume.ends_at?.trim());
 
   return (
     <div
@@ -116,7 +138,33 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
         {timed ? 'Limited run' : 'Volume deal'}
       </p>
 
-      <div className="mt-4 flex items-end gap-0.5">
+      {countdown ? (
+        <div
+          className="mt-4 rounded-xl bg-gradient-to-b from-teal-50/90 via-slate-50/80 to-slate-50/40 px-3 py-3.5 ring-1 ring-teal-100/80"
+          role="timer"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <p className="mb-2 text-center text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800">Ends in</p>
+          <CountdownBoxes
+            days={countdown.days}
+            hours={countdown.hours}
+            mins={countdown.mins}
+            secs={countdown.secs}
+            size="compact"
+          />
+        </div>
+      ) : (
+        <div className="mt-4 rounded-xl border border-slate-200/90 bg-slate-50/70 px-3 py-3 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Offer status</p>
+          <p className="mt-1 text-xs leading-snug text-slate-600">
+            This rate is <span className="font-medium text-slate-800">live</span>. Your savings show up at checkout when your
+            order meets the minimum.
+          </p>
+        </div>
+      )}
+
+      <div className="mt-5 flex items-end gap-0.5">
         <span className="text-5xl font-black leading-none tracking-tight text-slate-900 sm:text-6xl">{volume.percent}</span>
         <div className="mb-0.5 ml-0.5 flex flex-col leading-none">
           <span className="text-2xl font-bold text-slate-900 sm:text-3xl">%</span>
@@ -133,13 +181,6 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
         <span className="font-semibold text-slate-800">{volume.percent}%</span> off at checkout. Combine with a coupon when
         allowed.
       </p>
-
-      {countdown ? (
-        <div className="mt-6 rounded-xl bg-slate-50 px-3 py-4 ring-1 ring-slate-100">
-          <p className="mb-2.5 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ends in</p>
-          <CountdownBoxes days={countdown.days} hours={countdown.hours} mins={countdown.mins} />
-        </div>
-      ) : null}
 
       <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-6">
         <Link href={productsHref} className={promoCtaClassName}>
@@ -330,7 +371,7 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                             <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:text-left">
                               Ends in
                             </p>
-                            <CountdownBoxes days={countdown.days} hours={countdown.hours} mins={countdown.mins} />
+                            <CountdownBoxes days={countdown.days} hours={countdown.hours} mins={countdown.mins} secs={countdown.secs} />
                           </div>
                         ) : null}
                       </div>
