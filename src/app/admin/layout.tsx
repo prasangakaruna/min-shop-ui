@@ -33,6 +33,7 @@ const menuItems: MenuItem[] = [
     label: 'Products',
     icon: '📦',
     children: [
+      { href: '/admin/categories', label: 'Categories' },
       { href: '/admin/collections', label: 'Collections' },
       { href: '/admin/inventory', label: 'Inventory' },
       { href: '/admin/purchase-orders', label: 'Purchase orders' },

@@ -9,6 +9,7 @@ import {
   apiRequest,
   uploadProductImage,
   getImageDisplayUrl,
+  parseStoreProductCategoriesResponse,
   type Product,
   type ProductVariant,
 } from '@/lib/api';
@@ -76,6 +77,9 @@ export default function EditProductPage() {
   const [uploadingMultiple, setUploadingMultiple] = useState(false);
   const [dropZoneActive, setDropZoneActive] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
   const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/jpg';
@@ -112,6 +116,16 @@ export default function EditProductPage() {
       setUploadingMultiple(false);
     }
   };
+
+  useEffect(() => {
+    if (!token || !currentStore) return;
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    apiRequest<unknown>('/store/product-categories', { token, storeId: currentStore.id })
+      .then((res) => setCategories(parseStoreProductCategoriesResponse(res)))
+      .catch((e) => setCategoriesError(e instanceof Error ? e.message : 'Failed to load categories'))
+      .finally(() => setCategoriesLoading(false));
+  }, [token, currentStore]);
 
   useEffect(() => {
     if (!token || !currentStore || !id) {
@@ -698,14 +712,26 @@ export default function EditProductPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-                    <input
+                    <select
                       id="edit-category"
-                      type="text"
                       value={form.category}
                       onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                      placeholder="e.g. AUDIO & HEADPHONES, Electronics"
                       className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
-                    />
+                    >
+                      <option value="">{categoriesLoading ? 'Loading categories…' : 'Choose a category'}</option>
+                      {form.category &&
+                        !categories.some((c) => c.id === form.category) && (
+                          <option value={form.category}>{form.category} (on product)</option>
+                        )}
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {categoriesError ? (
+                      <p className="mt-1 text-xs text-amber-700">{categoriesError}</p>
+                    ) : null}
                   </div>
                   <div>
                     <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>

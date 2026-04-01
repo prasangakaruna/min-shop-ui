@@ -415,16 +415,19 @@ export function parseStoreProductCategoriesResponse(raw: unknown): ProductCatego
   });
 }
 
-/** Distinct product categories for the current store (admin filters). */
+/** Category slugs for admin product filters (defaults + custom + any slug still on products). */
 export async function getStoreProductCategories(options: {
   token: string;
   storeId: number;
 }): Promise<string[]> {
-  const res = await apiRequest<{ data: string[] }>('/store/product-categories', {
+  const res = await apiRequest<unknown>('/store/product-category-slugs', {
     token: options.token,
     storeId: options.storeId,
   });
-  return res.data ?? [];
+  if (res && typeof res === 'object' && Array.isArray((res as { data?: unknown }).data)) {
+    return ((res as { data: string[] }).data ?? []).filter((s) => typeof s === 'string');
+  }
+  return [];
 }
 
 /** Product as returned by GET /storefront/products and /storefront/products/:id (no auth) */
