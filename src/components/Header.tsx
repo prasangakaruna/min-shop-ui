@@ -157,6 +157,47 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
   const resolvedLogo = logoSource ? getImageDisplayUrl(logoSource) : '';
   const useCustomLogo = Boolean(resolvedLogo && resolvedLogo !== '');
 
+  const navLinkClass =
+    'relative text-gray-700 hover:text-mint transition-colors font-medium text-sm group inline-block whitespace-nowrap shrink-0 py-2';
+  const navUnderline = (
+    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200" />
+  );
+
+  const renderNavLinks = (variant: 'desktop-bar' | 'mobile') => {
+    return navItems.map((item) => {
+      const cls =
+        variant === 'mobile'
+          ? 'px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium'
+          : navLinkClass;
+      const wrap = variant === 'desktop-bar' ? navUnderline : null;
+      if (isExternalMenuUrl(item.url)) {
+        return (
+          <a
+            key={`${item.label}-${item.url}`}
+            href={item.url}
+            className={cls}
+            rel="noopener noreferrer"
+            {...(variant === 'mobile' ? { onClick: () => setMobileMenuOpen(false) } : {})}
+          >
+            {item.label}
+            {wrap}
+          </a>
+        );
+      }
+      return (
+        <Link
+          key={`${item.label}-${item.url}`}
+          href={item.url}
+          className={cls}
+          {...(variant === 'mobile' ? { onClick: () => setMobileMenuOpen(false) } : {})}
+        >
+          {item.label}
+          {wrap}
+        </Link>
+      );
+    });
+  };
+
   return (
     <header
       className="sticky top-0 z-50 backdrop-blur-sm shadow-sm border-b border-gray-100"
@@ -166,7 +207,8 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        {/* Primary row: logo, search, cart / account (Walmart-style top bar) */}
+        <div className="flex items-center justify-between h-16 gap-3 sm:gap-4">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group shrink-0">
             {useCustomLogo ? (
@@ -195,7 +237,7 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
           </Link>
 
           {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
+          <div className="hidden md:flex flex-1 min-w-0 max-w-3xl mx-4 lg:mx-8">
             <form onSubmit={handleSearch} className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -213,38 +255,8 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
             </form>
           </div>
 
-          {/* Navigation Links (admin Main menu, or default marketplace categories) */}
-          <nav className="hidden lg:flex items-center space-x-8">
-            {navItems.map((item) => {
-              const cls =
-                'relative text-gray-700 hover:text-mint transition-colors font-medium text-sm group inline-block';
-              const underline = (
-                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200" />
-              );
-              if (isExternalMenuUrl(item.url)) {
-                return (
-                  <a
-                    key={`${item.label}-${item.url}`}
-                    href={item.url}
-                    className={cls}
-                    rel="noopener noreferrer"
-                  >
-                    {item.label}
-                    {underline}
-                  </a>
-                );
-              }
-              return (
-                <Link key={`${item.label}-${item.url}`} href={item.url} className={cls}>
-                  {item.label}
-                  {underline}
-                </Link>
-              );
-            })}
-          </nav>
-
           {/* Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 shrink-0">
             <Link
               href="/cart"
               className="relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-200 group"
@@ -335,37 +347,24 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
           </div>
         </div>
 
+        {/* Secondary row: store menu under logo/search/actions (Walmart-style) */}
+        <div
+          className="hidden lg:block border-t"
+          style={{ borderTopColor: 'color-mix(in srgb, var(--sf-color-accent, #e5e7eb) 85%, transparent)' }}
+        >
+          <nav
+            className="flex items-center gap-x-6 xl:gap-x-8 overflow-x-auto py-2 scroll-smooth min-h-[2.5rem]"
+            aria-label="Main menu"
+          >
+            {renderNavLinks('desktop-bar')}
+          </nav>
+        </div>
+
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-200 py-4 animate-slide-up">
             <nav className="flex flex-col space-y-3">
-              {navItems.map((item) => {
-                const cls =
-                  'px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium';
-                if (isExternalMenuUrl(item.url)) {
-                  return (
-                    <a
-                      key={`${item.label}-${item.url}`}
-                      href={item.url}
-                      className={cls}
-                      rel="noopener noreferrer"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {item.label}
-                    </a>
-                  );
-                }
-                return (
-                  <Link
-                    key={`${item.label}-${item.url}`}
-                    href={item.url}
-                    className={cls}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+              {renderNavLinks('mobile')}
               <div className="pt-4 border-t border-gray-200">
                 <Link 
                   href="/login" 
