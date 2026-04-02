@@ -29,6 +29,73 @@ export type HomeSection = {
   settings?: Record<string, unknown>;
 };
 
+/** One promotional tile in the home poster grid (2–4 recommended). */
+export type PosterPromoItem = {
+  imageUrl: string;
+  title?: string;
+  subtitle?: string;
+  badge?: string;
+  linkUrl?: string;
+  ctaLabel?: string;
+};
+
+/** Optional home poster block (admin Theme → Home sections). Renders after hero + coupon strip. */
+export type PosterPromoSettings = {
+  enabled: boolean;
+  eyebrow?: string;
+  title?: string;
+  viewAllLabel?: string;
+  viewAllUrl?: string;
+  items: PosterPromoItem[];
+};
+
+export const DEFAULT_POSTER_PROMO: PosterPromoSettings = {
+  enabled: false,
+  eyebrow: '',
+  title: '',
+  viewAllLabel: '',
+  viewAllUrl: '',
+  items: [],
+};
+
+export function mergePosterPromoSettings(raw: unknown): PosterPromoSettings {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_POSTER_PROMO, items: [] };
+  }
+  const r = raw as Record<string, unknown>;
+  const itemsIn = Array.isArray(r.items) ? r.items : [];
+  const items: PosterPromoItem[] = [];
+  for (const row of itemsIn.slice(0, 4)) {
+    if (!row || typeof row !== 'object') continue;
+    const o = row as Record<string, unknown>;
+    const imageUrl = typeof o.imageUrl === 'string' ? o.imageUrl.trim() : '';
+    if (imageUrl === '') continue;
+    const item: PosterPromoItem = { imageUrl };
+    if (typeof o.title === 'string' && o.title.trim() !== '') item.title = o.title.trim().slice(0, 300);
+    if (typeof o.subtitle === 'string' && o.subtitle.trim() !== '') item.subtitle = o.subtitle.trim().slice(0, 400);
+    if (typeof o.badge === 'string' && o.badge.trim() !== '') item.badge = o.badge.trim().slice(0, 80);
+    if (typeof o.linkUrl === 'string' && o.linkUrl.trim() !== '') item.linkUrl = o.linkUrl.trim().slice(0, 1000);
+    if (typeof o.ctaLabel === 'string' && o.ctaLabel.trim() !== '') item.ctaLabel = o.ctaLabel.trim().slice(0, 120);
+    items.push(item);
+  }
+  return {
+    enabled: r.enabled === true,
+    eyebrow: typeof r.eyebrow === 'string' ? r.eyebrow.trim().slice(0, 120) : '',
+    title: typeof r.title === 'string' ? r.title.trim().slice(0, 200) : '',
+    viewAllLabel: typeof r.viewAllLabel === 'string' ? r.viewAllLabel.trim().slice(0, 120) : '',
+    viewAllUrl: typeof r.viewAllUrl === 'string' ? r.viewAllUrl.trim().slice(0, 1000) : '',
+    items,
+  };
+}
+
+export function getPosterPromoDisplayItems(config: PosterPromoSettings): PosterPromoItem[] {
+  return config.items.filter((i) => i.imageUrl.trim() !== '').slice(0, 4);
+}
+
+export function shouldDisplayPosterPromo(config: PosterPromoSettings): boolean {
+  return config.enabled === true && getPosterPromoDisplayItems(config).length >= 1;
+}
+
 /** Search bar category dropdown row (value `all` = no category filter). */
 export type HeroSearchCategory = { value: string; label: string };
 
@@ -350,6 +417,8 @@ export type StorefrontHomeTheme = {
   theme: StorefrontHomeThemeSettings;
   /** When set, this store home was derived from a built-in preset (see BUILTIN_THEME_PRESETS). */
   preset?: StorefrontHomeThemePresetId | null;
+  /** Promotional poster grid after hero (optional). */
+  poster_promo?: PosterPromoSettings;
 };
 
 /**
@@ -476,7 +545,8 @@ export function mergeStorefrontHomeTheme(raw: StorefrontHomeTheme | null | undef
     : createClassicStoreSections();
   const preset: StorefrontHomeThemePresetId | null =
     raw?.preset ?? (!hasSavedSections ? MINT_MARKETPLACE_PRESET : null);
-  return { theme, sections, preset };
+  const poster_promo = mergePosterPromoSettings(raw?.poster_promo);
+  return { theme, sections, preset, poster_promo };
 }
 
 export function themeToCssVars(t: StorefrontHomeThemeSettings): CSSProperties {

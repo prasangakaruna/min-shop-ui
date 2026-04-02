@@ -14,8 +14,8 @@ export function middleware(req: NextRequest) {
   const hasStoreParam = searchParams.has('store') && (searchParams.get('store') ?? '').trim() !== '';
   if (hasStoreParam) return NextResponse.next();
 
-  // Storefront routes that depend on `?store=...`
-  const needsStore = pathname === '/' || pathname === '/products';
+  // Storefront routes that depend on `?store=...` (search + browse scoped to tenant on subdomains)
+  const needsStore = pathname === '/' || pathname === '/products' || pathname === '/search';
   if (!needsStore) return NextResponse.next();
 
   const url = req.nextUrl.clone();

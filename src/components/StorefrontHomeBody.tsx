@@ -17,18 +17,22 @@ import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import AnnouncementBar from '@/components/AnnouncementBar';
 import CouponPromoSection from '@/components/CouponPromoSection';
+import PosterPromoSection from '@/components/PosterPromoSection';
 import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
 import { storeSlugFromHostname } from '@/lib/storeSlug';
 import type { StorefrontAppEmbed } from '@/lib/api';
 import {
   type HomeSection,
+  type PosterPromoSettings,
   type StorefrontHomeTheme,
   mergeStorefrontHomeTheme,
+  mergePosterPromoSettings,
   resolveStorefrontHeroSettings,
   heroSettingsForStorefront,
   themeToCssVars,
   isMintMarketplaceSectionOrder,
+  shouldDisplayPosterPromo,
 } from '@/lib/storefrontHomeTheme';
 
 type BrandingResponse = {
@@ -109,18 +113,59 @@ function renderSection(
   }
 }
 
+function renderSectionsWithPosterSlot(
+  sections: HomeSection[],
+  storeSlug: string | null,
+  sectionSpacing: number,
+  proHeroImageUrl: string | null,
+  poster: PosterPromoSettings,
+  posterWideLayout: boolean
+): React.ReactNode[] {
+  const enabled = sections.filter((s) => s.enabled !== false);
+  const out: React.ReactNode[] = [];
+  let inserted = false;
+  enabled.forEach((section, i) => {
+    const node = renderSection(section, storeSlug, i, sectionSpacing, proHeroImageUrl);
+    if (node) out.push(node);
+    if (!inserted && section.type === 'default_hero' && shouldDisplayPosterPromo(poster)) {
+      inserted = true;
+      out.push(
+        <div key="__poster_promo" style={{ marginTop: sectionSpacing }}>
+          <PosterPromoSection config={poster} wideLayout={posterWideLayout} />
+        </div>
+      );
+    }
+  });
+  if (!inserted && shouldDisplayPosterPromo(poster)) {
+    out.unshift(
+      <div key="__poster_promo_first">
+        <PosterPromoSection config={poster} wideLayout={posterWideLayout} />
+      </div>
+    );
+  }
+  return out;
+}
+
 function DefaultMarketplaceHome({
   storeSlug,
   heroSettings,
+  posterPromo,
+  posterWideLayout = true,
 }: {
   storeSlug: string | null;
   /** Theme → Marketplace hero section settings (admin). */
   heroSettings?: Record<string, unknown> | null;
+  posterPromo?: PosterPromoSettings | null;
+  posterWideLayout?: boolean;
 }) {
+  const poster = posterPromo ?? mergePosterPromoSettings(null);
   return (
     <>
       <Hero settings={heroSettings ?? undefined} storeSlug={storeSlug} />
       <CouponPromoSection storeSlug={storeSlug} />
+      {shouldDisplayPosterPromo(poster) ? (
+        <PosterPromoSection config={poster} wideLayout={posterWideLayout} />
+      ) : null}
       <div className="border-t border-gray-100" />
       <BrowseCategories />
       <CategoryProducts />
@@ -276,6 +321,8 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     );
   }
 
+  const posterConfig = customTheme.poster_promo ?? mergePosterPromoSettings(null);
+
   /**
    * Default Mint Marketplace theme = same DOM as the global home (`/`): one shared component tree,
    * not the section renderer (which adds extra wrappers/spacing and theme shell).
@@ -286,7 +333,12 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <main className="min-h-screen" style={themeToCssVars(customTheme.theme)}>
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
+        <DefaultMarketplaceHome
+          storeSlug={effectiveSlug}
+          heroSettings={heroSettingsResolved}
+          posterPromo={posterConfig}
+          posterWideLayout={customTheme.theme.wideLayout}
+        />
         <Footer />
       </main>
     );
@@ -302,9 +354,14 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
       {!hasEnabledHero ? <CouponPromoSection storeSlug={effectiveSlug} /> : null}
       <div className={innerClass}>
-        {customTheme.sections
-          .filter((s) => s.enabled !== false)
-          .map((section, i) => renderSection(section, effectiveSlug, i, spacing, proHeroImageUrl))}
+        {renderSectionsWithPosterSlot(
+          customTheme.sections,
+          effectiveSlug,
+          spacing,
+          proHeroImageUrl,
+          posterConfig,
+          customTheme.theme.wideLayout
+        )}
       </div>
       <Footer />
     </main>

@@ -8,14 +8,19 @@ import {
   type StoreSummary,
   type StorefrontAppEmbed,
 } from '@/lib/api';
+import PosterPromoSection from '@/components/PosterPromoSection';
 import {
   SECTION_CATALOG,
   BUILTIN_THEME_PRESETS,
   MINT_MARKETPLACE_PRESET,
+  DEFAULT_POSTER_PROMO,
   type HomeSection,
   type HomeSectionType,
+  type PosterPromoItem,
   type StorefrontHomeTheme,
   mergeStorefrontHomeTheme,
+  mergePosterPromoSettings,
+  shouldDisplayPosterPromo,
   themeToCssVars,
   buttonRadiusLabel,
   createDefaultSections,
@@ -289,6 +294,28 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
     });
   };
 
+  const setPosterPromoPatch = (patch: Partial<StorefrontHomeTheme['poster_promo']>) => {
+    setDraft((d) => {
+      setPast((p) => [...p.slice(-49), cloneTheme(d)]);
+      setFuture([]);
+      const cur = { ...DEFAULT_POSTER_PROMO, ...(d.poster_promo ?? {}) };
+      return { ...d, poster_promo: { ...cur, ...patch } };
+    });
+  };
+
+  const updatePosterRow = (index: number, patch: Partial<PosterPromoItem>) => {
+    setDraft((d) => {
+      setPast((p) => [...p.slice(-49), cloneTheme(d)]);
+      setFuture([]);
+      const cur = { ...DEFAULT_POSTER_PROMO, ...(d.poster_promo ?? {}) };
+      const items = [...cur.items];
+      while (items.length <= index) items.push({ imageUrl: '' });
+      const prev = items[index] ?? { imageUrl: '' };
+      items[index] = { ...prev, ...patch };
+      return { ...d, poster_promo: { ...cur, items: items.slice(0, 4) } };
+    });
+  };
+
   const resetCompactTemplate = () => {
     setDraft((d) => {
       setPast((p) => [...p.slice(-49), cloneTheme(d)]);
@@ -430,6 +457,13 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
 
           {tab === 'sections' && (
             <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <PosterPromoAdminPanel
+              draft={draft}
+              setPosterPromoPatch={setPosterPromoPatch}
+              updatePosterRow={updatePosterRow}
+              token={token}
+              storeId={store.id}
+            />
             <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 shrink-0">
               <span className="text-[11px] font-semibold tracking-[0.2em] text-gray-400 uppercase">Sections</span>
               <div className="relative" ref={addMenuRef}>
@@ -878,11 +912,7 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                     : 'max-h-[min(580px,calc(100vh-15rem))] overflow-y-auto'
                 }
               >
-                {draft.sections
-                  .filter((s) => s.enabled !== false)
-                  .map((s) => (
-                    <PreviewBlock key={s.id} section={s} theme={draft.theme} device={previewDevice} />
-                  ))}
+                {previewSectionBlocks(draft, previewDevice)}
               </div>
             </div>
           </div>
@@ -890,6 +920,253 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
       </div>
     </div>
   );
+}
+
+const POSTER_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+function posterRowsPadded(draft: StorefrontHomeTheme): PosterPromoItem[] {
+  const cur = { ...DEFAULT_POSTER_PROMO, ...(draft.poster_promo ?? {}) };
+  const rows = [...cur.items];
+  while (rows.length < 4) rows.push({ imageUrl: '' });
+  return rows.slice(0, 4);
+}
+
+function PosterPromoAdminPanel({
+  draft,
+  setPosterPromoPatch,
+  updatePosterRow,
+  token,
+  storeId,
+}: {
+  draft: StorefrontHomeTheme;
+  setPosterPromoPatch: (patch: Partial<StorefrontHomeTheme['poster_promo']>) => void;
+  updatePosterRow: (index: number, patch: Partial<PosterPromoItem>) => void;
+  token: string;
+  storeId: number;
+}) {
+  const cur = { ...DEFAULT_POSTER_PROMO, ...(draft.poster_promo ?? {}) };
+  const rows = posterRowsPadded(draft);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const uploadIdx = useRef<number | null>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  const openPicker = (idx: number) => {
+    uploadIdx.current = idx;
+    setUploadErr(null);
+    fileRef.current?.click();
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const idx = uploadIdx.current;
+    uploadIdx.current = null;
+    if (!file || idx === null) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadErr('Choose an image file.');
+      return;
+    }
+    if (file.size > POSTER_IMAGE_MAX_BYTES) {
+      setUploadErr(`Image must be under ${POSTER_IMAGE_MAX_BYTES / 1024 / 1024}MB.`);
+      return;
+    }
+    setUploadErr(null);
+    setUploadBusy(true);
+    try {
+      const { url } = await uploadProductImage(file, { token, storeId });
+      updatePosterRow(idx, { imageUrl: url });
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  return (
+    <div className="shrink-0 border-b border-gray-200 bg-gradient-to-b from-teal-50/40 to-white px-3 py-3 space-y-3">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+        className="hidden"
+        onChange={onFile}
+      />
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold tracking-[0.18em] text-gray-500 uppercase">Poster grid</p>
+          <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">
+            Promotional tiles after the hero (2–4 images). Layout adjusts automatically.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={cur.enabled}
+          onClick={() => setPosterPromoPatch({ enabled: !cur.enabled })}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${cur.enabled ? 'bg-mint' : 'bg-gray-200'}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+              cur.enabled ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+      <label className="flex items-center gap-2 text-[11px] text-gray-600">
+        <span className="sr-only">Show poster grid on storefront</span>
+        <span className={cur.enabled ? 'text-gray-800 font-medium' : 'text-gray-400'}>
+          {cur.enabled ? 'Visible on home' : 'Hidden on home'}
+        </span>
+      </label>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div>
+          <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Eyebrow</label>
+          <input
+            type="text"
+            value={cur.eyebrow ?? ''}
+            onChange={(e) => setPosterPromoPatch({ eyebrow: e.target.value })}
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs"
+            placeholder="e.g. Seasonal collections"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-medium text-gray-600 mb-0.5">Heading</label>
+          <input
+            type="text"
+            value={cur.title ?? ''}
+            onChange={(e) => setPosterPromoPatch({ title: e.target.value })}
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs"
+            placeholder="e.g. The Summer Olive Grove"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-medium text-gray-600 mb-0.5">View all label</label>
+          <input
+            type="text"
+            value={cur.viewAllLabel ?? ''}
+            onChange={(e) => setPosterPromoPatch({ viewAllLabel: e.target.value })}
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs"
+            placeholder="View collection"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-medium text-gray-600 mb-0.5">View all URL</label>
+          <input
+            type="text"
+            value={cur.viewAllUrl ?? ''}
+            onChange={(e) => setPosterPromoPatch({ viewAllUrl: e.target.value })}
+            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs font-mono"
+            placeholder="/products or https://…"
+          />
+        </div>
+      </div>
+      <p className="text-[10px] font-medium text-gray-600">Posters (up to 4)</p>
+      <ul className="space-y-2 max-h-[220px] overflow-y-auto pr-0.5">
+        {rows.map((row, idx) => (
+          <li key={idx} className="rounded-lg border border-gray-200 bg-white p-2 space-y-1.5">
+            <span className="text-[10px] font-semibold text-gray-500">Poster {idx + 1}</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={uploadBusy}
+                onClick={() => openPicker(idx)}
+                className="shrink-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-medium text-mint hover:bg-mint/5 disabled:opacity-50"
+              >
+                {uploadBusy ? '…' : 'Upload'}
+              </button>
+              <input
+                type="text"
+                value={row.imageUrl ?? ''}
+                onChange={(e) => updatePosterRow(idx, { imageUrl: e.target.value })}
+                className="flex-1 min-w-0 rounded-md border border-gray-200 px-2 py-1 text-[10px] font-mono"
+                placeholder="Image URL"
+              />
+            </div>
+            {row.imageUrl?.trim() ? (
+              <div className="flex gap-2 items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={getImageDisplayUrl(row.imageUrl.trim())}
+                  alt=""
+                  className="h-12 w-16 rounded object-cover border border-gray-100"
+                />
+              </div>
+            ) : null}
+            <div className="grid grid-cols-2 gap-1.5">
+              <input
+                type="text"
+                value={row.title ?? ''}
+                onChange={(e) => updatePosterRow(idx, { title: e.target.value })}
+                className="rounded border border-gray-200 px-1.5 py-1 text-[10px]"
+                placeholder="Title"
+              />
+              <input
+                type="text"
+                value={row.subtitle ?? ''}
+                onChange={(e) => updatePosterRow(idx, { subtitle: e.target.value })}
+                className="rounded border border-gray-200 px-1.5 py-1 text-[10px]"
+                placeholder="Subtitle"
+              />
+              <input
+                type="text"
+                value={row.badge ?? ''}
+                onChange={(e) => updatePosterRow(idx, { badge: e.target.value })}
+                className="rounded border border-gray-200 px-1.5 py-1 text-[10px]"
+                placeholder="Badge"
+              />
+              <input
+                type="text"
+                value={row.ctaLabel ?? ''}
+                onChange={(e) => updatePosterRow(idx, { ctaLabel: e.target.value })}
+                className="rounded border border-gray-200 px-1.5 py-1 text-[10px]"
+                placeholder="CTA label"
+              />
+            </div>
+            <input
+              type="text"
+              value={row.linkUrl ?? ''}
+              onChange={(e) => updatePosterRow(idx, { linkUrl: e.target.value })}
+              className="w-full rounded border border-gray-200 px-1.5 py-1 text-[10px] font-mono"
+              placeholder="Link URL"
+            />
+          </li>
+        ))}
+      </ul>
+      {uploadErr ? <p className="text-[10px] text-red-600">{uploadErr}</p> : null}
+    </div>
+  );
+}
+
+function previewSectionBlocks(draft: StorefrontHomeTheme, previewDevice: 'mobile' | 'desktop'): React.ReactNode[] {
+  const visible = draft.sections.filter((s) => s.enabled !== false);
+  const posterCfg = mergePosterPromoSettings(draft.poster_promo);
+  const showPoster = shouldDisplayPosterPromo(posterCfg);
+  const out: React.ReactNode[] = [];
+  let inserted = false;
+  visible.forEach((s) => {
+    out.push(<PreviewBlock key={s.id} section={s} theme={draft.theme} device={previewDevice} />);
+    if (!inserted && s.type === 'default_hero' && showPoster) {
+      inserted = true;
+      out.push(
+        <div key="__draft-poster" className="border-t border-gray-100">
+          <PosterPromoSection
+            config={posterCfg}
+            wideLayout={draft.theme.wideLayout}
+            compact
+          />
+        </div>
+      );
+    }
+  });
+  if (!inserted && showPoster) {
+    out.unshift(
+      <div key="__draft-poster-top" className="border-b border-gray-100">
+        <PosterPromoSection config={posterCfg} wideLayout={draft.theme.wideLayout} compact />
+      </div>
+    );
+  }
+  return out;
 }
 
 const HERO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;

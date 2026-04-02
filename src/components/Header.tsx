@@ -1,11 +1,19 @@
 'use client';
 
-import React, { Suspense, useState, useEffect, useMemo } from 'react';
+import React, { Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { getCartCount, CART_UPDATED_EVENT, getImageDisplayUrl } from '@/lib/api';
+import HeaderSearchSuggestions from '@/components/HeaderSearchSuggestions';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  getCartCount,
+  CART_UPDATED_EVENT,
+  getImageDisplayUrl,
+  getStorefrontProducts,
+  type StorefrontProduct,
+} from '@/lib/api';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
 import { storeSlugFromHostname } from '@/lib/storeSlug';
 import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
@@ -50,14 +58,28 @@ type HeaderProps = {
 type HeaderCoreProps = HeaderProps & {
   /** From `?store=` on apex (mint-shop.pro); empty string when unknown (Suspense fallback). */
   storeQueryFromUrl: string;
+  /** When on `/search`, mirrors `q` so the input matches the results page. */
+  searchPrefill: string;
+  /** Current path — used so we only sync `searchPrefill` on `/search` (avoids clearing input elsewhere). */
+  currentPathname: string;
 };
 
-function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreProps) {
+function HeaderCore({
+  companyLogoUrl,
+  adminNav,
+  storeQueryFromUrl,
+  searchPrefill,
+  currentPathname,
+}: HeaderCoreProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [autocompleteResults, setAutocompleteResults] = useState<StorefrontProduct[]>([]);
+  const [autocompleteLoading, setAutocompleteLoading] = useState(false);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [cartCount, setCartCountState] = useState(0);
   const [fetchedNav, setFetchedNav] = useState<StorefrontHeaderMenuItem[] | null>(null);
   /** Same source as admin Settings → company logo; used on subpages where Header is rendered without props. */
@@ -118,6 +140,13 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
     return () => window.removeEventListener(CART_UPDATED_EVENT, handler);
   }, []);
 
+  useEffect(() => {
+    if (currentPathname !== '/search') {
+      return;
+    }
+    setSearchQuery(searchPrefill);
+  }, [currentPathname, searchPrefill]);
+
   const handleProfileClick = () => {
     if (status !== 'authenticated') {
       // Not logged in: redirect to Keycloak login
@@ -143,12 +172,107 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+  const effectiveStoreSlug = useMemo(() => {
+    const fromUrl = (storeQueryFromUrl ?? '').trim();
+    if (fromUrl) {
+      return fromUrl;
     }
-  };
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    return storeSlugFromHostname() ?? '';
+  }, [storeQueryFromUrl]);
+
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 320);
+
+  const closeSearchSuggestions = useCallback(() => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    setSearchFocused(false);
+  }, []);
+
+  const onSearchFocus = useCallback(() => {
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+    setSearchFocused(true);
+  }, []);
+
+  const onSearchBlur = useCallback(() => {
+    blurTimeoutRef.current = setTimeout(() => setSearchFocused(false), 200);
+  }, []);
+
+  useEffect(() => {
+    if (!searchFocused) {
+      return;
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeSearchSuggestions();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [searchFocused, closeSearchSuggestions]);
+
+  useEffect(() => {
+    const q = debouncedSearchQuery.trim();
+    if (q.length < 1) {
+      setAutocompleteResults([]);
+      setAutocompleteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAutocompleteLoading(true);
+    getStorefrontProducts({
+      search: q,
+      per_page: 8,
+      page: 1,
+      store: effectiveStoreSlug.trim() || undefined,
+    })
+      .then((res) => {
+        if (!cancelled) {
+          setAutocompleteResults(res.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAutocompleteResults([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAutocompleteLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearchQuery, effectiveStoreSlug]);
+
+  const suggestionsOpen = searchFocused && searchQuery.trim().length >= 1;
+
+  const handleSearch = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      const q = searchQuery.trim();
+      if (!q) {
+        return;
+      }
+      const params = new URLSearchParams();
+      params.set('q', q);
+      const slug = effectiveStoreSlug.trim();
+      if (slug) {
+        params.set('store', slug);
+      }
+      closeSearchSuggestions();
+      router.push(`/search?${params.toString()}`);
+    },
+    [router, searchQuery, effectiveStoreSlug, closeSearchSuggestions]
+  );
 
   const logoSource =
     typeof companyLogoUrl === 'string' && companyLogoUrl.trim() !== ''
@@ -236,9 +360,9 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
             )}
           </Link>
 
-          {/* Search Bar */}
-          <div className="hidden md:flex flex-1 min-w-0 max-w-3xl mx-4 lg:mx-8">
-            <form onSubmit={handleSearch} className="relative w-full">
+          {/* Search Bar (tablet/desktop) */}
+          <div className="hidden md:flex flex-1 min-w-0 max-w-3xl mx-4 lg:mx-8 relative z-[55]">
+            <form onSubmit={handleSearch} className="relative w-full" role="search">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -246,12 +370,40 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
               </div>
               <input
                 type="text"
+                name="q"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search assets (e.g. 2024 Electric SUV)"
-                className="block w-full pl-10 pr-3 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+                onFocus={onSearchFocus}
+                onBlur={onSearchBlur}
+                placeholder="Search products, categories, brands…"
+                className="block w-full pl-10 pr-12 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
                 suppressHydrationWarning
+                enterKeyHint="search"
+                aria-label="Search products"
+                autoComplete="off"
+                aria-expanded={suggestionsOpen}
+                aria-controls="header-search-suggestions-desktop"
+                aria-autocomplete="list"
               />
+              <button
+                type="submit"
+                className="absolute inset-y-0 right-1.5 my-auto h-9 w-9 rounded-md flex items-center justify-center text-gray-500 hover:text-mint hover:bg-mint/10 transition-colors"
+                aria-label="Submit search"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+              <div id="header-search-suggestions-desktop">
+                <HeaderSearchSuggestions
+                  open={suggestionsOpen}
+                  loading={autocompleteLoading}
+                  results={autocompleteResults}
+                  query={searchQuery}
+                  storeSlug={effectiveStoreSlug}
+                  onRequestClose={closeSearchSuggestions}
+                />
+              </div>
             </form>
           </div>
 
@@ -333,7 +485,7 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
+              className="md:hidden w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors"
               aria-label="Toggle menu"
             >
               <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -347,9 +499,56 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
           </div>
         </div>
 
+        {/* Mobile search (full width under primary row) */}
+        <div className="md:hidden pb-3 -mt-0.5 relative z-[55]">
+          <form onSubmit={handleSearch} className="relative w-full" role="search">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              name="q"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={onSearchFocus}
+              onBlur={onSearchBlur}
+              placeholder="Search products…"
+              className="block w-full pl-10 pr-12 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+              suppressHydrationWarning
+              enterKeyHint="search"
+              aria-label="Search products"
+              autoComplete="off"
+              aria-expanded={suggestionsOpen}
+              aria-controls="header-search-suggestions-mobile"
+              aria-autocomplete="list"
+            />
+            <button
+              type="submit"
+              className="absolute inset-y-0 right-1.5 my-auto h-9 w-9 rounded-md flex items-center justify-center text-gray-500 hover:text-mint hover:bg-mint/10 transition-colors"
+              aria-label="Submit search"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+            <div id="header-search-suggestions-mobile">
+              <HeaderSearchSuggestions
+                open={suggestionsOpen}
+                loading={autocompleteLoading}
+                results={autocompleteResults}
+                query={searchQuery}
+                storeSlug={effectiveStoreSlug}
+                onRequestClose={closeSearchSuggestions}
+              />
+            </div>
+          </form>
+        </div>
+
         {/* Secondary row: store menu under logo/search/actions (Walmart-style) */}
         <div
-          className="hidden lg:block border-t"
+          className="hidden md:block border-t"
           style={{ borderTopColor: 'color-mix(in srgb, var(--sf-color-accent, #e5e7eb) 85%, transparent)' }}
         >
           <nav
@@ -362,7 +561,7 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-gray-200 py-4 animate-slide-up">
+          <div className="md:hidden border-t border-gray-200 py-4 animate-slide-up">
             <nav className="flex flex-col space-y-3">
               {renderNavLinks('mobile')}
               <div className="pt-4 border-t border-gray-200">
@@ -383,14 +582,23 @@ function HeaderCore({ companyLogoUrl, adminNav, storeQueryFromUrl }: HeaderCoreP
 }
 
 function HeaderWithSearchParams(props: HeaderProps) {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const storeQueryFromUrl = (searchParams.get('store') ?? '').trim();
-  return <HeaderCore {...props} storeQueryFromUrl={storeQueryFromUrl} />;
+  const searchPrefill = pathname === '/search' ? (searchParams.get('q') ?? '') : '';
+  return (
+    <HeaderCore
+      {...props}
+      storeQueryFromUrl={storeQueryFromUrl}
+      searchPrefill={searchPrefill}
+      currentPathname={pathname}
+    />
+  );
 }
 
 export default function Header(props: HeaderProps) {
   return (
-    <Suspense fallback={<HeaderCore {...props} storeQueryFromUrl="" />}>
+    <Suspense fallback={<HeaderCore {...props} storeQueryFromUrl="" searchPrefill="" currentPathname="" />}>
       <HeaderWithSearchParams {...props} />
     </Suspense>
   );

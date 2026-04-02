@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import FilterSidebar from '@/components/FilterSidebar';
 import Pagination from '@/components/Pagination';
+import { useStorefrontStoreScope } from '@/hooks/useStorefrontStoreScope';
 import {
   getStorefrontProducts,
   getImageDisplayUrl,
@@ -44,11 +45,14 @@ function toCardProps(
 }
 
 function ProductsPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category') ?? '';
   const pageParam = searchParams.get('page');
   const searchParam = searchParams.get('search') ?? '';
   const storeParam = searchParams.get('store') ?? '';
+  const scopedStore = useStorefrontStoreScope(storeParam);
 
   const [products, setProducts] = useState<StorefrontProduct[]>([]);
   const [total, setTotal] = useState(0);
@@ -81,9 +85,10 @@ function ProductsPageInner() {
       const params = new URLSearchParams(searchParams.toString());
       if (page <= 1) params.delete('page');
       else params.set('page', String(page));
-      window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [searchParams]
+    [searchParams, router, pathname]
   );
 
   const setCategory = useCallback(
@@ -92,9 +97,10 @@ function ProductsPageInner() {
       params.delete('page');
       if (category) params.set('category', category);
       else params.delete('category');
-      window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [searchParams]
+    [searchParams, router, pathname]
   );
 
   useEffect(() => {
@@ -105,7 +111,7 @@ function ProductsPageInner() {
       per_page: PER_PAGE,
       category: categoryParam || undefined,
       search: searchParam || undefined,
-      store: storeParam || undefined,
+      store: scopedStore || undefined,
     })
       .then((res) => {
         setProducts(res.data);
@@ -117,7 +123,7 @@ function ProductsPageInner() {
         setTotal(0);
       })
       .finally(() => setLoading(false));
-  }, [currentPage, categoryParam, searchParam, storeParam]);
+  }, [currentPage, categoryParam, searchParam, scopedStore]);
 
   const startIndex = total === 0 ? 0 : (currentPage - 1) * PER_PAGE + 1;
   const endIndex = Math.min(currentPage * PER_PAGE, total);
@@ -130,7 +136,7 @@ function ProductsPageInner() {
         <nav className="mb-6">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
             <li>
-              <Link href={storeParam ? `/?store=${encodeURIComponent(storeParam)}` : '/'} className="hover:text-mint">
+              <Link href={scopedStore ? `/?store=${encodeURIComponent(scopedStore)}` : '/'} className="hover:text-mint">
                 Home
               </Link>
             </li>
