@@ -9,6 +9,7 @@ import {
   mergeDefaultHeroSettings,
   resolveHeroSlidesForRender,
   getHeroCarouselAutoplayMs,
+  heroHexForColorInput,
   type HeroPopularLink,
   type HeroSearchCategory,
   type ResolvedHeroSlide,
@@ -190,6 +191,17 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
   const primary = 'var(--sf-color-primary, #0f766e)';
   const accent = 'var(--sf-color-accent, #99f6e4)';
 
+  const badgeBg =
+    hero.heroBadgeBackgroundColor ?? `color-mix(in srgb, ${accent} 22%, transparent)`;
+  const badgeText = hero.heroBadgeTextColor ?? primary;
+  const badgeDot = hero.heroBadgeDotColor ?? badgeText;
+  const badgeBorder = hero.heroBadgeTextColor
+    ? `color-mix(in srgb, ${hero.heroBadgeTextColor} 25%, transparent)`
+    : `color-mix(in srgb, ${primary} 25%, transparent)`;
+  const headlineLineColor = hero.heroHeadlineColor;
+  const headlineAccentSolid = hero.heroHeadlineAccentColor;
+  const descriptionColor = hero.heroDescriptionColor;
+
   const overlayEnabled = hero.heroImageOverlayEnabled !== false;
   const overlayOpacityRaw =
     typeof hero.heroImageOverlayOpacity === 'number' && Number.isFinite(hero.heroImageOverlayOpacity)
@@ -197,6 +209,7 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
       : 100;
   const overlayStrength = Math.min(100, Math.max(0, overlayOpacityRaw)) / 100;
   const showHeroOverlay = overlayEnabled && overlayStrength > 0;
+  const overlayTint = heroHexForColorInput(hero.heroImageOverlayColor, '#ffffff');
   const showHeroSearch = hero.heroSearchEnabled !== false;
 
   return (
@@ -259,21 +272,39 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
             style={{ opacity: overlayStrength }}
             aria-hidden
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/95 via-white/90 to-white/85" />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-teal-50/20 to-white/95" />
-            <div className="absolute inset-0 bg-gradient-to-t from-white/40 via-transparent to-transparent" />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to right, color-mix(in srgb, ${overlayTint} 95%, transparent), color-mix(in srgb, ${overlayTint} 90%, transparent), color-mix(in srgb, ${overlayTint} 85%, transparent))`,
+              }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to bottom, transparent, color-mix(in srgb, ${overlayTint} 20%, transparent), color-mix(in srgb, ${overlayTint} 95%, transparent))`,
+              }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to top, color-mix(in srgb, ${overlayTint} 40%, transparent), transparent, transparent)`,
+              }}
+            />
             <div
               className="absolute inset-0 animate-pulse opacity-90"
               style={{
-                background: `linear-gradient(to bottom right, color-mix(in srgb, ${primary} 20%, transparent), transparent, color-mix(in srgb, #3b82f6 20%, transparent))`,
+                background: `linear-gradient(to bottom right, color-mix(in srgb, ${overlayTint} 22%, transparent), transparent, color-mix(in srgb, ${primary} 18%, transparent))`,
               }}
             />
             <div className="absolute inset-0 overflow-hidden">
               <div
                 className="absolute top-20 right-20 w-72 h-72 rounded-full blur-3xl animate-pulse"
-                style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)` }}
+                style={{ backgroundColor: `color-mix(in srgb, ${overlayTint} 22%, transparent)` }}
               />
-              <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-300" />
+              <div
+                className="absolute bottom-20 left-20 w-96 h-96 rounded-full blur-3xl animate-pulse delay-300"
+                style={{ backgroundColor: `color-mix(in srgb, ${overlayTint} 12%, transparent)` }}
+              />
             </div>
           </div>
         ) : null}
@@ -317,7 +348,10 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
                 className="h-2.5 rounded-full transition-all motion-reduce:transition-none"
                 style={{
                   width: i === safeActiveIndex ? 28 : 10,
-                  backgroundColor: i === safeActiveIndex ? primary : `color-mix(in srgb, ${primary} 35%, white)`,
+                  backgroundColor:
+                    i === safeActiveIndex
+                      ? headlineAccentSolid ?? primary
+                      : `color-mix(in srgb, ${headlineAccentSolid ?? primary} 35%, white)`,
                   opacity: i === safeActiveIndex ? 1 : 0.65,
                 }}
               />
@@ -338,34 +372,44 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
             <div
               className="inline-flex items-center backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border shadow-md"
               style={{
-                backgroundColor: `color-mix(in srgb, ${accent} 22%, transparent)`,
-                color: primary,
-                borderColor: `color-mix(in srgb, ${primary} 25%, transparent)`,
+                backgroundColor: badgeBg,
+                color: badgeText,
+                borderColor: badgeBorder,
               }}
             >
               <span
                 className="w-2 h-2 rounded-full mr-2 animate-pulse shrink-0"
-                style={{ backgroundColor: primary }}
+                style={{ backgroundColor: badgeDot }}
               />
               {activeSlide.badgeText}
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 animate-slide-up leading-tight">
+            <h1
+              className={`text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 animate-slide-up leading-tight ${
+                headlineLineColor ? '' : 'text-gray-900'
+              }`}
+              style={headlineLineColor ? { color: headlineLineColor } : undefined}
+            >
               {activeSlide.headlineLine1}{' '}
               <span
-                className="bg-clip-text text-transparent"
-                style={{
-                  backgroundImage: `linear-gradient(to right, ${primary}, color-mix(in srgb, ${primary} 65%, #0f172a))`,
-                }}
+                className={headlineAccentSolid ? '' : 'bg-clip-text text-transparent'}
+                style={
+                  headlineAccentSolid
+                    ? { color: headlineAccentSolid }
+                    : {
+                        backgroundImage: `linear-gradient(to right, ${primary}, color-mix(in srgb, ${primary} 65%, #0f172a))`,
+                      }
+                }
               >
                 {activeSlide.headlineAccent}
               </span>
             </h1>
 
             <p
-              className={`text-lg md:text-xl text-gray-700 animate-slide-up delay-100 leading-relaxed max-w-xl ${
-                activeSlide.ctaLabel && activeSlide.ctaUrl ? 'mb-4' : 'mb-6'
-              }`}
+              className={`text-lg md:text-xl animate-slide-up delay-100 leading-relaxed max-w-xl ${
+                descriptionColor ? '' : 'text-gray-700'
+              } ${activeSlide.ctaLabel && activeSlide.ctaUrl ? 'mb-4' : 'mb-6'}`}
+              style={descriptionColor ? { color: descriptionColor } : undefined}
             >
               {activeSlide.description}
             </p>

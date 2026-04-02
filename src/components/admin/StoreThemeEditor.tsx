@@ -32,6 +32,10 @@ import {
   type HeroSearchCategory,
   type HeroPopularLink,
   type HeroSlide,
+  type StorefrontHomeThemeSettings,
+  heroHexForColorInput,
+  parseOptionalHeroHexColor,
+  hexToRgbChannels,
 } from '@/lib/storefrontHomeTheme';
 
 const FONT_OPTIONS: { value: string; label: string }[] = [
@@ -625,6 +629,7 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                       updateSection={updateSection}
                       token={token}
                       storeId={store.id}
+                      theme={draft.theme}
                     />
                   )}
                   {selected.type !== 'announcement_bar' &&
@@ -1189,16 +1194,57 @@ function normalizeHeroSlideRows(raw: Record<string, unknown>): HeroSlide[] {
   );
 }
 
+function HeroTextColorRow({
+  label,
+  hint,
+  value,
+  fallbackHex,
+  onPick,
+  onReset,
+}: {
+  label: string;
+  hint?: string;
+  value: string | undefined;
+  fallbackHex: string;
+  onPick: (hex: string) => void;
+  onReset: () => void;
+}) {
+  const inputVal = heroHexForColorInput(value, fallbackHex);
+  return (
+    <div className="space-y-0.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <div className="min-w-0">
+          <span className="text-xs font-medium text-gray-700">{label}</span>
+          {hint ? <p className="text-[10px] text-gray-500 leading-snug">{hint}</p> : null}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <input
+            type="color"
+            value={inputVal}
+            onChange={(e) => onPick(e.target.value)}
+            className="h-9 w-12 cursor-pointer rounded border border-gray-200 p-0.5 bg-white"
+          />
+          <button type="button" onClick={onReset} className="text-[11px] font-medium text-mint hover:underline">
+            Default
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DefaultHeroSectionEditor({
   selected,
   updateSection,
   token,
   storeId,
+  theme,
 }: {
   selected: HomeSection;
   updateSection: (id: string, patch: Partial<HomeSection>) => void;
   token: string;
   storeId: number;
+  theme: StorefrontHomeThemeSettings;
 }) {
   const eff = mergeDefaultHeroSettings(selected.settings ?? null);
   const raw = selected.settings ?? {};
@@ -1306,6 +1352,16 @@ function DefaultHeroSectionEditor({
       ? String(carouselRaw.autoplayMs)
       : '';
 
+  const defaultHeadlineHex = '#111827';
+  const defaultDescriptionHex = '#374151';
+  const heroHeadlineColor = parseOptionalHeroHexColor(raw.heroHeadlineColor);
+  const heroHeadlineAccentColor = parseOptionalHeroHexColor(raw.heroHeadlineAccentColor);
+  const heroDescriptionColor = parseOptionalHeroHexColor(raw.heroDescriptionColor);
+  const heroBadgeTextColor = parseOptionalHeroHexColor(raw.heroBadgeTextColor);
+  const heroBadgeBackgroundColor = parseOptionalHeroHexColor(raw.heroBadgeBackgroundColor);
+  const heroBadgeDotColor = parseOptionalHeroHexColor(raw.heroBadgeDotColor);
+  const heroImageOverlayColor = parseOptionalHeroHexColor(raw.heroImageOverlayColor);
+
   return (
     <div className="space-y-4 text-sm">
       <input
@@ -1316,7 +1372,8 @@ function DefaultHeroSectionEditor({
         onChange={onHeroImageFile}
       />
       <p className="text-xs text-gray-600 leading-relaxed">
-        Headline, search, and hero background. Accent colors come from <span className="font-medium text-gray-800">Colors & fonts</span>.
+        Headline, search, and hero background. Use <span className="font-medium text-gray-800">Slider text colors</span> below to override badge and headline colors on the carousel; otherwise the storefront uses dark gray copy and your{' '}
+        <span className="font-medium text-gray-800">Colors & fonts</span> primary/accent for the accent line and badge tint.
       </p>
       <label className="block text-xs font-medium text-gray-700">Badge</label>
       <input
@@ -1350,6 +1407,61 @@ function DefaultHeroSectionEditor({
         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
         placeholder={DEFAULT_HERO_SECTION_SETTINGS.description}
       />
+
+      <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 space-y-3">
+        <div>
+          <p className="text-xs font-semibold text-gray-900">Slider text colors</p>
+          <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+            Optional. Default restores built-in styling (readable on most photos with the hero overlay on).
+          </p>
+        </div>
+        <HeroTextColorRow
+          label="Headline (first line)"
+          value={heroHeadlineColor}
+          fallbackHex={defaultHeadlineHex}
+          onPick={(hex) => set({ heroHeadlineColor: hex })}
+          onReset={() => set({ heroHeadlineColor: '' })}
+        />
+        <HeroTextColorRow
+          label="Headline (accent)"
+          hint="Solid color. Default uses a gradient from your theme primary."
+          value={heroHeadlineAccentColor}
+          fallbackHex={theme.colorPrimary}
+          onPick={(hex) => set({ heroHeadlineAccentColor: hex })}
+          onReset={() => set({ heroHeadlineAccentColor: '' })}
+        />
+        <HeroTextColorRow
+          label="Description"
+          value={heroDescriptionColor}
+          fallbackHex={defaultDescriptionHex}
+          onPick={(hex) => set({ heroDescriptionColor: hex })}
+          onReset={() => set({ heroDescriptionColor: '' })}
+        />
+        <HeroTextColorRow
+          label="Badge text"
+          hint="Default matches theme primary on the storefront."
+          value={heroBadgeTextColor}
+          fallbackHex={theme.colorPrimary}
+          onPick={(hex) => set({ heroBadgeTextColor: hex })}
+          onReset={() => set({ heroBadgeTextColor: '' })}
+        />
+        <HeroTextColorRow
+          label="Badge background"
+          hint="Default is a soft tint from theme accent."
+          value={heroBadgeBackgroundColor}
+          fallbackHex={theme.colorAccent}
+          onPick={(hex) => set({ heroBadgeBackgroundColor: hex })}
+          onReset={() => set({ heroBadgeBackgroundColor: '' })}
+        />
+        <HeroTextColorRow
+          label="Badge dot"
+          hint="Small circle before the badge label; default matches badge text."
+          value={heroBadgeDotColor}
+          fallbackHex={theme.colorPrimary}
+          onPick={(hex) => set({ heroBadgeDotColor: hex })}
+          onReset={() => set({ heroBadgeDotColor: '' })}
+        />
+      </div>
 
       <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 space-y-2">
         <label className="flex items-center gap-2 cursor-pointer">
@@ -1412,6 +1524,14 @@ function DefaultHeroSectionEditor({
           />
           <p className="text-[10px] text-gray-500 mt-1">0% = transparent wash (image shows through). 100% = full default strength.</p>
         </div>
+        <HeroTextColorRow
+          label="Overlay color"
+          hint="Tint for the wash (default white). Try cream, navy, or black for different moods."
+          value={heroImageOverlayColor}
+          fallbackHex="#ffffff"
+          onPick={(hex) => set({ heroImageOverlayColor: hex })}
+          onReset={() => set({ heroImageOverlayColor: '' })}
+        />
       </div>
 
       <label className="block text-xs font-medium text-gray-700">Hero background image URL</label>
@@ -1733,6 +1853,8 @@ function PreviewBlock({
     const bgUrl = getImageDisplayUrl(first.imageUrl);
     const overlayOn = hero.heroImageOverlayEnabled !== false;
     const op = Math.min(100, Math.max(0, hero.heroImageOverlayOpacity ?? 100)) / 100;
+    const ovHex = heroHexForColorInput(hero.heroImageOverlayColor, '#ffffff');
+    const ovRgb = hexToRgbChannels(ovHex) ?? { r: 255, g: 255, b: 255 };
     const whiteA = overlayOn ? 0.95 * op : 0;
     const whiteB = overlayOn ? 0.88 * op : 0;
     const carouselNote =
@@ -1741,26 +1863,62 @@ function PreviewBlock({
           {resolvedSlides.length} slides
         </span>
       ) : null;
+    const badgeBg =
+      hero.heroBadgeBackgroundColor ?? `color-mix(in srgb, ${accent} 22%, transparent)`;
+    const badgeTxt = hero.heroBadgeTextColor ?? primary;
+    const badgeDot = hero.heroBadgeDotColor ?? badgeTxt;
+    const badgeBr = hero.heroBadgeTextColor
+      ? `color-mix(in srgb, ${hero.heroBadgeTextColor} 25%, transparent)`
+      : `color-mix(in srgb, ${primary} 25%, transparent)`;
+    const hl = hero.heroHeadlineColor;
+    const ha = hero.heroHeadlineAccentColor;
+    const hd = hero.heroDescriptionColor;
     return (
       <div
         className={`${pad} bg-cover bg-center relative overflow-hidden`}
         style={{
-          backgroundImage: `linear-gradient(to right, rgba(255,255,255,${whiteA}), rgba(255,255,255,${whiteB})), url(${bgUrl})`,
+          backgroundImage: `linear-gradient(to right, rgba(${ovRgb.r},${ovRgb.g},${ovRgb.b},${whiteA}), rgba(${ovRgb.r},${ovRgb.g},${ovRgb.b},${whiteB})), url(${bgUrl})`,
         }}
       >
         <div className="relative z-10 max-w-[95%]">
-          <p className="text-[8px] font-semibold text-mint mb-1.5 inline-flex items-center gap-1 rounded-full bg-mint/10 px-2 py-0.5">
+          <p
+            className="text-[8px] font-semibold mb-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5"
+            style={{
+              backgroundColor: badgeBg,
+              color: badgeTxt,
+              borderColor: badgeBr,
+            }}
+          >
+            <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: badgeDot }} />
             {first.badgeText}
             {carouselNote}
           </p>
           <p
-            className={`font-extrabold text-gray-900 leading-tight mb-1 ${device === 'desktop' ? 'text-sm' : 'text-xs'}`}
-            style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
+            className={`font-extrabold leading-tight mb-1 ${device === 'desktop' ? 'text-sm' : 'text-xs'} ${
+              hl ? '' : 'text-gray-900'
+            }`}
+            style={{ fontFamily: 'var(--sf-font-heading, inherit)', ...(hl ? { color: hl } : {}) }}
           >
             {first.headlineLine1}{' '}
-            <span style={{ color: primary }}>{first.headlineAccent}</span>
+            <span
+              className={ha ? '' : 'bg-clip-text text-transparent'}
+              style={
+                ha
+                  ? { color: ha }
+                  : {
+                      backgroundImage: `linear-gradient(to right, ${primary}, color-mix(in srgb, ${primary} 65%, #0f172a))`,
+                    }
+              }
+            >
+              {first.headlineAccent}
+            </span>
           </p>
-          <p className="text-[8px] text-gray-600 mb-2 leading-snug line-clamp-2">{first.description}</p>
+          <p
+            className={`text-[8px] mb-2 leading-snug line-clamp-2 ${hd ? '' : 'text-gray-600'}`}
+            style={hd ? { color: hd } : undefined}
+          >
+            {first.description}
+          </p>
           {hero.heroSearchEnabled !== false ? (
             <div className="flex gap-1.5">
               <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400 truncate">

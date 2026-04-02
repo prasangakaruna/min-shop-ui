@@ -169,11 +169,22 @@ export type DefaultHeroSectionSettings = {
   heroImageOverlayEnabled?: boolean;
   /** 0–100; strength of the overlay stack. Ignored when `heroImageOverlayEnabled` is false. Default 100. */
   heroImageOverlayOpacity?: number;
+  /** Wash tint over the hero photo (#RGB / #RRGGBB). Omitted defaults to white (original bright fade). */
+  heroImageOverlayColor?: string;
   /**
    * When false, the storefront hero hides the search field, category filter, and Search button (headline/CTA stay).
    * Default true.
    */
   heroSearchEnabled?: boolean;
+  /** Optional hex colors for hero/slider copy (set in Theme → Marketplace hero). Omitted = storefront defaults. */
+  heroHeadlineColor?: string;
+  /** When set, accent headline uses this solid color; omitted = gradient from theme primary. */
+  heroHeadlineAccentColor?: string;
+  heroDescriptionColor?: string;
+  heroBadgeTextColor?: string;
+  heroBadgeBackgroundColor?: string;
+  /** Small dot before badge label; defaults to badge text color. */
+  heroBadgeDotColor?: string;
 };
 
 export const DEFAULT_HERO_SECTION_SETTINGS: DefaultHeroSectionSettings = {
@@ -200,6 +211,58 @@ export const DEFAULT_HERO_SECTION_SETTINGS: DefaultHeroSectionSettings = {
   heroImageOverlayOpacity: 100,
   heroSearchEnabled: true,
 };
+
+/** Accepts #RGB, #RRGGBB, or #RRGGBBAA (admin color pickers + pasted hex). */
+export function parseOptionalHeroHexColor(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const s = raw.trim();
+  if (s === '') return undefined;
+  if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(s)) return s;
+  return undefined;
+}
+
+/** Normalize short hex for `<input type="color">` (expects #RRGGBB). */
+export function heroHexForColorInput(hex: string | undefined, fallback: string): string {
+  const resolve = (v: string): string | null => {
+    const t = v.trim();
+    const m3 = /^#([0-9A-Fa-f])([0-9A-Fa-f])([0-9A-Fa-f])$/i.exec(t);
+    if (m3) {
+      const [, r, g, b] = m3;
+      return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+    }
+    const m8 = /^#([0-9A-Fa-f]{8})$/i.exec(t);
+    if (m8) return `#${m8[1].slice(0, 6).toLowerCase()}`;
+    const m6 = /^#([0-9A-Fa-f]{6})$/i.exec(t);
+    if (m6) return `#${m6[1].toLowerCase()}`;
+    return null;
+  };
+  const primary = hex && hex.trim() !== '' ? resolve(hex) : null;
+  if (primary) return primary;
+  const secondary = resolve(fallback);
+  if (secondary) return secondary;
+  return '#111827';
+}
+
+/** RGB channels for previews (e.g. rgba gradients). Returns null if hex is invalid. */
+export function hexToRgbChannels(hex: string): { r: number; g: number; b: number } | null {
+  const parsed = parseOptionalHeroHexColor(hex);
+  if (!parsed) return null;
+  let h = parsed.slice(1);
+  if (h.length === 3) {
+    h = h
+      .split('')
+      .map((c) => c + c)
+      .join('');
+  } else if (h.length === 8) {
+    h = h.slice(0, 6);
+  }
+  if (h.length !== 6) return null;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if ([r, g, b].some((x) => Number.isNaN(x) || x < 0 || x > 255)) return null;
+  return { r, g, b };
+}
 
 function parseHeroSearchCategories(raw: unknown): HeroSearchCategory[] | undefined {
   if (!Array.isArray(raw)) return undefined;
@@ -369,6 +432,22 @@ export function mergeDefaultHeroSettings(
   if (typeof raw.heroSearchEnabled === 'boolean') {
     base.heroSearchEnabled = raw.heroSearchEnabled;
   }
+
+  const ovc = parseOptionalHeroHexColor(raw.heroImageOverlayColor);
+  if (ovc) base.heroImageOverlayColor = ovc;
+
+  const hh = parseOptionalHeroHexColor(raw.heroHeadlineColor);
+  if (hh) base.heroHeadlineColor = hh;
+  const ha = parseOptionalHeroHexColor(raw.heroHeadlineAccentColor);
+  if (ha) base.heroHeadlineAccentColor = ha;
+  const hd = parseOptionalHeroHexColor(raw.heroDescriptionColor);
+  if (hd) base.heroDescriptionColor = hd;
+  const hbText = parseOptionalHeroHexColor(raw.heroBadgeTextColor);
+  if (hbText) base.heroBadgeTextColor = hbText;
+  const hbBg = parseOptionalHeroHexColor(raw.heroBadgeBackgroundColor);
+  if (hbBg) base.heroBadgeBackgroundColor = hbBg;
+  const hbDot = parseOptionalHeroHexColor(raw.heroBadgeDotColor);
+  if (hbDot) base.heroBadgeDotColor = hbDot;
 
   return base;
 }
