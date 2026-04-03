@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { getImageDisplayUrl } from '@/lib/api';
 import type { StorefrontProduct, ProductVariant, NutritionFacts } from '@/lib/api';
+import { isStoredDescriptionHtml } from '@/lib/productDescriptionRichText';
+import { parseProductVideoUrl } from '@/lib/productVideoEmbed';
+import ProductGalleryVideoPane from '@/components/storefront/ProductGalleryVideoPane';
 
 function variantOptionsMap(v: ProductVariant): Record<string, string> {
   const o = v.options;
@@ -441,6 +444,8 @@ type Props = {
   storeQuery: string;
   selectedImage: number;
   setSelectedImage: (i: number) => void;
+  galleryShowVideo: boolean;
+  setGalleryShowVideo: (show: boolean) => void;
   quantity: number;
   setQuantity: React.Dispatch<React.SetStateAction<number>>;
   optionSelection: Record<string, string>;
@@ -456,6 +461,8 @@ export default function StorefrontProductDetail({
   storeQuery,
   selectedImage,
   setSelectedImage,
+  galleryShowVideo,
+  setGalleryShowVideo,
   quantity,
   setQuantity,
   optionSelection,
@@ -468,6 +475,8 @@ export default function StorefrontProductDetail({
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const images = product.image_urls?.length ? product.image_urls : product.image_url ? [product.image_url] : [];
+  const videoParsed = useMemo(() => parseProductVideoUrl(product.video_url), [product.video_url]);
+  const hasGalleryVideo = videoParsed != null;
   const optionGroups = product.option_groups ?? [];
   const activeVariant = findMatchingVariant(product.variants, optionGroups, optionSelection);
   const firstVariant = product.variants?.[0];
@@ -545,7 +554,9 @@ export default function StorefrontProductDetail({
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-14 xl:gap-16">
           {/* Gallery */}
           <div className="min-w-0">
-            {images.length > 0 ? (
+            {galleryShowVideo && videoParsed ? (
+              <ProductGalleryVideoPane parsed={videoParsed} productTitle={product.title} />
+            ) : images.length > 0 ? (
               <ProductHoverZoom
                 src={getImageDisplayUrl(images[selectedImage])}
                 alt={product.title}
@@ -557,7 +568,7 @@ export default function StorefrontProductDetail({
               </div>
             )}
 
-            {images.length > 1 ? (
+            {images.length > 1 || hasGalleryVideo ? (
               <div className="mt-4">
                 <div className="relative">
                   <div className="flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-thin">
@@ -565,14 +576,37 @@ export default function StorefrontProductDetail({
                       <button
                         key={index}
                         type="button"
-                        onClick={() => setSelectedImage(index)}
+                        onClick={() => {
+                          setGalleryShowVideo(false);
+                          setSelectedImage(index);
+                        }}
                         className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                          selectedImage === index ? 'border-teal-600 ring-2 ring-teal-600/20' : 'border-gray-200 hover:border-gray-300'
+                          !galleryShowVideo && selectedImage === index
+                            ? 'border-teal-600 ring-2 ring-teal-600/20'
+                            : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
                         <img src={getImageDisplayUrl(url)} alt="" className="h-full w-full object-cover" />
                       </button>
                     ))}
+                    {hasGalleryVideo ? (
+                      <button
+                        type="button"
+                        onClick={() => setGalleryShowVideo(true)}
+                        className={`relative flex h-20 w-20 shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-xl border-2 bg-gradient-to-br from-teal-700 to-teal-900 text-white transition-all ${
+                          galleryShowVideo
+                            ? 'border-teal-600 ring-2 ring-teal-600/20'
+                            : 'border-gray-200 hover:border-teal-400'
+                        }`}
+                        aria-label="Show product video"
+                        title="Video"
+                      >
+                        <svg className="h-7 w-7 drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                          <path d="M8 5v14l11-7L8 5z" />
+                        </svg>
+                        <span className="text-[10px] font-bold uppercase tracking-wide">Video</span>
+                      </button>
+                    ) : null}
                   </div>
                 </div>
                 {images.length > 5 ? (
@@ -779,7 +813,16 @@ export default function StorefrontProductDetail({
           {product.description ? (
             <section className="mb-10">
               <h2 className="text-lg font-bold text-gray-900">About this item</h2>
-              <div className="prose prose-gray mt-4 max-w-none text-gray-700 whitespace-pre-wrap">{product.description}</div>
+              {isStoredDescriptionHtml(product.description) ? (
+                <div
+                  className="prose prose-gray prose-sm sm:prose-base mt-4 max-w-none text-gray-700 prose-headings:text-gray-900 prose-table:text-sm prose-th:border prose-th:border-gray-200 prose-td:border prose-td:border-gray-200 prose-img:rounded-lg"
+                  dangerouslySetInnerHTML={{ __html: product.description }}
+                />
+              ) : (
+                <div className="prose prose-gray mt-4 max-w-none text-gray-700 whitespace-pre-wrap">
+                  {product.description}
+                </div>
+              )}
             </section>
           ) : null}
 

@@ -13,54 +13,13 @@ import {
   type Product,
   type ProductVariant,
   type NutritionFacts,
-  type NutritionFactsRow,
 } from '@/lib/api';
 import ProductOptionGroupsPanel, {
   normalizeProductOptionGroups,
 } from '@/components/admin/ProductOptionGroupsPanel';
-
-function parseNutritionRowsText(text: string): NutritionFactsRow[] {
-  const rows: NutritionFactsRow[] = [];
-  for (const line of text.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const parts = trimmed.split('|').map((p) => p.trim());
-    if (parts.length < 2) continue;
-    const label = parts[0] ?? '';
-    const amount = parts[1] ?? '';
-    const dv = (parts[2] ?? '').trim();
-    let indent = 0;
-    if (parts.length >= 4 && parts[3] !== undefined && parts[3] !== '') {
-      const n = parseInt(parts[3], 10);
-      if (!Number.isNaN(n)) indent = Math.min(3, Math.max(0, n));
-    }
-    const row: NutritionFactsRow = { label, amount, indent };
-    if (dv) row.dv = dv;
-    rows.push(row);
-  }
-  return rows;
-}
-
-function nutritionFormToPayload(form: {
-  nutrition_serves_about: string;
-  nutrition_serving_size: string;
-  nutrition_serving_weight: string;
-  nutrition_calories: string;
-  nutrition_rows_text: string;
-}): NutritionFacts | null {
-  const rows = parseNutritionRowsText(form.nutrition_rows_text);
-  const serves_about = form.nutrition_serves_about.trim();
-  const serving_size = form.nutrition_serving_size.trim();
-  const serving_weight = form.nutrition_serving_weight.trim();
-  const calories = form.nutrition_calories.trim();
-  if (!serves_about && !serving_size && !serving_weight && !calories && rows.length === 0) return null;
-  const out: NutritionFacts = { rows };
-  if (serves_about) out.serves_about = serves_about;
-  if (serving_size) out.serving_size = serving_size;
-  if (serving_weight) out.serving_weight = serving_weight;
-  if (calories) out.calories = calories;
-  return out;
-}
+import PageRichTextEditor from '@/components/admin/PageRichTextEditor';
+import { isEmptyRichDescriptionHtml, stripHtmlForPreview } from '@/lib/productDescriptionRichText';
+import { nutritionFormToPayload } from '@/lib/productNutritionForm';
 
 function nutritionFieldsFromProduct(n: NutritionFacts | null | undefined) {
   if (!n || typeof n !== 'object') {
@@ -132,6 +91,7 @@ export default function EditProductPage() {
     nutrition_serving_weight: string;
     nutrition_calories: string;
     nutrition_rows_text: string;
+    video_url: string;
   }>({
     title: '',
     description: '',
@@ -155,6 +115,7 @@ export default function EditProductPage() {
     nutrition_serving_weight: '',
     nutrition_calories: '',
     nutrition_rows_text: '',
+    video_url: '',
   });
   const [optionGroups, setOptionGroups] = useState(normalizeProductOptionGroups(undefined));
   const [variantQty, setVariantQty] = useState<Record<number, number>>({});
@@ -268,6 +229,7 @@ export default function EditProductPage() {
             ? data.we_love_this_for.filter((s): s is string => typeof s === 'string').join('\n')
             : '',
           ingredients_allergen: data.ingredients_allergen ?? '',
+          video_url: data.video_url ?? '',
           ...nutritionFieldsFromProduct(data.nutrition_facts),
         });
         const qty: Record<number, number> = {};
@@ -326,7 +288,7 @@ export default function EditProductPage() {
         storeId: currentStore.id,
         body: {
           title: form.title,
-          description: form.description,
+          description: isEmptyRichDescriptionHtml(form.description) ? '' : form.description,
           image_urls: form.image_urls.filter((u) => u.trim() !== ''),
           key_features: form.key_features
             .split(/\n/)
@@ -358,6 +320,7 @@ export default function EditProductPage() {
             .filter(Boolean),
           ingredients_allergen: form.ingredients_allergen.trim() || null,
           nutrition_facts: nutritionFormToPayload(form),
+          video_url: form.video_url.trim() || null,
         },
       });
       setProduct(updated);
@@ -387,6 +350,7 @@ export default function EditProductPage() {
           ? updated.we_love_this_for.filter((s): s is string => typeof s === 'string').join('\n')
           : '',
         ingredients_allergen: updated.ingredients_allergen ?? '',
+        video_url: updated.video_url ?? '',
         ...nutritionFieldsFromProduct(updated.nutrition_facts),
       }));
 
@@ -669,7 +633,8 @@ export default function EditProductPage() {
                     {form.title || 'Product title'}
                   </p>
                   <p className="text-xs text-gray-500 line-clamp-2">
-                    {form.description || 'Short description of the product for customers browsing your store.'}
+                    {stripHtmlForPreview(form.description) ||
+                      'Short description of the product for customers browsing your store.'}
                   </p>
                 </div>
               </div>
@@ -863,15 +828,26 @@ export default function EditProductPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-desc" className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-                  <textarea
-                    id="edit-desc"
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    rows={4}
-                    placeholder="Describe your product: benefits, materials, use cases..."
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20 resize-y"
+                  <span id="edit-desc-label" className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Description
+                  </span>
+                  <PageRichTextEditor
+                    key={`product-desc-${id}`}
+                    initialHtml={form.description}
+                    onChange={(html) => setForm((f) => ({ ...f, description: html }))}
+                    placeholder="Describe your product: benefits, materials, use cases. Use the toolbar for colors, tables, and links."
+                    chrome="full"
+                    uploadImageFile={
+                      token && currentStore
+                        ? async (file) =>
+                            (await uploadProductImage(file, { token, storeId: currentStore.id })).url
+                        : undefined
+                    }
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Rich text editor (same as custom pages): text color, fonts, alignment, bullet lists, links, images, and
+                    tables. You can paste from Word and adjust formatting here.
+                  </p>
                 </div>
                 <div>
                   <label htmlFor="edit-key-features" className="block text-sm font-medium text-gray-700 mb-1.5">Key features</label>
@@ -893,6 +869,24 @@ export default function EditProductPage() {
                     panel, unit pricing, and manual ratings until you wire real reviews.
                   </p>
                   <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <label htmlFor="edit-video-url" className="block text-xs font-medium text-gray-700 mb-1">
+                        Product video URL
+                      </label>
+                      <input
+                        id="edit-video-url"
+                        type="url"
+                        inputMode="url"
+                        value={form.video_url}
+                        onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/… or direct .mp4 link"
+                      />
+                      <p className="mt-0.5 text-[11px] text-gray-500">
+                        Shown on the product page: YouTube and Vimeo embed; .mp4/.webm/.ogg play in the browser; other https
+                        links open in a new tab.
+                      </p>
+                    </div>
                     <div>
                       <label htmlFor="edit-brand" className="block text-xs font-medium text-gray-700 mb-1">
                         Brand

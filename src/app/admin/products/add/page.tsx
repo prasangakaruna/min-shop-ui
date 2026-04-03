@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, uploadProductImage, getImageDisplayUrl, parseStoreProductCategoriesResponse } from '@/lib/api';
+import PageRichTextEditor from '@/components/admin/PageRichTextEditor';
+import { isEmptyRichDescriptionHtml } from '@/lib/productDescriptionRichText';
+import { nutritionFormToPayload } from '@/lib/productNutritionForm';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/jpg';
 const MAX_SIZE_MB = 5;
@@ -25,6 +28,25 @@ export default function AddProductPage() {
   const [compareAtPrice, setCompareAtPrice] = useState('');
   const [inventoryQuantity, setInventoryQuantity] = useState('0');
   const [keyFeaturesText, setKeyFeaturesText] = useState('');
+  const [storefront, setStorefront] = useState({
+    brand: '',
+    package_size: '',
+    weight_oz: '',
+    specifications_text: '',
+    rating_average: '',
+    rating_count: '',
+    ingredients: '',
+    directions: '',
+    warnings: '',
+    we_love_this_for: '',
+    ingredients_allergen: '',
+    nutrition_serves_about: '',
+    nutrition_serving_size: '',
+    nutrition_serving_weight: '',
+    nutrition_calories: '',
+    nutrition_rows_text: '',
+    video_url: '',
+  });
   const [productType, setProductType] = useState('');
   const [vendor, setVendor] = useState('');
   const [collectionsText, setCollectionsText] = useState('');
@@ -153,9 +175,30 @@ export default function AddProductPage() {
         setLoading(false);
         return;
       }
+      const specRows: { label: string; value: string }[] = [];
+      for (const line of storefront.specifications_text.split('\n')) {
+        const i = line.indexOf('|');
+        if (i < 0) continue;
+        const label = line.slice(0, i).trim();
+        const value = line.slice(i + 1).trim();
+        if (label && value) specRows.push({ label, value });
+      }
+      const weightTrim = storefront.weight_oz.trim();
+      const weightNum = weightTrim === '' ? null : parseFloat(weightTrim);
+      const ratingAvgTrim = storefront.rating_average.trim();
+      const ratingAvgNum = ratingAvgTrim === '' ? null : parseFloat(ratingAvgTrim);
+      const ratingCountTrim = storefront.rating_count.trim();
+      const ratingCountNum = ratingCountTrim === '' ? null : parseInt(ratingCountTrim, 10);
+      const nutrition_facts = nutritionFormToPayload({
+        nutrition_serves_about: storefront.nutrition_serves_about,
+        nutrition_serving_size: storefront.nutrition_serving_size,
+        nutrition_serving_weight: storefront.nutrition_serving_weight,
+        nutrition_calories: storefront.nutrition_calories,
+        nutrition_rows_text: storefront.nutrition_rows_text,
+      });
       const body: Record<string, unknown> = {
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: isEmptyRichDescriptionHtml(description) ? undefined : description,
         image_urls: urls.length ? urls : undefined,
         category: category.trim() || undefined,
         status,
@@ -178,6 +221,22 @@ export default function AddProductPage() {
         seo_description: seoDescription.trim() || undefined,
         publish_online_store: publishOnlineStore,
         publish_pos: publishPOS,
+        brand: storefront.brand.trim() || null,
+        package_size: storefront.package_size.trim() || null,
+        weight_oz: weightNum != null && !Number.isNaN(weightNum) && weightNum >= 0 ? weightNum : null,
+        ingredients: storefront.ingredients.trim() || null,
+        directions: storefront.directions.trim() || null,
+        warnings: storefront.warnings.trim() || null,
+        specifications: specRows.length ? specRows : null,
+        rating_average: ratingAvgNum != null && !Number.isNaN(ratingAvgNum) ? ratingAvgNum : null,
+        rating_count: ratingCountNum != null && !Number.isNaN(ratingCountNum) && ratingCountNum >= 0 ? ratingCountNum : null,
+        we_love_this_for: storefront.we_love_this_for
+          .split(/\n/)
+          .map((s) => s.trim())
+          .filter(Boolean),
+        ingredients_allergen: storefront.ingredients_allergen.trim() || null,
+        nutrition_facts,
+        video_url: storefront.video_url.trim() || null,
       };
       await apiRequest('/store/products', {
         method: 'POST',
@@ -365,15 +424,24 @@ export default function AddProductPage() {
                 />
               </div>
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
-                <textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={4}
-                  placeholder="Describe your product: benefits, materials, use cases..."
-                  className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20 resize-y"
+                <span className="block text-sm font-medium text-gray-700 mb-1.5">Description</span>
+                <PageRichTextEditor
+                  key="product-desc-add"
+                  initialHtml={description}
+                  onChange={setDescription}
+                  placeholder="Describe your product: benefits, materials, use cases. Use the toolbar for colors, tables, and links."
+                  chrome="full"
+                  uploadImageFile={
+                    token && currentStore
+                      ? async (file) =>
+                          (await uploadProductImage(file, { token, storeId: currentStore.id })).url
+                      : undefined
+                  }
                 />
+                <p className="mt-1 text-xs text-gray-500">
+                  Rich text editor (same as custom pages): text color, fonts, alignment, bullet lists, links, images, and
+                  tables. You can paste from Word and adjust formatting here.
+                </p>
               </div>
               <div>
                 <label htmlFor="key_features" className="block text-sm font-medium text-gray-700 mb-1.5">Key features</label>
@@ -387,6 +455,262 @@ export default function AddProductPage() {
                 />
                 <p className="mt-1 text-xs text-gray-500">Shown as a bullet list on the product page.</p>
               </div>
+
+              <div className="rounded-lg border border-teal-100 bg-teal-50/40 p-4">
+                <h3 className="text-sm font-semibold text-gray-900">Storefront detail (Walmart-style extras)</h3>
+                <p className="mt-1 text-xs text-gray-600">
+                  Optional fields for the public product page: brand, specs, ingredients, grocery-style tags and nutrition
+                  panel, unit pricing, and manual ratings until you wire real reviews.
+                </p>
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="add-video-url" className="block text-xs font-medium text-gray-700 mb-1">
+                      Product video URL
+                    </label>
+                    <input
+                      id="add-video-url"
+                      type="url"
+                      inputMode="url"
+                      value={storefront.video_url}
+                      onChange={(e) => setStorefront((s) => ({ ...s, video_url: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/… or direct .mp4 link"
+                    />
+                    <p className="mt-0.5 text-[11px] text-gray-500">
+                      YouTube / Vimeo embed on the product page; direct video files play in-page; other links open in a new
+                      tab.
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="add-brand" className="block text-xs font-medium text-gray-700 mb-1">
+                      Brand
+                    </label>
+                    <input
+                      id="add-brand"
+                      type="text"
+                      value={storefront.brand}
+                      onChange={(e) => setStorefront((s) => ({ ...s, brand: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      placeholder="e.g. Zatarain's"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-package" className="block text-xs font-medium text-gray-700 mb-1">
+                      Package size label
+                    </label>
+                    <input
+                      id="add-package"
+                      type="text"
+                      value={storefront.package_size}
+                      onChange={(e) => setStorefront((s) => ({ ...s, package_size: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      placeholder="e.g. 40 oz bag"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-weight-oz" className="block text-xs font-medium text-gray-700 mb-1">
+                      Net weight (oz)
+                    </label>
+                    <input
+                      id="add-weight-oz"
+                      type="text"
+                      inputMode="decimal"
+                      value={storefront.weight_oz}
+                      onChange={(e) => setStorefront((s) => ({ ...s, weight_oz: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      placeholder="e.g. 40"
+                    />
+                    <p className="mt-0.5 text-[11px] text-gray-500">Used with price to show ¢/oz on the product page.</p>
+                  </div>
+                  <div className="sm:col-span-2 grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="add-rating-avg" className="block text-xs font-medium text-gray-700 mb-1">
+                        Rating (0–5)
+                      </label>
+                      <input
+                        id="add-rating-avg"
+                        type="text"
+                        inputMode="decimal"
+                        value={storefront.rating_average}
+                        onChange={(e) => setStorefront((s) => ({ ...s, rating_average: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="e.g. 4.6"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="add-rating-count" className="block text-xs font-medium text-gray-700 mb-1">
+                        # of ratings
+                      </label>
+                      <input
+                        id="add-rating-count"
+                        type="text"
+                        inputMode="numeric"
+                        value={storefront.rating_count}
+                        onChange={(e) => setStorefront((s) => ({ ...s, rating_count: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="e.g. 2210"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label htmlFor="add-specs" className="block text-xs font-medium text-gray-700 mb-1">
+                    Specifications (one per line: Label | Value)
+                  </label>
+                  <textarea
+                    id="add-specs"
+                    value={storefront.specifications_text}
+                    onChange={(e) => setStorefront((s) => ({ ...s, specifications_text: e.target.value }))}
+                    rows={4}
+                    placeholder={'Packaged meal type | Pasta Meals\nMeat type | Chicken'}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4">
+                  <div>
+                    <label htmlFor="add-ingredients" className="block text-xs font-medium text-gray-700 mb-1">
+                      Ingredients
+                    </label>
+                    <textarea
+                      id="add-ingredients"
+                      value={storefront.ingredients}
+                      onChange={(e) => setStorefront((s) => ({ ...s, ingredients: e.target.value }))}
+                      rows={4}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-we-love" className="block text-xs font-medium text-gray-700 mb-1">
+                      We love this for (one tag per line)
+                    </label>
+                    <textarea
+                      id="add-we-love"
+                      value={storefront.we_love_this_for}
+                      onChange={(e) => setStorefront((s) => ({ ...s, we_love_this_for: e.target.value }))}
+                      rows={4}
+                      placeholder={'Alfresco Dining\nBrunch All Day\nFamily Style'}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                    />
+                    <p className="mt-0.5 text-[11px] text-gray-500">
+                      Shown as tags in the optional grocery-style block on the product page (with allergen / nutrition if
+                      you fill those).
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="add-ingredients-allergen" className="block text-xs font-medium text-gray-700 mb-1">
+                      Ingredients — allergen line
+                    </label>
+                    <input
+                      id="add-ingredients-allergen"
+                      type="text"
+                      value={storefront.ingredients_allergen}
+                      onChange={(e) => setStorefront((s) => ({ ...s, ingredients_allergen: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      placeholder="e.g. CONTAINS MILK."
+                    />
+                  </div>
+                  <div className="rounded-md border border-gray-200 bg-white/80 p-3">
+                    <p className="text-xs font-semibold text-gray-800">Nutrition facts (optional panel)</p>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="add-nf-serves" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                          Serves about
+                        </label>
+                        <input
+                          id="add-nf-serves"
+                          type="text"
+                          value={storefront.nutrition_serves_about}
+                          onChange={(e) => setStorefront((s) => ({ ...s, nutrition_serves_about: e.target.value }))}
+                          className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                          placeholder="10"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="add-nf-cal" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                          Calories per serving
+                        </label>
+                        <input
+                          id="add-nf-cal"
+                          type="text"
+                          value={storefront.nutrition_calories}
+                          onChange={(e) => setStorefront((s) => ({ ...s, nutrition_calories: e.target.value }))}
+                          className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                          placeholder="70"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="add-nf-size" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                          Serving size
+                        </label>
+                        <input
+                          id="add-nf-size"
+                          type="text"
+                          value={storefront.nutrition_serving_size}
+                          onChange={(e) => setStorefront((s) => ({ ...s, nutrition_serving_size: e.target.value }))}
+                          className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                          placeholder="2 Tbsp."
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="add-nf-weight" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                          Serving weight
+                        </label>
+                        <input
+                          id="add-nf-weight"
+                          type="text"
+                          value={storefront.nutrition_serving_weight}
+                          onChange={(e) => setStorefront((s) => ({ ...s, nutrition_serving_weight: e.target.value }))}
+                          className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm"
+                          placeholder="23g"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label htmlFor="add-nf-rows" className="block text-[11px] font-medium text-gray-600 mb-0.5">
+                        Nutrient rows (one per line: Label | Amount | %DV | indent)
+                      </label>
+                      <textarea
+                        id="add-nf-rows"
+                        value={storefront.nutrition_rows_text}
+                        onChange={(e) => setStorefront((s) => ({ ...s, nutrition_rows_text: e.target.value }))}
+                        rows={6}
+                        placeholder={
+                          'Total Fat | 7g | 9% | 0\nSaturated Fat | 4.5g | 23% | 1\nTrans Fat | 0g | | 1'
+                        }
+                        className="w-full rounded border border-gray-200 px-2 py-1.5 font-mono text-xs"
+                      />
+                      <p className="mt-0.5 text-[10px] text-gray-500">
+                        Indent: 0 = main row, 1–3 = nested. Leave %DV empty if not applicable.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="add-directions" className="block text-xs font-medium text-gray-700 mb-1">
+                      Directions
+                    </label>
+                    <textarea
+                      id="add-directions"
+                      value={storefront.directions}
+                      onChange={(e) => setStorefront((s) => ({ ...s, directions: e.target.value }))}
+                      rows={3}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="add-warnings" className="block text-xs font-medium text-gray-700 mb-1">
+                      Warnings
+                    </label>
+                    <textarea
+                      id="add-warnings"
+                      value={storefront.warnings}
+                      onChange={(e) => setStorefront((s) => ({ ...s, warnings: e.target.value }))}
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm resize-y"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>

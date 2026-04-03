@@ -419,6 +419,8 @@ export interface Product {
   we_love_this_for?: string[];
   ingredients_allergen?: string | null;
   nutrition_facts?: NutritionFacts | null;
+  /** YouTube, Vimeo, or direct video file URL (https). */
+  video_url?: string | null;
 }
 
 export interface ProductsResponse {
@@ -495,6 +497,8 @@ export interface StorefrontProduct {
   we_love_this_for?: string[];
   ingredients_allergen?: string | null;
   nutrition_facts?: NutritionFacts | null;
+  /** YouTube, Vimeo, or direct video file URL (https). */
+  video_url?: string | null;
 }
 
 /** Fetch a single product for the storefront (no auth). */

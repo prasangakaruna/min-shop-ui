@@ -14,6 +14,7 @@ import {
   setCartCount,
 } from '@/lib/api';
 import type { StorefrontProduct, ProductVariant } from '@/lib/api';
+import { parseProductVideoUrl } from '@/lib/productVideoEmbed';
 
 const LAST_CART_STORE_KEY = 'mint_cart_store_id';
 
@@ -58,6 +59,7 @@ function ProductDetailInner() {
 
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState(0);
+  const [galleryShowVideo, setGalleryShowVideo] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [product, setProduct] = useState<StorefrontProduct | null>(null);
   const [similarProducts, setSimilarProducts] = useState<StorefrontProduct[]>([]);
@@ -79,6 +81,13 @@ function ProductDetailInner() {
       .then((data) => {
         setProduct(data);
         setSelectedImage(0);
+        const urls =
+          data.image_urls?.length > 0
+            ? data.image_urls
+            : data.image_url
+              ? [data.image_url]
+              : [];
+        setGalleryShowVideo(urls.length === 0 && parseProductVideoUrl(data.video_url) != null);
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Product not found'))
       .finally(() => setLoading(false));
@@ -198,6 +207,8 @@ function ProductDetailInner() {
         storeQuery={storeQuery}
         selectedImage={selectedImage}
         setSelectedImage={setSelectedImage}
+        galleryShowVideo={galleryShowVideo}
+        setGalleryShowVideo={setGalleryShowVideo}
         quantity={quantity}
         setQuantity={setQuantity}
         optionSelection={optionSelection}
