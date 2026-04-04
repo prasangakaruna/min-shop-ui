@@ -14,6 +14,7 @@ import {
   type HeroSearchCategory,
   type ResolvedHeroSlide,
 } from '@/lib/storefrontHomeTheme';
+import { VolumePromoCard, type VolumePromo } from '@/components/CouponPromoSection';
 
 type HeroProps = {
   variant?: 'default' | 'video';
@@ -21,9 +22,18 @@ type HeroProps = {
   settings?: Record<string, unknown> | null;
   /** When set, hero loads the category dropdown from GET /storefront/browse-categories */
   storeSlug?: string | null;
+  /** Volume discount card (right column); data usually from {@link HomeHeroAndCouponPromo}. */
+  volumePromo?: VolumePromo | null;
+  volumePromoLoaded?: boolean;
 };
 
-export default function Hero({ variant = 'default', settings, storeSlug = null }: HeroProps) {
+export default function Hero({
+  variant = 'default',
+  settings,
+  storeSlug = null,
+  volumePromo = null,
+  volumePromoLoaded = false,
+}: HeroProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -212,6 +222,9 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
   const overlayTint = heroHexForColorInput(hero.heroImageOverlayColor, '#ffffff');
   const showHeroSearch = hero.heroSearchEnabled !== false;
 
+  const productsHref = !storeSlug ? '/products' : `/products?store=${encodeURIComponent(storeSlug)}`;
+  const showHeroVolumeCard = Boolean(storeSlug && volumePromoLoaded && volumePromo);
+
   return (
     <section
       className="relative h-[500px] md:h-[550px] overflow-hidden outline-none"
@@ -367,7 +380,12 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
       >{`Slide ${safeActiveIndex + 1} of ${slideCount}: ${activeSlide.headlineLine1} ${activeSlide.headlineAccent}`}</div>
 
       <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center pointer-events-auto">
-        <div className="max-w-2xl" style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}>
+        <div
+          className={`flex w-full flex-col gap-8 py-6 lg:flex-row lg:items-center lg:gap-10 ${
+            showHeroVolumeCard ? 'lg:justify-between' : ''
+          }`}
+        >
+        <div className="max-w-2xl shrink-0" style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}>
           <div key={safeActiveIndex} className="motion-reduce:animate-none">
             <div
               className="inline-flex items-center backdrop-blur-sm px-4 py-2 rounded-full text-sm font-semibold mb-4 animate-fade-in border shadow-md"
@@ -486,6 +504,13 @@ export default function Hero({ variant = 'default', settings, storeSlug = null }
               ))}
             </div>
           ) : null}
+        </div>
+
+        {showHeroVolumeCard && volumePromo ? (
+          <div className="w-full max-w-[min(100%,22rem)] shrink-0 self-center lg:self-auto lg:ml-auto">
+            <VolumePromoCard volume={volumePromo} productsHref={productsHref} />
+          </div>
+        ) : null}
         </div>
       </div>
     </section>

@@ -17,6 +17,7 @@ import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import AnnouncementBar from '@/components/AnnouncementBar';
 import CouponPromoSection from '@/components/CouponPromoSection';
+import HomeHeroAndCouponPromo from '@/components/HomeHeroAndCouponPromo';
 import PosterPromoSection from '@/components/PosterPromoSection';
 import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
@@ -65,13 +66,10 @@ function renderSection(
   switch (section.type) {
     case 'default_hero':
       return wrap(
-        <>
-          <Hero
-            settings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)}
-            storeSlug={storeSlug}
-          />
-          <CouponPromoSection storeSlug={storeSlug} />
-        </>
+        <HomeHeroAndCouponPromo
+          storeSlug={storeSlug}
+          heroSettings={resolveStorefrontHeroSettings(section.settings ?? null, proHeroImageUrl)}
+        />
       );
     case 'announcement_bar':
       return wrap(<AnnouncementBar text={typeof settings.text === 'string' ? settings.text : null} />);
@@ -173,8 +171,7 @@ function DefaultMarketplaceHome({
   const poster = posterPromo ?? mergePosterPromoSettings(null);
   return (
     <>
-      <Hero settings={heroSettings ?? undefined} storeSlug={storeSlug} />
-      <CouponPromoSection storeSlug={storeSlug} />
+      <HomeHeroAndCouponPromo storeSlug={storeSlug} heroSettings={heroSettings ?? undefined} />
       <div className="border-t border-gray-100" />
       <BrowseCategories />
       <CategoryProducts />

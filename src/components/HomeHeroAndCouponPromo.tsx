@@ -70,7 +70,7 @@ export default function HomeHeroAndCouponPromo({ storeSlug, heroSettings }: Prop
       />
       <CouponPromoSection
         storeSlug={storeSlug}
-        prefetched={{ coupons, volumePromo, loaded }}
+        prefetched={{ coupons, volume_promo: volumePromo, loaded }}
         volumePromoRenderedInHero
       />
     </>
