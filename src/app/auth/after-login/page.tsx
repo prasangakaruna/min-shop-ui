@@ -46,11 +46,21 @@ export default function AfterLoginPage() {
         const onStoreSubdomain = Boolean(storeSlugFromHost(hostname));
 
         const typeToRegister = getCookie(USER_TYPE_COOKIE);
-        if (typeToRegister === 'customer' || typeToRegister === 'store_admin' || typeToRegister === 'pro_admin') {
+        if (typeToRegister === 'customer') {
           try {
-            await apiRequest<Me>('/me/sync', { method: 'POST', token, body: { user_type: typeToRegister } });
+            await apiRequest<Me>('/me/sync', { method: 'POST', token, body: { user_type: 'customer' } });
           } catch {
             // sync may fail if already set; continue with GET /me
+          }
+          clearCookie(USER_TYPE_COOKIE);
+        } else if (typeToRegister === 'store_admin' || typeToRegister === 'pro_admin') {
+          // Never promote to seller/pro when registering from a store subdomain — shopper only.
+          if (!onStoreSubdomain) {
+            try {
+              await apiRequest<Me>('/me/sync', { method: 'POST', token, body: { user_type: typeToRegister } });
+            } catch {
+              // sync may fail if already set; continue with GET /me
+            }
           }
           clearCookie(USER_TYPE_COOKIE);
         }
@@ -67,6 +77,13 @@ export default function AfterLoginPage() {
           } catch {
             // fall through to choose-type if sync fails
           }
+        }
+
+        // Tenant storefront: always shopper UX on this host (stay on store origin, never admin).
+        if (onStoreSubdomain) {
+          setCookie(USER_TYPE_PERSIST, 'customer');
+          router.replace(customerPostAuthPath(hostname));
+          return;
         }
 
         // First time on marketplace apex: still pick role (customer vs seller vs pro).

@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import type { Me, UserType } from '@/lib/api';
-import { customerPostAuthPath } from '@/lib/storeSlug';
+import { customerPostAuthPath, storeSlugFromHost } from '@/lib/storeSlug';
 
 const USER_TYPE_PERSIST = 'USER_TYPE';
 
@@ -28,9 +28,25 @@ export default function ChooseTypePage() {
       router.replace('/login');
       return;
     }
-    // If user already has a type set, send to the right place (e.g. bookmarked this page)
-    apiRequest<Me>('/me', { token: session.access_token as string })
-      .then((me) => {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const onStoreSubdomain = Boolean(storeSlugFromHost(hostname));
+    const token = session.access_token as string;
+
+    (async () => {
+      try {
+        const me = await apiRequest<Me>('/me', { token });
+        if (onStoreSubdomain) {
+          if (me.user_type == null) {
+            try {
+              await apiRequest<Me>('/me/sync', { method: 'POST', token, body: { user_type: 'customer' } });
+            } catch {
+              // continue — after-login may have already synced
+            }
+          }
+          setCookie(USER_TYPE_PERSIST, 'customer');
+          router.replace(customerPostAuthPath(hostname));
+          return;
+        }
         if (me.user_type !== null) {
           setCookie(USER_TYPE_PERSIST, me.user_type);
           if (me.user_type === 'store_admin') {
@@ -38,16 +54,23 @@ export default function ChooseTypePage() {
           } else if (me.user_type === 'pro_admin') {
             router.replace('/admin/pro');
           } else {
-            router.replace(customerPostAuthPath(typeof window !== 'undefined' ? window.location.hostname : ''));
+            router.replace(customerPostAuthPath(hostname));
           }
         }
-      })
-      .catch(() => {});
+      } catch {
+        // ignore
+      }
+    })();
   }, [session, status, router]);
 
   const handleChoose = async (userType: UserType) => {
     if (!session?.access_token) {
       router.replace('/login');
+      return;
+    }
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (storeSlugFromHost(hostname) && userType !== 'customer') {
+      setError('On a store site you can only use a customer account for shopping.');
       return;
     }
     setLoading(userType);
@@ -64,7 +87,7 @@ export default function ChooseTypePage() {
       } else if (userType === 'pro_admin') {
         router.replace('/admin/pro');
       } else {
-        router.replace(customerPostAuthPath(typeof window !== 'undefined' ? window.location.hostname : ''));
+        router.replace(customerPostAuthPath(hostname));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save. Try again.');

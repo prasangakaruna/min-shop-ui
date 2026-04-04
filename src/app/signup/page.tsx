@@ -1,12 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { signIn } from 'next-auth/react';
 import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 
 const USER_TYPE_COOKIE = 'USER_TYPE_TO_REGISTER';
 const COOKIE_MAX_AGE = 600; // 10 minutes
@@ -17,8 +18,13 @@ function setRegisterTypeCookie(userType: 'customer' | 'store_admin') {
 }
 
 export default function SignUpPage() {
+  const [storefrontHost, setStorefrontHost] = useState(false);
+  useEffect(() => {
+    setStorefrontHost(Boolean(storeSlugFromHostname()));
+  }, []);
+
   const handleChoose = (userType: 'customer' | 'store_admin') => {
-    setRegisterTypeCookie(userType);
+    setRegisterTypeCookie(storefrontHost ? 'customer' : userType);
     signIn('keycloak', { callbackUrl: keycloakCallbackUrl('/auth/after-login'), redirect: true });
   };
 
@@ -42,10 +48,14 @@ export default function SignUpPage() {
               <span className="text-xl font-bold text-gray-800">Mint</span>
             </Link>
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Create account</h1>
-            <p className="text-gray-600">Choose how you want to use Mint. You’ll sign up with Keycloak (one account for both).</p>
+            <p className="text-gray-600">
+              {storefrontHost
+                ? 'Create a customer account to shop this store. You’ll sign up with Keycloak.'
+                : 'Choose how you want to use Mint. You’ll sign up with Keycloak (one account for both).'}
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 gap-6 ${storefrontHost ? '' : 'sm:grid-cols-2'}`}>
             <button
               type="button"
               onClick={() => handleChoose('customer')}
@@ -57,22 +67,28 @@ export default function SignUpPage() {
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">I’m a customer</h2>
-              <p className="text-sm text-gray-600">Shop on the marketplace, track orders, and manage your profile.</p>
+              <p className="text-sm text-gray-600">
+                {storefrontHost
+                  ? 'Shop this store, track orders, and manage your profile — all on this site.'
+                  : 'Shop on the marketplace, track orders, and manage your profile.'}
+              </p>
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleChoose('store_admin')}
-              className="bg-white rounded-xl border-2 border-gray-200 p-8 text-left hover:border-mint hover:bg-mint/5 transition-all shadow-sm"
-            >
-              <div className="w-12 h-12 rounded-lg bg-mint/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">I’m a store owner</h2>
-              <p className="text-sm text-gray-600">Sell products, manage orders, and run your store (admin).</p>
-            </button>
+            {!storefrontHost ? (
+              <button
+                type="button"
+                onClick={() => handleChoose('store_admin')}
+                className="bg-white rounded-xl border-2 border-gray-200 p-8 text-left hover:border-mint hover:bg-mint/5 transition-all shadow-sm"
+              >
+                <div className="w-12 h-12 rounded-lg bg-mint/10 flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">I’m a store owner</h2>
+                <p className="text-sm text-gray-600">Sell products, manage orders, and run your store (admin).</p>
+              </button>
+            ) : null}
           </div>
 
           <p className="mt-6 text-center text-sm text-gray-500">

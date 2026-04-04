@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { storeSlugFromHostname } from '@/lib/storeSlug';
 
 const USER_TYPE_COOKIE = 'USER_TYPE';
 
@@ -37,12 +38,13 @@ export default function CustomerDashboardPage() {
       router.replace('/login');
       return;
     }
+    const onTenantStore = Boolean(storeSlugFromHostname());
     const userType = getCookie(USER_TYPE_COOKIE);
-    if (userType === 'store_admin') {
+    if (!onTenantStore && userType === 'store_admin') {
       router.replace('/admin');
       return;
     }
-    if (userType === 'pro_admin') {
+    if (!onTenantStore && userType === 'pro_admin') {
       router.replace('/admin/pro');
       return;
     }

@@ -15,7 +15,7 @@ import {
   type StorefrontProduct,
 } from '@/lib/api';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
-import { storeSlugFromHostname } from '@/lib/storeSlug';
+import { storeSlugFromHost, storeSlugFromHostname } from '@/lib/storeSlug';
 import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
 
 const USER_TYPE_COOKIE = 'USER_TYPE';
@@ -163,9 +163,11 @@ function HeaderCore({
   };
 
   const handleAccountClick = () => {
+    const onTenantHost =
+      typeof window !== 'undefined' && Boolean(storeSlugFromHost(window.location.hostname));
     const userType = getCookie(USER_TYPE_COOKIE);
     setUserMenuOpen(false);
-    if (userType === 'store_admin') {
+    if (!onTenantHost && userType === 'store_admin') {
       router.push('/admin/account');
     } else {
       router.push('/dashboard');
