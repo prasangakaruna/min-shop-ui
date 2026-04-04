@@ -1,231 +1,278 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import Image from 'next/image';
+import MintShopLoader from '@/components/MintShopLoader';
+import { getMyOrders, getImageDisplayUrl, type MyOrderListItem } from '@/lib/api';
+import {
+  ORDER_FILTER_TABS,
+  type OrderFilterTab,
+  customerOrderStatusPresentation,
+  formatOrderDate,
+  formatMoneyAmount,
+} from '@/lib/customerOrderUi';
+
+const PER_PAGE = 10;
+
+function LineThumb({ src, alt }: { src: string; alt: string }) {
+  const display = getImageDisplayUrl(src);
+  if (!display) {
+    return (
+      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-100 text-xs text-gray-400">
+        No image
+      </div>
+    );
+  }
+  return (
+    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+      {/* API product URLs vary by environment; avoid next/image remotePatterns drift */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={display} alt={alt} className="h-full w-full object-cover" />
+    </div>
+  );
+}
 
 export default function OrdersPage() {
-  const [filter, setFilter] = useState('all');
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [filter, setFilter] = useState<OrderFilterTab>('all');
+  const [page, setPage] = useState(1);
+  const [orders, setOrders] = useState<MyOrderListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const orders = [
-    {
-      id: 'ORD-2024-001234',
-      date: 'March 15, 2024',
-      status: 'Delivered',
-      statusColor: 'bg-green-100 text-green-800',
-      total: '$299.00',
-      items: [
-        {
-          id: '1',
-          image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
-          name: 'Pro Wireless ANC Headphones',
-          quantity: 1,
-          price: '$299.00',
-        },
-      ],
-    },
-    {
-      id: 'ORD-2024-001189',
-      date: 'March 10, 2024',
-      status: 'Shipped',
-      statusColor: 'bg-blue-100 text-blue-800',
-      total: '$458.98',
-      items: [
-        {
-          id: '2',
-          image: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?w=800&q=80',
-          name: 'Bluetooth Portable Speaker',
-          quantity: 2,
-          price: '$79.99',
-        },
-        {
-          id: '3',
-          image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=800&q=80',
-          name: 'Wireless Charging Pad',
-          quantity: 1,
-          price: '$39.99',
-        },
-      ],
-    },
-    {
-      id: 'ORD-2024-001045',
-      date: 'March 5, 2024',
-      status: 'Processing',
-      statusColor: 'bg-yellow-100 text-yellow-800',
-      total: '$89.00',
-      items: [
-        {
-          id: '4',
-          image: 'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&q=80',
-          name: 'Aura Smart Voice Assistant',
-          quantity: 1,
-          price: '$89.00',
-        },
-      ],
-    },
-    {
-      id: 'ORD-2024-000892',
-      date: 'February 28, 2024',
-      status: 'Delivered',
-      statusColor: 'bg-green-100 text-green-800',
-      total: '$159.00',
-      items: [
-        {
-          id: '5',
-          image: 'https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=800&q=80',
-          name: 'Tactile RGB Gaming Keyboard',
-          quantity: 1,
-          price: '$159.00',
-        },
-      ],
-    },
-    {
-      id: 'ORD-2024-000756',
-      date: 'February 20, 2024',
-      status: 'Cancelled',
-      statusColor: 'bg-red-100 text-red-800',
-      total: '$549.00',
-      items: [
-        {
-          id: '6',
-          image: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=800&q=80',
-          name: '34" Curved UltraWide Monitor',
-          quantity: 1,
-          price: '$549.00',
-        },
-      ],
-    },
-  ];
+  const token = session?.access_token as string | undefined;
 
-  const filteredOrders = filter === 'all' 
-    ? orders 
-    : orders.filter(order => order.status.toLowerCase() === filter.toLowerCase());
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getMyOrders({
+        token,
+        status: filter,
+        page,
+        perPage: PER_PAGE,
+      });
+      setOrders(res.data ?? []);
+      setTotal(res.total ?? 0);
+      setLastPage(Math.max(1, res.last_page ?? 1));
+    } catch (e) {
+      setOrders([]);
+      setError(e instanceof Error ? e.message : 'Could not load orders.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token, filter, page]);
+
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user) {
+      router.replace('/login?callbackUrl=' + encodeURIComponent('/profile/orders'));
+      return;
+    }
+    void load();
+  }, [session, status, router, load]);
+
+  useEffect(() => {
+    setPage(1);
+    setOrders([]);
+  }, [filter]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const s = new URLSearchParams(window.location.search).get('status');
+    if (s && ORDER_FILTER_TABS.some((t) => t.id === s)) {
+      setFilter(s as OrderFilterTab);
+    }
+  }, []);
+
+  if (status === 'loading' || (status === 'authenticated' && loading && orders.length === 0 && !error)) {
+    return <MintShopLoader label="Loading your orders…" />;
+  }
+
+  if (!session?.user) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumbs */}
-        <nav className="mb-6">
-          <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><Link href="/" className="hover:text-mint">Home</Link></li>
-            <li>/</li>
-            <li><Link href="/profile" className="hover:text-mint">Profile</Link></li>
-            <li>/</li>
-            <li className="text-gray-800">My Orders</li>
+
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <nav className="mb-6 text-sm text-gray-600">
+          <ol className="flex flex-wrap items-center gap-2">
+            <li>
+              <Link href="/dashboard" className="transition-colors hover:text-mint-dark">
+                Dashboard
+              </Link>
+            </li>
+            <li className="text-gray-300" aria-hidden>
+              /
+            </li>
+            <li className="font-medium text-gray-900">My orders</li>
           </ol>
         </nav>
 
-        {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">My Orders</h1>
-          <p className="text-gray-600">View and manage your order history</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">My orders</h1>
+          <p className="mt-2 text-gray-600">Everything you&apos;ve purchased across Mint stores, with live status from the seller.</p>
         </div>
 
-        {/* Filter Tabs */}
         <div className="mb-6 flex flex-wrap gap-2">
-          {['all', 'delivered', 'shipped', 'processing', 'cancelled'].map((status) => (
+          {ORDER_FILTER_TABS.map((tab) => (
             <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                filter === status
-                  ? 'bg-mint text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              key={tab.id}
+              type="button"
+              onClick={() => setFilter(tab.id)}
+              className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                filter === tab.id
+                  ? 'bg-mint text-white shadow-md'
+                  : 'border border-gray-200 bg-white text-gray-700 hover:border-mint/30 hover:bg-gray-50'
               }`}
             >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Orders List */}
-        <div className="space-y-6">
-          {filteredOrders.length > 0 ? (
-            filteredOrders.map((order) => (
-              <div key={order.id} className="bg-white rounded-lg shadow-md p-6">
-                {/* Order Header */}
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 pb-4 border-b border-gray-200">
-                  <div>
-                    <div className="flex items-center space-x-4 mb-2">
-                      <h3 className="text-lg font-bold text-gray-800">Order #{order.id}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${order.statusColor}`}>
-                        {order.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600">Placed on {order.date}</p>
-                  </div>
-                  <div className="mt-4 md:mt-0 text-right">
-                    <p className="text-lg font-bold text-mint">{order.total}</p>
-                  </div>
-                </div>
+        {error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800">
+            <p className="font-medium">{error}</p>
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="mt-3 text-sm font-semibold text-red-900 underline"
+            >
+              Try again
+            </button>
+          </div>
+        ) : null}
 
-                {/* Order Items */}
-                <div className="space-y-4 mb-4">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex items-center space-x-4">
-                      <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-800">{item.name}</h4>
-                        <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-800">{item.price}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        {!error && loading && orders.length > 0 ? (
+          <p className="mb-4 text-center text-sm font-medium text-mint-dark">Updating list…</p>
+        ) : null}
 
-                {/* Order Actions */}
-                <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
-                  <Link
-                    href={`/order/${order.id}`}
-                    className="px-4 py-2 bg-mint text-white rounded-lg font-medium hover:bg-mint-dark transition-colors"
-                  >
-                    View Details
-                  </Link>
-                  {order.status === 'Delivered' && (
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                      Reorder
-                    </button>
-                  )}
-                  {order.status === 'Processing' && (
-                    <button className="px-4 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors">
-                      Cancel Order
-                    </button>
-                  )}
-                  <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                    Download Invoice
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="bg-white rounded-lg shadow-md p-12 text-center">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        {!error && !loading && orders.length === 0 ? (
+          <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-mint/10">
+              <svg className="h-8 w-8 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.75}
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                />
               </svg>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">No orders found</h3>
-              <p className="text-gray-600 mb-6">You don&apos;t have any orders in this category yet.</p>
-              <Link
-                href="/products"
-                className="inline-block px-6 py-3 bg-mint text-white rounded-lg font-medium hover:bg-mint-dark transition-colors"
-              >
-                Start Shopping
-              </Link>
             </div>
-          )}
-        </div>
+            <h2 className="text-xl font-bold text-gray-900">No orders in this view</h2>
+            <p className="mx-auto mt-2 max-w-md text-gray-600">
+              {filter === 'all'
+                ? 'When you check out, your orders will show up here with tracking-friendly details.'
+                : 'Try another filter or place a new order.'}
+            </p>
+            <Link
+              href="/products"
+              className="mt-6 inline-flex items-center justify-center rounded-xl bg-mint px-6 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-mint-dark"
+            >
+              Browse products
+            </Link>
+          </div>
+        ) : null}
+
+        {!error && !loading && orders.length > 0 ? (
+          <div className="space-y-6">
+            {orders.map((order) => {
+              const { label, chipClass } = customerOrderStatusPresentation(order);
+              const storeLabel = order.store?.name ?? `Store #${order.store_id}`;
+              return (
+                <article
+                  key={order.id}
+                  className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:border-mint/20 hover:shadow-md"
+                >
+                  <div className="flex flex-col gap-4 border-b border-gray-100 bg-gray-50/80 px-6 py-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h2 className="text-lg font-bold text-gray-900">Order {order.number}</h2>
+                        <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${chipClass}`}>{label}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Placed {formatOrderDate(order.created_at)} · {storeLabel}
+                      </p>
+                    </div>
+                    <div className="text-left md:text-right">
+                      <p className="text-sm text-gray-500">Total</p>
+                      <p className="text-xl font-bold text-mint-dark">{formatMoneyAmount(order.total)}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 px-6 py-5">
+                    {(order.line_items ?? []).slice(0, 4).map((item) => (
+                      <div key={item.id} className="flex gap-4">
+                        <LineThumb src={item.image_url ?? ''} alt={item.title} />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-gray-900">{item.title}</p>
+                          <p className="text-sm text-gray-600">
+                            Qty {item.quantity} · {formatMoneyAmount(item.price)} each
+                          </p>
+                        </div>
+                        <p className="shrink-0 font-semibold text-gray-900">{formatMoneyAmount(item.total)}</p>
+                      </div>
+                    ))}
+                    {(order.line_items?.length ?? 0) > 4 ? (
+                      <p className="text-sm text-gray-500">+{order.line_items!.length - 4} more line items — see details.</p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 border-t border-gray-100 bg-white px-6 py-4">
+                    <Link
+                      href={`/order/${order.id}`}
+                      className="inline-flex items-center justify-center rounded-xl bg-mint px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-mint-dark"
+                    >
+                      View details
+                    </Link>
+                    <Link
+                      href="/profile/track-order"
+                      className="inline-flex items-center justify-center rounded-xl border-2 border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-800 transition hover:border-mint/40"
+                    >
+                      Track shipment
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {!error && !loading && lastPage > 1 ? (
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-600">
+              Page {page} of {lastPage} ({total} orders)
+            </span>
+            <button
+              type="button"
+              disabled={page >= lastPage}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
       </main>
 
       <Footer />

@@ -188,13 +188,61 @@ export async function uploadContentLibraryFile(
 // Response types matching API (see routes/api.php and docs)
 export type UserType = 'customer' | 'store_admin' | 'pro_admin';
 
+export type UserPreferences = {
+  locale: string;
+  currency: string;
+  notifications: {
+    email_orders: boolean;
+    email_marketing: boolean;
+    sms_orders: boolean;
+  };
+  privacy: {
+    product_recommendations: boolean;
+    share_anonymous_usage: boolean;
+  };
+};
+
+export type PatchMyPreferencesBody = {
+  locale?: string;
+  currency?: string;
+  notifications?: Partial<UserPreferences['notifications']>;
+  privacy?: Partial<UserPreferences['privacy']>;
+};
+
 export interface Me {
   id: number;
-  keycloak_id: string;
+  keycloak_id: string | null;
   name: string;
   email: string;
   /** Set only after user has chosen account type (first time); null = must show type selection */
   user_type: UserType | null;
+  preferences: UserPreferences;
+  password_managed_by: 'keycloak' | 'local';
+  /** Keycloak account console when issuer is configured and user is linked */
+  keycloak_account_url: string | null;
+}
+
+export async function getMe(token: string): Promise<Me> {
+  return apiRequest<Me>('/me', { token });
+}
+
+export async function patchMe(options: { token: string; name: string }): Promise<Me> {
+  return apiRequest<Me>('/me', {
+    method: 'PATCH',
+    token: options.token,
+    body: { name: options.name.trim() },
+  });
+}
+
+export async function patchMyPreferences(options: {
+  token: string;
+  body: PatchMyPreferencesBody;
+}): Promise<Me> {
+  return apiRequest<Me>('/me/preferences', {
+    method: 'PATCH',
+    token: options.token,
+    body: options.body,
+  });
 }
 
 /** POST /me/register-store-customer — shopper linked to a tenant store (admin Customers list). */
@@ -219,6 +267,140 @@ export async function registerMeAsStoreCustomer(options: {
     token: options.token,
     body: { store_slug: options.storeSlug.trim() },
   });
+}
+
+export type MyOrderLineItem = {
+  id: number;
+  title: string;
+  quantity: number;
+  price: string;
+  total: string;
+  image_url: string | null;
+};
+
+export type MyOrderStore = { id: number; name: string; slug: string } | null;
+
+export type MyOrderListItem = {
+  id: number;
+  store_id: number;
+  number: string;
+  financial_status: string;
+  fulfillment_status: string;
+  total: string;
+  created_at: string | null;
+  line_items: MyOrderLineItem[];
+  store: MyOrderStore;
+};
+
+export type MyOrdersResponse = {
+  data: MyOrderListItem[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
+export type MyOrderDetail = MyOrderListItem & {
+  subtotal: string;
+  shipping_address: Record<string, unknown> | null;
+  billing_address: Record<string, unknown> | null;
+  tax_lines: unknown[];
+};
+
+export async function getMyOrders(options: {
+  token: string;
+  status?: 'all' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  page?: number;
+  perPage?: number;
+}): Promise<MyOrdersResponse> {
+  const { token, status, page, perPage } = options;
+  return apiRequest<MyOrdersResponse>('/me/orders', {
+    token,
+    query: {
+      ...(status && status !== 'all' ? { status } : {}),
+      ...(page != null && page > 1 ? { page } : {}),
+      ...(perPage != null ? { per_page: perPage } : {}),
+    },
+  });
+}
+
+export async function getMyOrder(options: { token: string; orderId: number }): Promise<MyOrderDetail> {
+  return apiRequest<MyOrderDetail>(`/me/orders/${options.orderId}`, { token: options.token });
+}
+
+export type MyOrdersSummary = {
+  total: number;
+  processing: number;
+  shipped: number;
+  delivered: number;
+  cancelled: number;
+};
+
+export async function getMyOrdersSummary(token: string): Promise<MyOrdersSummary> {
+  return apiRequest<MyOrdersSummary>('/me/orders/summary', { token });
+}
+
+export type MyAddress = {
+  id: number;
+  customer_id: number;
+  store_id: number | null;
+  store: { id: number; name: string; slug: string } | null;
+  first_name: string | null;
+  last_name: string | null;
+  company: string | null;
+  address1: string | null;
+  address2: string | null;
+  city: string | null;
+  province: string | null;
+  country: string | null;
+  zip: string | null;
+  phone: string | null;
+  is_default: boolean;
+};
+
+export async function getMyAddresses(token: string): Promise<{ data: MyAddress[] }> {
+  return apiRequest<{ data: MyAddress[] }>('/me/addresses', { token });
+}
+
+export type CreateMyAddressBody = {
+  store_slug: string;
+  first_name: string;
+  last_name: string;
+  company?: string | null;
+  address1: string;
+  address2?: string | null;
+  city: string;
+  province: string;
+  zip: string;
+  country: string;
+  phone?: string | null;
+  is_default?: boolean;
+};
+
+export async function createMyAddress(token: string, body: CreateMyAddressBody): Promise<MyAddress> {
+  return apiRequest<MyAddress>('/me/addresses', { method: 'POST', token, body });
+}
+
+export type UpdateMyAddressBody = Partial<{
+  first_name: string;
+  last_name: string;
+  company: string | null;
+  address1: string;
+  address2: string | null;
+  city: string;
+  province: string;
+  zip: string;
+  country: string;
+  phone: string | null;
+  is_default: boolean;
+}>;
+
+export async function updateMyAddress(token: string, id: number, body: UpdateMyAddressBody): Promise<MyAddress> {
+  return apiRequest<MyAddress>(`/me/addresses/${id}`, { method: 'PATCH', token, body });
+}
+
+export async function deleteMyAddress(token: string, id: number): Promise<void> {
+  await apiRequest<unknown>(`/me/addresses/${id}`, { method: 'DELETE', token });
 }
 
 /** Pro admin home (`/admin/pro`) layout and copy — stored per store; only applies when that store is selected in the admin header. */

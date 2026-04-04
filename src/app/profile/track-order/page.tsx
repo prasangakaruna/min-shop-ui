@@ -105,7 +105,7 @@ export default function TrackOrderPage() {
         {/* Breadcrumbs */}
         <nav className="mb-8 animate-fade-in">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><Link href="/" className="hover:text-mint transition-colors">Home</Link></li>
+            <li><Link href="/dashboard" className="hover:text-mint transition-colors">Dashboard</Link></li>
             <li>/</li>
             <li><Link href="/profile" className="hover:text-mint transition-colors">Profile</Link></li>
             <li>/</li>

@@ -72,7 +72,7 @@ export default function WishlistPage() {
         {/* Breadcrumbs */}
         <nav className="mb-6">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><Link href="/" className="hover:text-mint">Home</Link></li>
+            <li><Link href="/dashboard" className="hover:text-mint">Dashboard</Link></li>
             <li>/</li>
             <li><Link href="/profile" className="hover:text-mint">Profile</Link></li>
             <li>/</li>

@@ -1,354 +1,282 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import MintShopLoader from '@/components/MintShopLoader';
+import { getMe, type Me, type UserType } from '@/lib/api';
+import { fetchActiveSubscription, getPlanDefinition, type ActiveSubscription } from '@/lib/subscription';
 
-interface PaymentMethod {
-  id: string;
-  type: 'card' | 'paypal';
-  cardNumber?: string;
-  cardHolder?: string;
-  expiryDate?: string;
-  isDefault: boolean;
-  paypalEmail?: string;
+function formatBrand(brand: string | null | undefined): string {
+  if (!brand) return 'Card';
+  const b = brand.trim().toLowerCase();
+  if (b === 'amex' || b === 'american express') return 'American Express';
+  return brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+}
+
+function subscriptionStatusLabel(s: ActiveSubscription): string {
+  switch (s.status) {
+    case 'active':
+      return 'Active';
+    case 'past_due':
+      return 'Past due';
+    case 'canceled':
+      return 'Canceled';
+    case 'incomplete':
+      return 'Incomplete';
+    default:
+      return s.status;
+  }
+}
+
+function isMerchantish(userType: UserType | null | undefined): boolean {
+  return userType === 'store_admin' || userType === 'pro_admin';
 }
 
 export default function PaymentMethodsPage() {
-  const [methods, setMethods] = useState<PaymentMethod[]>([
-    {
-      id: '1',
-      type: 'card',
-      cardNumber: '4242',
-      cardHolder: 'John Doe',
-      expiryDate: '12/25',
-      isDefault: true,
-    },
-    {
-      id: '2',
-      type: 'card',
-      cardNumber: '8888',
-      cardHolder: 'John Doe',
-      expiryDate: '06/26',
-      isDefault: false,
-    },
-    {
-      id: '3',
-      type: 'paypal',
-      paypalEmail: 'john.doe@example.com',
-      isDefault: false,
-    },
-  ]);
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const token = session?.access_token as string | undefined;
 
-  const [isAdding, setIsAdding] = useState(false);
-  const [formType, setFormType] = useState<'card' | 'paypal'>('card');
-  const [formData, setFormData] = useState({
-    cardNumber: '',
-    cardHolder: '',
-    expiryDate: '',
-    cvv: '',
-    paypalEmail: '',
-  });
+  const [me, setMe] = useState<Me | null>(null);
+  const [subscription, setSubscription] = useState<ActiveSubscription | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const meRes = await getMe(token);
+      setMe(meRes);
+      try {
+        const sub = await fetchActiveSubscription({ token, ownerType: 'user' });
+        setSubscription(sub);
+      } catch {
+        setSubscription(null);
+      }
+    } catch (e) {
+      setMe(null);
+      setSubscription(null);
+      setLoadError(e instanceof Error ? e.message : 'Could not load account.');
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newMethod: PaymentMethod = formType === 'card'
-      ? {
-          id: Date.now().toString(),
-          type: 'card',
-          cardNumber: formData.cardNumber.slice(-4),
-          cardHolder: formData.cardHolder,
-          expiryDate: formData.expiryDate,
-          isDefault: methods.length === 0,
-        }
-      : {
-          id: Date.now().toString(),
-          type: 'paypal',
-          paypalEmail: formData.paypalEmail,
-          isDefault: methods.length === 0,
-        };
-    setMethods([...methods, newMethod]);
-    setIsAdding(false);
-    setFormData({
-      cardNumber: '',
-      cardHolder: '',
-      expiryDate: '',
-      cvv: '',
-      paypalEmail: '',
-    });
-  };
+  useEffect(() => {
+    if (status === 'loading') return;
+    if (!session?.user) {
+      router.replace('/login?callbackUrl=' + encodeURIComponent('/profile/payment-methods'));
+      return;
+    }
+    void load();
+  }, [session, status, router, load]);
 
-  const handleDelete = (id: string) => {
-    setMethods(methods.filter(method => method.id !== id));
-  };
+  if (status === 'loading' || (status === 'authenticated' && loading && !me && !loadError)) {
+    return <MintShopLoader label="Loading payment settings…" />;
+  }
 
-  const setDefault = (id: string) => {
-    setMethods(methods.map(method => ({
-      ...method,
-      isDefault: method.id === id,
-    })));
-  };
+  if (!session?.user) {
+    return null;
+  }
 
-  const getCardIcon = (cardNumber: string) => {
-    if (cardNumber.startsWith('4')) return 'Visa';
-    if (cardNumber.startsWith('5')) return 'Mastercard';
-    if (cardNumber.startsWith('3')) return 'Amex';
-    return 'Card';
-  };
+  if (loadError && !me) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+        <Header />
+        <main className="mx-auto max-w-lg px-4 py-16 text-center">
+          <p className="text-gray-700">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-6 rounded-xl bg-mint px-6 py-3 font-semibold text-white shadow-md transition hover:bg-mint-dark"
+          >
+            Try again
+          </button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const planName = subscription ? getPlanDefinition(subscription.plan_code).name : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Breadcrumbs */}
-        <nav className="mb-6">
-          <ol className="flex items-center space-x-2 text-sm text-gray-600">
-            <li><Link href="/" className="hover:text-mint">Home</Link></li>
-            <li>/</li>
-            <li><Link href="/profile" className="hover:text-mint">Profile</Link></li>
-            <li>/</li>
-            <li className="text-gray-800">Payment Methods</li>
+
+      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+        <nav className="mb-6 text-sm text-gray-600">
+          <ol className="flex flex-wrap items-center gap-2">
+            <li>
+              <Link href="/dashboard" className="transition-colors hover:text-mint-dark">
+                Dashboard
+              </Link>
+            </li>
+            <li className="text-gray-300" aria-hidden>
+              /
+            </li>
+            <li>
+              <Link href="/profile" className="transition-colors hover:text-mint-dark">
+                Profile
+              </Link>
+            </li>
+            <li className="text-gray-300" aria-hidden>
+              /
+            </li>
+            <li className="font-medium text-gray-900">Payment methods</li>
           </ol>
         </nav>
 
-        {/* Page Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">Payment Methods</h1>
-            <p className="text-gray-600">Manage your payment options</p>
-          </div>
-          {!isAdding && (
-            <button
-              onClick={() => setIsAdding(true)}
-              className="px-4 py-2 bg-mint text-white rounded-lg font-medium hover:bg-mint-dark transition-colors"
-            >
-              + Add Payment Method
-            </button>
-          )}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">Payment methods</h1>
+          <p className="mt-2 text-gray-600">
+            How you pay on Mint shops versus billing for your Mint platform account.
+          </p>
         </div>
 
-        {/* Add Payment Method Form */}
-        {isAdding && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Add Payment Method</h2>
-            
-            {/* Payment Type Selection */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <button
-                onClick={() => setFormType('card')}
-                className={`p-4 border-2 rounded-lg transition-colors ${
-                  formType === 'card'
-                    ? 'border-mint bg-mint/10'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  <span className="font-medium">Credit Card</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setFormType('paypal')}
-                className={`p-4 border-2 rounded-lg transition-colors ${
-                  formType === 'paypal'
-                    ? 'border-mint bg-mint/10'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.533zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.032.15-.054.22-.367 1.533-1.678 3.05-4.06 3.05h-2.19c-.26 0-.51.19-.578.45l-.97 6.52h3.346c.26 0 .51-.19.578-.45l.97-6.52c.068-.26-.05-.45-.31-.45h-1.09c2.282 0 3.693-1.515 4.06-3.05.022-.07.04-.144.054-.22a3.349 3.349 0 0 0-.608.54z"/>
-                  </svg>
-                  <span className="font-medium">PayPal</span>
-                </div>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {formType === 'card' ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
-                    <input
-                      type="text"
-                      name="cardNumber"
-                      value={formData.cardNumber}
-                      onChange={handleChange}
-                      required
-                      maxLength={19}
-                      placeholder="1234 5678 9012 3456"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Cardholder Name</label>
-                    <input
-                      type="text"
-                      name="cardHolder"
-                      value={formData.cardHolder}
-                      onChange={handleChange}
-                      required
-                      placeholder="John Doe"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint focus:border-transparent"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
-                      <input
-                        type="text"
-                        name="expiryDate"
-                        value={formData.expiryDate}
-                        onChange={handleChange}
-                        required
-                        placeholder="MM/YY"
-                        maxLength={5}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">CVV</label>
-                      <input
-                        type="text"
-                        name="cvv"
-                        value={formData.cvv}
-                        onChange={handleChange}
-                        required
-                        placeholder="123"
-                        maxLength={4}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">PayPal Email</label>
-                  <input
-                    type="email"
-                    name="paypalEmail"
-                    value={formData.paypalEmail}
-                    onChange={handleChange}
-                    required
-                    placeholder="your.email@example.com"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mint focus:border-transparent"
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:p-8">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-mint/10">
+                <svg className="h-6 w-6 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
                   />
-                </div>
-              )}
-              <div className="flex space-x-3">
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-mint text-white rounded-lg font-medium hover:bg-mint-dark transition-colors"
-                >
-                  Add Payment Method
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAdding(false);
-                    setFormData({
-                      cardNumber: '',
-                      cardHolder: '',
-                      expiryDate: '',
-                      cvv: '',
-                      paypalEmail: '',
-                    });
-                  }}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
+                </svg>
               </div>
-            </form>
-          </div>
-        )}
-
-        {/* Payment Methods List */}
-        <div className="space-y-4">
-          {methods.map((method) => (
-            <div key={method.id} className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4">
-                  <div className="w-12 h-12 bg-mint/10 rounded-lg flex items-center justify-center">
-                    {method.type === 'card' ? (
-                      <svg className="w-6 h-6 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.533zm14.146-14.42a3.35 3.35 0 0 0-.607-.541c-.013.076-.032.15-.054.22-.367 1.533-1.678 3.05-4.06 3.05h-2.19c-.26 0-.51.19-.578.45l-.97 6.52h3.346c.26 0 .51-.19.578-.45l.97-6.52c.068-.26-.05-.45-.31-.45h-1.09c2.282 0 3.693-1.515 4.06-3.05.022-.07.04-.144.054-.22a3.349 3.349 0 0 0-.608.54z"/>
-                      </svg>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h3 className="font-bold text-gray-800">
-                        {method.type === 'card' 
-                          ? `${getCardIcon(method.cardNumber || '')} •••• ${method.cardNumber}`
-                          : `PayPal • ${method.paypalEmail}`
-                        }
-                      </h3>
-                      {method.isDefault && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                          Default
-                        </span>
-                      )}
-                    </div>
-                    {method.type === 'card' && (
-                      <p className="text-sm text-gray-600">
-                        {method.cardHolder} • Expires {method.expiryDate}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  {!method.isDefault && (
-                    <button
-                      onClick={() => setDefault(method.id)}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors text-sm"
-                    >
-                      Set as Default
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(method.id)}
-                    className="px-4 py-2 border border-red-300 text-red-700 rounded-lg font-medium hover:bg-red-50 transition-colors text-sm"
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Store purchases</h2>
+                <p className="mt-2 text-gray-600">
+                  We do not keep a wallet of saved cards for checkout yet. Each order is paid when you complete checkout on the
+                  store. In the current demo, payments are simulated so your order can be created—when a real gateway is
+                  connected, card data stays with the payment provider, not in this form.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Link
+                    href="/"
+                    className="inline-flex items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:border-mint/40 hover:bg-gray-50"
                   >
-                    Remove
-                  </button>
+                    Continue shopping
+                  </Link>
+                  <Link
+                    href="/profile/orders"
+                    className="inline-flex items-center justify-center rounded-xl bg-mint px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-mint-dark"
+                  >
+                    Order history
+                  </Link>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
+          </section>
 
-        {methods.length === 0 && !isAdding && (
-          <div className="bg-white rounded-lg shadow-md p-12 text-center">
-            <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">No payment methods</h3>
-            <p className="text-gray-600 mb-6">Add a payment method to make checkout faster.</p>
-            <button
-              onClick={() => setIsAdding(true)}
-              className="inline-block px-6 py-3 bg-mint text-white rounded-lg font-medium hover:bg-mint-dark transition-colors"
-            >
-              Add Payment Method
-            </button>
-          </div>
-        )}
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:p-8">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-100">
+                <svg className="h-6 w-6 text-violet-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.75}
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl font-bold text-gray-900">Mint platform subscription</h2>
+                <p className="mt-2 text-gray-600">
+                  If you subscribe to Mint for your own stores, the card on file for that subscription is managed under Billing
+                  &amp; plan—not on this screen for shop checkout.
+                </p>
+
+                {subscription ? (
+                  <div className="mt-6 rounded-xl border-2 border-gray-100 bg-gray-50/80 p-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-gray-900">{planName} plan</span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          subscription.status === 'active'
+                            ? 'bg-green-100 text-green-800'
+                            : subscription.status === 'past_due'
+                              ? 'bg-amber-100 text-amber-900'
+                              : 'bg-gray-200 text-gray-800'
+                        }`}
+                      >
+                        {subscriptionStatusLabel(subscription)}
+                      </span>
+                    </div>
+                    {subscription.card_last4 ? (
+                      <p className="mt-3 text-gray-700">
+                        <span className="font-medium">{formatBrand(subscription.card_brand)}</span>
+                        <span className="text-gray-500"> ···· </span>
+                        <span className="font-mono tracking-wide">{subscription.card_last4}</span>
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-sm text-gray-600">No card details on file yet—add them when you choose a plan.</p>
+                    )}
+                    {subscription.next_billing_date ? (
+                      <p className="mt-2 text-sm text-gray-600">
+                        Next billing:{' '}
+                        {new Date(subscription.next_billing_date).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    ) : null}
+                    <Link
+                      href="/dashboard/billing/plan"
+                      className="mt-4 inline-flex items-center justify-center rounded-xl bg-mint px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-mint-dark"
+                    >
+                      Manage plan &amp; payment
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="mt-6 rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-5 text-gray-600">
+                    <p>No active Mint subscription on this account.</p>
+                    {isMerchantish(me?.user_type) ? (
+                      <Link
+                        href="/dashboard/billing/plan"
+                        className="mt-3 inline-block text-sm font-semibold text-mint hover:text-mint-dark"
+                      >
+                        View plans &amp; billing →
+                      </Link>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm md:p-8">
+            <h2 className="text-lg font-bold text-gray-900">More in your account</h2>
+            <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold text-mint">
+              <li>
+                <Link href="/profile" className="hover:text-mint-dark">
+                  Profile
+                </Link>
+              </li>
+              <li>
+                <Link href="/profile/addresses" className="hover:text-mint-dark">
+                  Addresses
+                </Link>
+              </li>
+              <li>
+                <Link href="/profile/orders" className="hover:text-mint-dark">
+                  Orders
+                </Link>
+              </li>
+            </ul>
+          </section>
+        </div>
       </main>
 
       <Footer />

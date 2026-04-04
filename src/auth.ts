@@ -36,6 +36,20 @@ function decodeJwtPayload(accessToken: string | undefined): Record<string, unkno
   }
 }
 
+/** Seconds since epoch when the access token expires (JWT `exp` claim), or from stored NextAuth field. */
+function accessTokenExpirySeconds(accessToken: string | undefined, storedExpiresAt?: number | null): number | undefined {
+  if (typeof storedExpiresAt === 'number' && storedExpiresAt > 0) {
+    // Guard: some stacks mistakenly store ms; JWT exp is always seconds.
+    if (storedExpiresAt > 1_000_000_000_000) {
+      return Math.floor(storedExpiresAt / 1000);
+    }
+    return storedExpiresAt;
+  }
+  if (!accessToken) return undefined;
+  const exp = decodeJwtPayload(accessToken).exp;
+  return typeof exp === 'number' && exp > 0 ? exp : undefined;
+}
+
 function hasSuperAdminRole(payload: Record<string, unknown>): boolean {
   const role = process.env.SUPER_ADMIN_ROLE ?? 'super_admin';
   const realmRoles = (payload.realm_access as { roles?: string[] } | undefined)?.roles ?? [];
@@ -320,6 +334,11 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
     if (refreshed.refresh_token) token.refresh_token = refreshed.refresh_token;
     if (typeof refreshed.expires_in === 'number') {
       token.access_token_expires = Math.floor(Date.now() / 1000) + refreshed.expires_in;
+    } else {
+      const fromJwt = accessTokenExpirySeconds(refreshed.access_token, null);
+      if (fromJwt) {
+        token.access_token_expires = fromJwt;
+      }
     }
     token.isSuperAdmin = hasSuperAdminRole(payload);
     return token;
@@ -364,17 +383,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account) {
         token.access_token = account.access_token;
         token.refresh_token = account.refresh_token;
-        token.access_token_expires = account.expires_at;
+        token.access_token_expires =
+          account.expires_at ??
+          accessTokenExpirySeconds(account.access_token ?? undefined, null);
         const payload = decodeJwtPayload(account.access_token);
         (token as JWT).isSuperAdmin = hasSuperAdminRole(payload);
         return token;
       }
-      const expiresAt = token.access_token_expires;
-      if (expiresAt && typeof expiresAt === 'number') {
+      const expiresAt = accessTokenExpirySeconds(token.access_token as string | undefined, token.access_token_expires);
+      if (expiresAt) {
+        token.access_token_expires = expiresAt;
+      }
+      if (expiresAt) {
         const now = Math.floor(Date.now() / 1000);
         // Refresh if token will expire in the next 60 seconds
         if (now > expiresAt - 60) {
           token = await refreshAccessToken(token as JWT);
+          const newExp = accessTokenExpirySeconds(
+            (token as JWT).access_token,
+            (token as JWT).access_token_expires
+          );
+          if (newExp) {
+            (token as JWT).access_token_expires = newExp;
+          }
         }
       }
       return token as JWT;
