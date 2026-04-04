@@ -60,7 +60,8 @@ function getContainRect(el: HTMLImageElement) {
 
 const ZOOM_FACTOR = 2.75;
 const LENS_FRAC = 0.38;
-const POPUP_SIZE = 400;
+/** Fixed hover-zoom pane (desktop); positioning clamps to the viewport */
+const POPUP_SIZE = 540;
 /** Pixels beyond the image box where the zoom popup still appears */
 const PROXIMITY_PAD = 72;
 
@@ -311,7 +312,53 @@ function LoveThisTag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProductRetailHighlightBlock({ product }: { product: StorefrontProduct }) {
+function AccordionChevron() {
+  return (
+    <svg
+      className="h-5 w-5 shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path
+        fillRule="evenodd"
+        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function AboutItemAccordion({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="group border-b border-gray-200 last:border-b-0 bg-white">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 pr-0.5 text-base text-gray-900 [&::-webkit-details-marker]:hidden">
+        <span>{title}</span>
+        <AccordionChevron />
+      </summary>
+      <div className="border-t border-gray-100 pb-5 pt-4 text-sm leading-relaxed text-gray-700">{children}</div>
+    </details>
+  );
+}
+
+function productRetailHighlightVisible(product: StorefrontProduct): boolean {
+  const love = (product.we_love_this_for ?? []).map((s) => s.trim()).filter(Boolean);
+  const allergen = product.ingredients_allergen?.trim() ?? '';
+  const nf = product.nutrition_facts;
+  const hasNutrition = nutritionFactsHasContent(nf ?? null);
+  const hasLove = love.length > 0;
+  const hasAllergen = allergen.length > 0;
+  return hasLove || hasAllergen || hasNutrition;
+}
+
+function ProductRetailHighlightBlock({
+  product,
+  className,
+}: {
+  product: StorefrontProduct;
+  /** e.g. mb-0 when nested inside accordion */
+  className?: string;
+}) {
   const love = (product.we_love_this_for ?? []).map((s) => s.trim()).filter(Boolean);
   const allergen = product.ingredients_allergen?.trim() ?? '';
   const ingredientsBody = product.ingredients?.trim() ?? '';
@@ -326,7 +373,7 @@ function ProductRetailHighlightBlock({ product }: { product: StorefrontProduct }
 
   return (
     <section
-      className="mb-10 rounded-2xl border border-stone-200 bg-[#faf8f5] p-6 shadow-sm md:p-8"
+      className={`mb-10 rounded-2xl border border-stone-200 bg-[#faf8f5] p-6 shadow-sm md:p-8 ${className ?? ''}`}
       aria-label="Product details"
     >
       <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:[grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
@@ -792,110 +839,114 @@ export default function StorefrontProductDetail({
           </div>
         </div>
 
-        {/* Key features + long-form (Walmart-style sections) */}
-        <div className="mt-14 border-t border-gray-200 pt-12">
-          <ProductRetailHighlightBlock product={product} />
-
-          {product.key_features && product.key_features.length > 0 ? (
-            <section className="mb-10">
-              <h2 className="text-lg font-bold text-gray-900">Key features</h2>
-              <ul className="mt-4 space-y-3">
-                {product.key_features.map((feature, index) => (
-                  <li key={index} className="flex gap-3 text-gray-700">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-600" aria-hidden />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {product.description ? (
-            <section className="mb-10">
-              <h2 className="text-lg font-bold text-gray-900">About this item</h2>
-              {isStoredDescriptionHtml(product.description) ? (
-                <div
-                  className="prose prose-gray prose-sm sm:prose-base mt-4 max-w-none text-gray-700 prose-headings:text-gray-900 prose-table:text-sm prose-th:border prose-th:border-gray-200 prose-td:border prose-td:border-gray-200 prose-img:rounded-lg"
-                  dangerouslySetInnerHTML={{ __html: product.description }}
-                />
-              ) : (
-                <div className="prose prose-gray mt-4 max-w-none text-gray-700 whitespace-pre-wrap">
-                  {product.description}
-                </div>
-              )}
-            </section>
-          ) : null}
-
-          <div className="space-y-3">
-            {product.ingredients &&
+        {(() => {
+          const hasKeyFeatures = (product.key_features?.length ?? 0) > 0;
+          const hasDescription = Boolean(product.description?.trim());
+          const retailVisible = productRetailHighlightVisible(product);
+          const showProductDetails = hasDescription || retailVisible;
+          const showSimpleIngredients =
+            Boolean(product.ingredients?.trim()) &&
             !(
               (product.we_love_this_for?.length ?? 0) > 0 ||
               (product.ingredients_allergen?.trim() ?? '') !== '' ||
-              nutritionFactsHasContent(product.nutrition_facts)
-            ) ? (
-              <details className="group rounded-xl border border-gray-200 bg-white open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
-                  <span>Ingredients</span>
-                  <span className="text-gray-400 transition group-open:rotate-180" aria-hidden>
-                    ▼
-                  </span>
-                </summary>
-                <div className="border-t border-gray-100 px-5 py-4 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
-                  {product.ingredients}
-                </div>
-              </details>
-            ) : null}
+              nutritionFactsHasContent(product.nutrition_facts ?? null)
+            );
+          const hasSpecs = (product.specifications?.length ?? 0) > 0;
+          const hasDirections = Boolean(product.directions?.trim());
+          const hasWarnings = Boolean(product.warnings?.trim());
 
-            {product.specifications && product.specifications.length > 0 ? (
-              <details className="group rounded-xl border border-gray-200 bg-white open:shadow-sm" open>
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
-                  <span>Specifications</span>
-                  <span className="text-gray-400 transition group-open:rotate-180" aria-hidden>
-                    ▼
-                  </span>
-                </summary>
-                <div className="border-t border-gray-100 px-5 py-2">
-                  <dl className="divide-y divide-gray-100">
-                    {product.specifications.map((row, i) => (
-                      <div key={i} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-3 sm:gap-4">
-                        <dt className="text-sm font-medium text-gray-500">{row.label}</dt>
-                        <dd className="text-sm text-gray-900 sm:col-span-2">{row.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              </details>
-            ) : null}
+          if (
+            !hasKeyFeatures &&
+            !showProductDetails &&
+            !showSimpleIngredients &&
+            !hasSpecs &&
+            !hasDirections &&
+            !hasWarnings
+          ) {
+            return null;
+          }
 
-            {product.directions ? (
-              <details className="group rounded-xl border border-gray-200 bg-white open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
-                  <span>Directions</span>
-                  <span className="text-gray-400 transition group-open:rotate-180" aria-hidden>
-                    ▼
-                  </span>
-                </summary>
-                <div className="border-t border-gray-100 px-5 py-4 text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">
-                  {product.directions}
-                </div>
-              </details>
-            ) : null}
+          return (
+            <div className="mt-14 border-t border-gray-200 pt-12">
+              <h2 id="about-this-item-heading" className="text-lg font-bold text-gray-900">
+                About this item
+              </h2>
+              <div
+                className="mt-3 border-t border-gray-200"
+                role="region"
+                aria-labelledby="about-this-item-heading"
+              >
+                {hasKeyFeatures ? (
+                  <AboutItemAccordion title="Key features">
+                    <ul className="space-y-3">
+                      {product.key_features!.map((feature, index) => (
+                        <li key={index} className="flex gap-3 text-gray-700">
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-600" aria-hidden />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </AboutItemAccordion>
+                ) : null}
 
-            {product.warnings ? (
-              <details className="group rounded-xl border border-amber-200 bg-amber-50/50 open:shadow-sm">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4 font-semibold text-amber-950 [&::-webkit-details-marker]:hidden">
-                  <span>Warnings</span>
-                  <span className="text-amber-700 transition group-open:rotate-180" aria-hidden>
-                    ▼
-                  </span>
-                </summary>
-                <div className="border-t border-amber-100 px-5 py-4 text-sm leading-relaxed text-amber-950 whitespace-pre-wrap">
-                  {product.warnings}
-                </div>
-              </details>
-            ) : null}
-          </div>
-        </div>
+                {showProductDetails ? (
+                  <AboutItemAccordion title="Product details">
+                    <div className="space-y-6">
+                      {hasDescription ? (
+                        isStoredDescriptionHtml(product.description!) ? (
+                          <div
+                            className="prose prose-gray prose-sm sm:prose-base max-w-none text-gray-700 prose-headings:text-gray-900 prose-table:text-sm prose-th:border prose-th:border-gray-200 prose-td:border prose-td:border-gray-200 prose-img:rounded-lg"
+                            dangerouslySetInnerHTML={{ __html: product.description! }}
+                          />
+                        ) : (
+                          <div className="prose prose-gray max-w-none whitespace-pre-wrap text-gray-700">
+                            {product.description}
+                          </div>
+                        )
+                      ) : null}
+                      {retailVisible ? (
+                        <ProductRetailHighlightBlock product={product} className="!mb-0" />
+                      ) : null}
+                    </div>
+                  </AboutItemAccordion>
+                ) : null}
+
+                {hasSpecs ? (
+                  <AboutItemAccordion title="Specifications">
+                    <dl className="divide-y divide-gray-100">
+                      {product.specifications!.map((row, i) => (
+                        <div key={i} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-3 sm:gap-4">
+                          <dt className="text-sm font-medium text-gray-500">{row.label}</dt>
+                          <dd className="text-sm text-gray-900 sm:col-span-2">{row.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </AboutItemAccordion>
+                ) : null}
+
+                {showSimpleIngredients ? (
+                  <AboutItemAccordion title="Ingredients">
+                    <div className="whitespace-pre-wrap">{product.ingredients}</div>
+                  </AboutItemAccordion>
+                ) : null}
+
+                {hasDirections ? (
+                  <AboutItemAccordion title="Directions">
+                    <div className="whitespace-pre-wrap">{product.directions}</div>
+                  </AboutItemAccordion>
+                ) : null}
+
+                {hasWarnings ? (
+                  <AboutItemAccordion title="Warnings">
+                    <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-amber-950 whitespace-pre-wrap">
+                      {product.warnings}
+                    </div>
+                  </AboutItemAccordion>
+                ) : null}
+              </div>
+            </div>
+          );
+        })()}
 
         {similarProducts.length > 0 ? (
           <section className="mt-16 border-t border-gray-200 pt-12">

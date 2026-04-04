@@ -1,21 +1,57 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest, getImageDisplayUrl, uploadProductImage, type StoreSummary } from '@/lib/api';
+import {
+  apiRequest,
+  getImageDisplayUrl,
+  uploadProductImage,
+  type ApiError,
+  type StoreSummary,
+} from '@/lib/api';
 import { PlanSelector } from '@/components/PlanSelector';
 import { AdminBillingSection } from '@/components/AdminBillingSection';
 import { AdminCustomerAccountsSection } from '@/components/AdminCustomerAccountsSection';
 import { AdminLocationsSection } from '@/components/AdminLocationsSection';
+import { getTimezoneOptions } from '@/lib/timezoneOptions';
+import {
+  currencyOptionValues,
+  getCurrencyOptions,
+  getRegionOptions,
+  normalizeStoredCurrency,
+  normalizeStoredRegion,
+  regionOptionValues,
+} from '@/lib/storeLocaleOptions';
 
 const DEFAULT_PLAN_PRICES: Record<string, number> = {
   basic: 9,
   standard: 29,
   premium: 99,
 };
+
+/** API expects strings; JSON/DB may return numbers for order id parts. */
+function orderIdSettingToFormString(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return String(value);
+}
+
+function formatApiUserMessage(e: unknown, fallback: string): string {
+  if (!(e instanceof Error)) return fallback;
+  const ae = e as Error & ApiError;
+  if (ae.errors && typeof ae.errors === 'object') {
+    const parts: string[] = [];
+    for (const msgs of Object.values(ae.errors)) {
+      if (Array.isArray(msgs)) parts.push(...msgs);
+    }
+    if (parts.length) return parts.join(' ');
+  }
+  return e.message || fallback;
+}
 
 function IconStore({ className }: { className?: string }) {
   return (
@@ -80,8 +116,8 @@ export default function AdminSettingsPage() {
     social_tiktok_url: '',
     contact_phone: '',
     contact_address: '',
-    currency_display: 'Sri Lankan Rupee (LKR Rs)',
-    backup_region: 'Sri Lanka',
+    currency_display: 'LKR',
+    backup_region: 'LK',
     unit_system: 'metric',
     default_weight_unit: 'kg',
     timezone: '',
@@ -91,6 +127,22 @@ export default function AdminSettingsPage() {
     order_auto_archive: true,
   });
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
+
+  const currencySelectOptions = useMemo(() => getCurrencyOptions(), []);
+  const regionSelectOptions = useMemo(() => getRegionOptions(), []);
+  const timezoneSelectOptions = useMemo(() => getTimezoneOptions(), []);
+  const currencyKnownIds = useMemo(
+    () => new Set(currencySelectOptions.map((o) => o.value)),
+    [currencySelectOptions]
+  );
+  const regionKnownIds = useMemo(
+    () => new Set(regionSelectOptions.map((o) => o.value)),
+    [regionSelectOptions]
+  );
+  const timezoneKnownIds = useMemo(
+    () => new Set(timezoneSelectOptions.map((z) => z.value)),
+    [timezoneSelectOptions]
+  );
 
   useEffect(() => {
     if (!token || !currentStore) {
@@ -110,6 +162,17 @@ export default function AdminSettingsPage() {
           mode?: 'auto_all' | 'auto_gift_cards' | 'manual';
           auto_archive?: boolean;
         };
+        const regionOpts = getRegionOptions();
+        const rawCur = settings.currency_display as string | undefined;
+        const rawReg = settings.backup_region as string | undefined;
+        const curNorm = normalizeStoredCurrency(rawCur);
+        const regNorm = normalizeStoredRegion(rawReg, regionOpts);
+        const currencies = currencyOptionValues();
+        const regions = regionOptionValues();
+        const currencyResolved =
+          curNorm && currencies.has(curNorm) ? curNorm : rawCur?.trim() ? rawCur.trim() : 'LKR';
+        const regionResolved =
+          regNorm && regions.has(regNorm) ? regNorm : rawReg?.trim() ? rawReg.trim() : 'LK';
         setForm({
           name: data.name ?? '',
           email: data.email ?? '',
@@ -130,20 +193,19 @@ export default function AdminSettingsPage() {
           social_tiktok_url: (settings.social_links?.tiktok as string | undefined) ?? '',
           contact_phone: (settings.contact_phone as string | undefined) ?? '',
           contact_address: (settings.contact_address as string | undefined) ?? '',
-          currency_display:
-            (settings.currency_display as string | undefined) ?? 'Sri Lankan Rupee (LKR Rs)',
-          backup_region: (settings.backup_region as string | undefined) ?? 'Sri Lanka',
+          currency_display: currencyResolved,
+          backup_region: regionResolved,
           unit_system: (settings.unit_system as string | undefined) ?? 'metric',
           default_weight_unit:
             (settings.default_weight_unit as string | undefined) ?? 'kg',
           timezone: (settings.timezone as string | undefined) ?? '',
-          order_id_prefix: (settings.order_id_prefix as string | undefined) ?? '#',
-          order_id_suffix: (settings.order_id_suffix as string | undefined) ?? '',
+          order_id_prefix: orderIdSettingToFormString(settings.order_id_prefix) || '#',
+          order_id_suffix: orderIdSettingToFormString(settings.order_id_suffix),
           order_processing_mode: op.mode ?? 'manual',
           order_auto_archive: op.auto_archive ?? true,
         });
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load store'))
+      .catch((e) => setError(formatApiUserMessage(e, 'Failed to load store')))
       .finally(() => setLoading(false));
   }, [token, currentStore]);
 
@@ -175,8 +237,10 @@ export default function AdminSettingsPage() {
         unit_system: form.unit_system,
         default_weight_unit: form.default_weight_unit,
         timezone: form.timezone || null,
-        order_id_prefix: form.order_id_prefix || null,
-        order_id_suffix: form.order_id_suffix || null,
+        order_id_prefix:
+          String(form.order_id_prefix).trim() !== '' ? String(form.order_id_prefix) : null,
+        order_id_suffix:
+          String(form.order_id_suffix).trim() !== '' ? String(form.order_id_suffix) : null,
         order_processing: {
           mode: form.order_processing_mode,
           auto_archive: form.order_auto_archive,
@@ -204,7 +268,7 @@ export default function AdminSettingsPage() {
       });
       setStore(updated);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update');
+      setError(formatApiUserMessage(e, 'Failed to update'));
     } finally {
       setSaving(false);
     }
@@ -818,33 +882,55 @@ export default function AdminSettingsPage() {
               <div className="grid gap-6 p-6 md:grid-cols-2">
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="store-currency" className="block text-sm font-medium text-gray-700">
                       Currency display
                     </label>
-                    <input
-                      type="text"
+                    <select
+                      id="store-currency"
                       value={form.currency_display}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, currency_display: e.target.value }))
-                      }
-                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
-                    />
+                      onChange={(e) => setForm((f) => ({ ...f, currency_display: e.target.value }))}
+                      className="store-settings-select mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    >
+                      {form.currency_display && !currencyKnownIds.has(form.currency_display) ? (
+                        <option value={form.currency_display}>
+                          {form.currency_display} (current — choose a standard code below)
+                        </option>
+                      ) : null}
+                      {currencySelectOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
                     <p className="mt-1 text-xs text-gray-500">
-                      To manage the currencies customers see, go to Markets.
+                      List from your browser (ISO 4217). Values are saved as a 3-letter code (e.g. LKR). For more control,
+                      use Markets when available.
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="store-backup-region" className="block text-sm font-medium text-gray-700">
                       Backup region
                     </label>
-                    <input
-                      type="text"
+                    <select
+                      id="store-backup-region"
                       value={form.backup_region}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, backup_region: e.target.value }))
-                      }
-                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
-                    />
+                      onChange={(e) => setForm((f) => ({ ...f, backup_region: e.target.value }))}
+                      className="store-settings-select mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    >
+                      {form.backup_region && !regionKnownIds.has(form.backup_region) ? (
+                        <option value={form.backup_region}>
+                          {form.backup_region} (current — choose a standard country below)
+                        </option>
+                      ) : null}
+                      {regionSelectOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      ISO 3166-1 country/region list from your browser (English names).
+                    </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -856,7 +942,7 @@ export default function AdminSettingsPage() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, unit_system: e.target.value }))
                         }
-                        className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                        className="store-settings-select mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
                       >
                         <option value="metric">Metric system</option>
                         <option value="imperial">Imperial system</option>
@@ -880,18 +966,31 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="store-timezone" className="block text-sm font-medium text-gray-700">
                       Time zone
                     </label>
-                    <input
-                      type="text"
+                    <select
+                      id="store-timezone"
                       value={form.timezone}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, timezone: e.target.value }))
-                      }
-                      placeholder="(GMT+05:30) Sri Jayawardenepura"
-                      className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
-                    />
+                      onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
+                      className="store-settings-select mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-mint focus:ring-2 focus:ring-mint/20"
+                    >
+                      <option value="">Select time zone…</option>
+                      {form.timezone && !timezoneKnownIds.has(form.timezone) ? (
+                        <option value={form.timezone}>
+                          {form.timezone} (current — pick a standard zone below to replace)
+                        </option>
+                      ) : null}
+                      {timezoneSelectOptions.map((z) => (
+                        <option key={z.value} value={z.value}>
+                          {z.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Built from IANA zones on your system, sorted by UTC offset. Stored value is the zone id (e.g.
+                      Asia/Colombo).
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-4">

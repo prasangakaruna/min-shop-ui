@@ -1147,11 +1147,18 @@ function previewSectionBlocks(draft: StorefrontHomeTheme, previewDevice: 'mobile
   const visible = draft.sections.filter((s) => s.enabled !== false);
   const posterCfg = mergePosterPromoSettings(draft.poster_promo);
   const showPoster = shouldDisplayPosterPromo(posterCfg);
+  const posterAfter: 'category_products' | 'browse_categories' | null = visible.some(
+    (s) => s.type === 'category_products'
+  )
+    ? 'category_products'
+    : visible.some((s) => s.type === 'browse_categories')
+      ? 'browse_categories'
+      : null;
   const out: React.ReactNode[] = [];
   let inserted = false;
   visible.forEach((s) => {
     out.push(<PreviewBlock key={s.id} section={s} theme={draft.theme} device={previewDevice} />);
-    if (!inserted && s.type === 'default_hero' && showPoster) {
+    if (!inserted && posterAfter && s.type === posterAfter && showPoster) {
       inserted = true;
       out.push(
         <div key="__draft-poster" className="border-t border-gray-100">
@@ -1165,8 +1172,8 @@ function previewSectionBlocks(draft: StorefrontHomeTheme, previewDevice: 'mobile
     }
   });
   if (!inserted && showPoster) {
-    out.unshift(
-      <div key="__draft-poster-top" className="border-b border-gray-100">
+    out.push(
+      <div key="__draft-poster-fallback" className="border-t border-gray-100">
         <PosterPromoSection config={posterCfg} wideLayout={draft.theme.wideLayout} compact />
       </div>
     );

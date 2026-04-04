@@ -128,6 +128,14 @@ button, a, input, select, textarea {
   transition: all 0.2s ease-in-out;
 }
 
+/* Admin settings: native select chrome (some Tailwind stacks look like plain inputs otherwise). */
+select.store-settings-select {
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+  cursor: pointer;
+}
+
 /* Professional Scrollbar */
 ::-webkit-scrollbar {
   width: 10px;

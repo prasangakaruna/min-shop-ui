@@ -61,12 +61,12 @@ function usePromoCountdown(endIso: string | null | undefined): CountdownParts | 
 }
 
 const promoCtaClassName =
-  'group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-b from-slate-800 to-slate-950 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_8px_24px_-6px_rgba(15,23,42,0.45)] transition duration-200 hover:-translate-y-0.5 hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_12px_28px_-8px_rgba(20,184,166,0.25)] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 active:translate-y-0';
+  'group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-b from-slate-800 to-slate-950 px-5 py-2.5 text-xs font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_8px_24px_-6px_rgba(15,23,42,0.45)] transition duration-200 hover:-translate-y-0.5 hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_12px_28px_-8px_rgba(20,184,166,0.25)] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 active:translate-y-0 sm:text-sm';
 
 function CtaArrow() {
   return (
     <svg
-      className="relative h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+      className="relative h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5 sm:h-4 sm:w-4"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -88,7 +88,7 @@ function CountdownStrip({ parts, label = 'Ends in' }: { parts: CountdownParts; l
   ];
   return (
     <div className="w-full">
-      <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.25em] text-teal-800/90">{label}</p>
+      <p className="mb-2 text-center text-[9px] font-bold uppercase tracking-[0.22em] text-teal-800/90">{label}</p>
       <div
         className="flex flex-wrap items-start justify-center gap-y-2"
         role="timer"
@@ -100,17 +100,17 @@ function CountdownStrip({ parts, label = 'Ends in' }: { parts: CountdownParts; l
           <React.Fragment key={c.l}>
             {i > 0 ? (
               <span
-                className="mx-0.5 mb-8 hidden text-xl font-extralight leading-none text-teal-300/80 sm:mx-1 sm:inline"
+                className="mx-0.5 mb-6 hidden text-lg font-extralight leading-none text-teal-300/80 sm:mx-1 sm:inline"
                 aria-hidden
               >
                 :
               </span>
             ) : null}
-            <div className="flex min-w-[3.5rem] flex-col items-center px-1 sm:min-w-[3.75rem]">
-              <div className="w-full rounded-2xl border border-white/90 bg-gradient-to-b from-white to-slate-100/90 px-2 py-2.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,1),0_4px_14px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,118,110,0.06)] sm:py-3">
-                <span className="text-xl font-bold tabular-nums tracking-tight text-slate-900 sm:text-2xl">{c.v}</span>
+            <div className="flex min-w-[3rem] flex-col items-center px-0.5 sm:min-w-[3.25rem]">
+              <div className="w-full rounded-xl border border-white/90 bg-gradient-to-b from-white to-slate-100/90 px-1.5 py-1.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,1),0_4px_14px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,118,110,0.06)] sm:py-2">
+                <span className="text-lg font-bold tabular-nums tracking-tight text-slate-900 sm:text-xl">{c.v}</span>
               </div>
-              <span className="mt-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-teal-700/85">{c.l}</span>
+              <span className="mt-1.5 text-[8px] font-semibold uppercase tracking-[0.18em] text-teal-700/85">{c.l}</span>
             </div>
           </React.Fragment>
         ))}
@@ -157,7 +157,7 @@ type VolumePromo = NonNullable<StorefrontCouponsResponse['volume_promo']>;
 
 function EyebrowPill({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-teal-200/60 bg-gradient-to-r from-teal-50/90 to-cyan-50/50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-teal-800 shadow-sm">
+    <span className="inline-flex items-center rounded-full border border-teal-200/60 bg-gradient-to-r from-teal-50/90 to-cyan-50/50 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-teal-800 shadow-sm sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.2em]">
       {children}
     </span>
   );
@@ -170,7 +170,7 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
   return (
     <div
       id="store-volume-promo"
-      className="group/card relative flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200/50 bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-24px_rgba(15,23,42,0.2),0_0_0_1px_rgba(255,255,255,0.5)]"
+      className="group/card relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/50 bg-white shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_20px_50px_-24px_rgba(15,23,42,0.2),0_0_0_1px_rgba(255,255,255,0.5)] sm:rounded-3xl"
       aria-labelledby="volume-promo-title"
     >
       <div
@@ -186,11 +186,11 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
         aria-hidden
       />
 
-      <div className="relative p-7 sm:p-8">
+      <div className="relative p-5 sm:p-6">
         <EyebrowPill>{timed ? 'Limited run' : 'Volume deal'}</EyebrowPill>
 
         {countdown ? (
-          <div className="relative mt-5 overflow-hidden rounded-2xl border border-teal-200/40 bg-gradient-to-br from-teal-50/95 via-white to-cyan-50/30 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+          <div className="relative mt-4 overflow-hidden rounded-xl border border-teal-200/40 bg-gradient-to-br from-teal-50/95 via-white to-cyan-50/30 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:rounded-2xl sm:p-4">
             <div
               className="pointer-events-none absolute -left-6 top-1/2 h-20 w-20 -translate-y-1/2 rounded-full bg-teal-400/20 blur-xl"
               aria-hidden
@@ -198,42 +198,42 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
             <CountdownStrip parts={countdown} />
           </div>
         ) : (
-          <div className="relative mt-5 overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-4 text-center shadow-inner">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Offer status</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          <div className="relative mt-4 overflow-hidden rounded-xl border border-slate-200/70 bg-gradient-to-br from-slate-50 to-white p-3 text-center shadow-inner sm:rounded-2xl sm:p-4">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500 sm:text-[10px]">Offer status</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-slate-600 sm:mt-2 sm:text-sm">
               This rate is <span className="font-semibold text-slate-800">live</span>. Savings appear at checkout when your
               order meets the minimum.
             </p>
           </div>
         )}
 
-        <div className="relative mt-6 flex items-end gap-1">
-          <span className="bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-5xl font-black leading-none tracking-tight text-transparent sm:text-6xl">
+        <div className="relative mt-4 flex items-end gap-1 sm:mt-5">
+          <span className="bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text text-4xl font-black leading-none tracking-tight text-transparent sm:text-5xl">
             {volume.percent}
           </span>
-          <div className="mb-1 flex flex-col leading-none">
-            <span className="text-2xl font-bold text-slate-800 sm:text-3xl">%</span>
-            <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-teal-700">off</span>
+          <div className="mb-0.5 flex flex-col leading-none sm:mb-1">
+            <span className="text-xl font-bold text-slate-800 sm:text-2xl">%</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-teal-700 sm:text-[11px]">off</span>
           </div>
         </div>
 
-        <h2 id="volume-promo-title" className="mt-4 text-lg font-bold leading-snug tracking-tight text-slate-900 sm:text-xl">
+        <h2 id="volume-promo-title" className="mt-3 text-base font-bold leading-snug tracking-tight text-slate-900 sm:mt-4 sm:text-lg">
           Automatic savings on large orders — no code.
         </h2>
 
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+        <p className="mt-1.5 text-xs leading-relaxed text-slate-600 sm:mt-2 sm:text-sm">
           From <span className="font-semibold text-slate-800">${formatMoney(volume.min_subtotal)}</span> your cart gets{' '}
           <span className="font-semibold text-teal-800">{volume.percent}%</span> off at checkout. Stack a coupon when your
           store allows it.
         </p>
       </div>
 
-      <div className="relative mt-auto border-t border-slate-100/80 bg-gradient-to-b from-slate-50/30 to-white px-7 py-6 sm:px-8">
+      <div className="relative mt-auto border-t border-slate-100/80 bg-gradient-to-b from-slate-50/30 to-white px-5 py-4 sm:px-6 sm:py-5">
         <Link href={productsHref} className={promoCtaClassName}>
           <span className="relative">Shop the sale</span>
           <CtaArrow />
         </Link>
-        <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-2 text-center text-[10px] leading-relaxed text-slate-500 sm:mt-3 sm:text-[11px]">
           Exclusions may apply. Final total in cart and checkout.
         </p>
       </div>
@@ -289,7 +289,7 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
 
   return (
     <section
-      className="relative w-full overflow-hidden border-b border-slate-200/60 bg-slate-100/60 py-14 sm:py-16"
+      className="relative w-full overflow-hidden border-b border-slate-200/60 bg-slate-100/60 py-9 sm:py-11"
       aria-labelledby="promo-card-heading"
     >
       <div
@@ -301,11 +301,11 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
         aria-hidden
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <div
-          className={`grid gap-6 ${showVolumeColumn ? 'lg:grid-cols-2 lg:gap-8 xl:grid-cols-[1.08fr_0.92fr]' : ''}`}
+          className={`grid gap-4 ${showVolumeColumn ? 'lg:grid-cols-2 lg:gap-6 xl:grid-cols-[1.08fr_0.92fr]' : ''}`}
         >
-          <div className="relative flex min-h-0 flex-col overflow-hidden rounded-3xl border border-slate-200/50 bg-white/95 shadow-[0_1px_0_rgba(255,255,255,1)_inset,0_24px_56px_-28px_rgba(15,23,42,0.18),0_0_0_1px_rgba(255,255,255,0.6)] backdrop-blur-sm lg:min-h-[340px]">
+          <div className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-slate-200/50 bg-white/95 shadow-[0_1px_0_rgba(255,255,255,1)_inset,0_24px_56px_-28px_rgba(15,23,42,0.18),0_0_0_1px_rgba(255,255,255,0.6)] backdrop-blur-sm sm:rounded-3xl lg:min-h-[280px]">
             <div
               className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/35 to-transparent"
               aria-hidden
@@ -315,13 +315,13 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
               aria-hidden
             />
 
-            <div className="relative flex min-h-0 flex-1 flex-col p-7 sm:p-8">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+            <div className="relative flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
                 <div
-                  className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-amber-200/50 bg-gradient-to-br from-amber-50 to-amber-100/50 shadow-[0_4px_12px_rgba(245,158,11,0.12)] sm:mx-0"
+                  className="mx-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-200/50 bg-gradient-to-br from-amber-50 to-amber-100/50 shadow-[0_4px_12px_rgba(245,158,11,0.12)] sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl"
                   aria-hidden
                 >
-                  <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -334,7 +334,7 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                   <EyebrowPill>Smart checkout</EyebrowPill>
                   <h2
                     id="promo-card-heading"
-                    className="mt-3 text-pretty text-2xl font-bold leading-[1.2] tracking-tight text-slate-900 sm:text-[1.7rem]"
+                    className="mt-2 text-pretty text-xl font-bold leading-[1.2] tracking-tight text-slate-900 sm:mt-3 sm:text-2xl"
                   >
                     {!hasAnyDeal ? (
                       <>
@@ -353,19 +353,19 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                 </div>
               </div>
 
-              <div className="mt-7 flex min-h-0 flex-1 flex-col gap-6">
+              <div className="mt-5 flex min-h-0 flex-1 flex-col gap-4 sm:mt-6 sm:gap-5">
                 {!storeSlug ? (
                   <p className="mx-auto max-w-md text-pretty text-center text-sm leading-relaxed text-slate-600 sm:mx-0 sm:text-left">
                     Browse the marketplace and add items to your cart. Coupons and volume discounts apply on the cart page
                     before you pay.
                   </p>
                 ) : !loaded ? (
-                  <div className="flex flex-1 items-center justify-center py-12 sm:justify-start">
+                  <div className="flex flex-1 items-center justify-center py-8 sm:justify-start">
                     <div className="h-9 w-9 animate-spin rounded-full border-2 border-teal-500/20 border-t-teal-600" />
                   </div>
                 ) : (
                   <>
-                    <p className="mx-auto max-w-xl text-pretty text-center text-[15px] leading-relaxed text-slate-600 sm:mx-0 sm:text-left">
+                    <p className="mx-auto max-w-xl text-pretty text-center text-sm leading-relaxed text-slate-600 sm:mx-0 sm:text-left">
                       {showVolumeColumn && hasCoupons ? (
                         <>
                           Paste a code on the{' '}
@@ -399,14 +399,14 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
                     </p>
 
                     {!showVolumeColumn && hasVolume ? (
-                      <div className="space-y-5 overflow-hidden rounded-2xl border border-teal-200/50 bg-gradient-to-br from-teal-50/80 via-white to-cyan-50/20 p-5 shadow-inner">
+                      <div className="space-y-4 overflow-hidden rounded-xl border border-teal-200/50 bg-gradient-to-br from-teal-50/80 via-white to-cyan-50/20 p-4 shadow-inner sm:rounded-2xl sm:p-5">
                         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-end sm:gap-6">
                           <div className="flex items-end gap-1">
-                            <span className="bg-gradient-to-br from-slate-900 to-slate-600 bg-clip-text text-5xl font-black leading-none text-transparent sm:text-6xl">
+                            <span className="bg-gradient-to-br from-slate-900 to-slate-600 bg-clip-text text-4xl font-black leading-none text-transparent sm:text-5xl">
                               {volumePromo!.percent}
                             </span>
                             <div className="mb-0.5 flex flex-col leading-none">
-                              <span className="text-2xl font-bold text-slate-800">%</span>
+                              <span className="text-xl font-bold text-slate-800 sm:text-2xl">%</span>
                               <span className="text-[11px] font-bold uppercase tracking-wider text-teal-700">off</span>
                             </div>
                           </div>
@@ -438,20 +438,20 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
 
                     {hasCoupons ? (
                       <div>
-                        <p className="mb-3 text-center text-[10px] font-bold uppercase tracking-[0.22em] text-teal-800 sm:text-left">
+                        <p className="mb-2 text-center text-[9px] font-bold uppercase tracking-[0.2em] text-teal-800 sm:text-left sm:text-[10px] sm:tracking-[0.22em]">
                           Active codes · this store
                         </p>
                         <ul
-                          className="grid gap-3 sm:grid-cols-1 sm:gap-3 lg:max-w-xl"
+                          className="grid gap-2 sm:grid-cols-1 sm:gap-2.5 lg:max-w-xl"
                           aria-label="Active coupon codes for this store"
                         >
                           {coupons.map((c) => (
                             <li
                               key={c.code}
-                              className="group relative overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-br from-white via-slate-50/40 to-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.04)] ring-1 ring-slate-900/[0.03] transition hover:border-teal-200/50 hover:shadow-[0_8px_24px_-8px_rgba(20,184,166,0.15)]"
+                              className="group relative overflow-hidden rounded-xl border border-slate-200/60 bg-gradient-to-br from-white via-slate-50/40 to-white p-3 shadow-[0_2px_8px_rgba(15,23,42,0.04)] ring-1 ring-slate-900/[0.03] transition hover:border-teal-200/50 hover:shadow-[0_8px_24px_-8px_rgba(20,184,166,0.15)] sm:rounded-2xl sm:p-4"
                             >
-                              <div className="absolute right-3 top-3 h-8 w-8 rounded-full bg-teal-500/5 opacity-0 transition group-hover:opacity-100" aria-hidden />
-                              <span className="font-mono text-[15px] font-semibold tracking-wide text-slate-900">{c.code}</span>
+                              <div className="absolute right-2.5 top-2.5 h-7 w-7 rounded-full bg-teal-500/5 opacity-0 transition group-hover:opacity-100 sm:right-3 sm:top-3 sm:h-8 sm:w-8" aria-hidden />
+                              <span className="font-mono text-sm font-semibold tracking-wide text-slate-900 sm:text-[15px]">{c.code}</span>
                               <span className="mt-1 block text-xs leading-relaxed text-slate-500">
                                 {c.summary}
                                 {c.min_subtotal ? ` · Min. $${formatMoney(c.min_subtotal)}` : null}
@@ -472,12 +472,12 @@ export default function CouponPromoSection({ storeSlug }: { storeSlug?: string |
               </div>
 
               {storeSlug && loaded ? (
-                <div className="relative mt-8 overflow-hidden rounded-2xl border border-slate-200/60 bg-gradient-to-b from-slate-50/90 to-slate-100/30 p-5 shadow-inner">
+                <div className="relative mt-6 overflow-hidden rounded-xl border border-slate-200/60 bg-gradient-to-b from-slate-50/90 to-slate-100/30 p-4 shadow-inner sm:mt-7 sm:rounded-2xl sm:p-5">
                   <Link href={cartHref} className={promoCtaClassName}>
                     <span className="relative">Apply code in cart</span>
                     <CtaArrow />
                   </Link>
-                  <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500 sm:text-left">
+                  <p className="mt-2 text-center text-[10px] leading-relaxed text-slate-500 sm:mt-3 sm:text-left sm:text-[11px]">
                     Totals shown in cart and at checkout. Exclusions may apply.
                   </p>
                 </div>

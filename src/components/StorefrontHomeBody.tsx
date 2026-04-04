@@ -122,12 +122,24 @@ function renderSectionsWithPosterSlot(
   posterWideLayout: boolean
 ): React.ReactNode[] {
   const enabled = sections.filter((s) => s.enabled !== false);
+  const posterAfter: 'category_products' | 'browse_categories' | null = enabled.some(
+    (s) => s.type === 'category_products'
+  )
+    ? 'category_products'
+    : enabled.some((s) => s.type === 'browse_categories')
+      ? 'browse_categories'
+      : null;
   const out: React.ReactNode[] = [];
   let inserted = false;
   enabled.forEach((section, i) => {
     const node = renderSection(section, storeSlug, i, sectionSpacing, proHeroImageUrl);
     if (node) out.push(node);
-    if (!inserted && section.type === 'default_hero' && shouldDisplayPosterPromo(poster)) {
+    if (
+      !inserted &&
+      posterAfter &&
+      section.type === posterAfter &&
+      shouldDisplayPosterPromo(poster)
+    ) {
       inserted = true;
       out.push(
         <div key="__poster_promo" style={{ marginTop: sectionSpacing }}>
@@ -137,8 +149,8 @@ function renderSectionsWithPosterSlot(
     }
   });
   if (!inserted && shouldDisplayPosterPromo(poster)) {
-    out.unshift(
-      <div key="__poster_promo_first">
+    out.push(
+      <div key="__poster_promo_fallback" style={{ marginTop: sectionSpacing }}>
         <PosterPromoSection config={poster} wideLayout={posterWideLayout} />
       </div>
     );
@@ -163,12 +175,12 @@ function DefaultMarketplaceHome({
     <>
       <Hero settings={heroSettings ?? undefined} storeSlug={storeSlug} />
       <CouponPromoSection storeSlug={storeSlug} />
-      {shouldDisplayPosterPromo(poster) ? (
-        <PosterPromoSection config={poster} wideLayout={posterWideLayout} />
-      ) : null}
       <div className="border-t border-gray-100" />
       <BrowseCategories />
       <CategoryProducts />
+      {shouldDisplayPosterPromo(poster) ? (
+        <PosterPromoSection config={poster} wideLayout={posterWideLayout} />
+      ) : null}
       <SpecialOffers storeSlug={storeSlug} />
       <FeaturedListings />
       <TopSellers />
