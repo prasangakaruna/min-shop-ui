@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useStorefront } from '@/context/StorefrontContext';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import BrowseCategories from '@/components/BrowseCategories';
@@ -195,6 +196,7 @@ function DefaultMarketplaceHome({
 }
 
 export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | null }) {
+  const storefront = useStorefront();
   const [effectiveSlug, setEffectiveSlug] = useState<string | null>(storeSlug);
   /** Same stack as the main marketplace (mint-shop.pro) until a custom theme is saved in admin. */
   const [layoutKind, setLayoutKind] = useState<'loading' | 'classic' | 'custom'>('loading');
@@ -284,7 +286,11 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     );
   }
 
-  if (layoutKind === 'loading') {
+  /** One full-page loader until theme + shared catalog (stores/products) are ready — avoids stacked section skeletons. */
+  const catalogStillLoading = Boolean(storefront?.loading);
+  const showPrimaryLoader = layoutKind === 'loading' || catalogStillLoading;
+
+  if (showPrimaryLoader) {
     return (
       <main className="min-h-screen bg-gray-50">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
@@ -293,7 +299,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
           role="status"
           aria-live="polite"
           aria-busy="true"
-          className="flex min-h-[min(50vh,28rem)] flex-col items-center justify-center gap-4 border-t border-gray-100 bg-white px-4 py-16"
+          className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-4 border-t border-gray-100 bg-white px-4 py-16"
         >
           <div
             className="h-11 w-11 shrink-0 animate-spin rounded-full border-[3px] border-gray-200 border-t-mint"
@@ -301,7 +307,11 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
           />
           <div className="text-center">
             <p className="text-sm font-medium text-gray-700">Loading storefront…</p>
-            <p className="mt-1 text-xs text-gray-500">Fetching your theme and navigation</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {layoutKind === 'loading'
+                ? 'Fetching your theme and navigation'
+                : 'Loading catalog and categories'}
+            </p>
           </div>
         </div>
         <Footer />

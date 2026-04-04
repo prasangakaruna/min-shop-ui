@@ -72,6 +72,50 @@ function cardImageUrl(p: StorefrontProduct): string {
   return getImageDisplayUrl(u) || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80';
 }
 
+/** Price line like "Rs 392.00 / KG" when package_size exists */
+function priceDisplayLine(p: StorefrontProduct, v: ProductVariant): string {
+  const unit = p.package_size?.trim();
+  if (unit) return `${v.price} ${unit}`;
+  return v.price;
+}
+
+function MemberDealRibbon({
+  storeLabel,
+  pct,
+  primary,
+}: {
+  storeLabel: string;
+  pct: number | null;
+  primary: string;
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute right-2 top-2 z-20 flex max-w-[calc(100%-1rem)] overflow-hidden rounded-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] ring-1 ring-white/40"
+      aria-hidden
+    >
+      <div className="flex w-[46%] min-w-[3.25rem] flex-col justify-center bg-[#1b4332] px-1.5 py-1.5">
+        <span className="text-[6px] font-bold uppercase leading-tight tracking-wider text-white/95">{storeLabel}</span>
+        <span className="mt-0.5 text-[6px] font-extrabold uppercase tracking-wide text-white">Members save</span>
+      </div>
+      <div
+        className="flex flex-1 items-center justify-center gap-0.5 px-2 py-1.5"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, ${primary} 55%, #4ade80), color-mix(in srgb, ${primary} 35%, #15803d))`,
+        }}
+      >
+        <svg className="h-3.5 w-3.5 shrink-0 text-white drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 008 22c5 0 9-4 9-9 0-1.63-.44-3.16-1.2-4.5L17 8z" />
+        </svg>
+        {pct != null ? (
+          <span className="text-[10px] font-black uppercase tracking-tight text-white">{pct}% off</span>
+        ) : (
+          <span className="text-[9px] font-black uppercase tracking-tight text-white">Save</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 type Props = {
   storeSlug: string | null;
   settings?: Record<string, unknown> | null;
@@ -178,13 +222,13 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
 
   return (
     <section
-      className="relative w-full overflow-hidden bg-[#f4f7f4] py-10 sm:py-12"
+      className="relative w-full overflow-x-hidden bg-[#e8efe6] py-10 sm:py-12"
       aria-labelledby="members-deals-heading"
     >
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative flex min-h-[min(22rem,70vw)] flex-col overflow-hidden rounded-3xl shadow-[0_24px_60px_-28px_rgba(15,40,25,0.35)] lg:min-h-[20rem] lg:flex-row">
+        <div className="relative flex min-h-[min(24rem,72vw)] flex-col overflow-visible rounded-3xl shadow-[0_28px_64px_-24px_rgba(20,50,30,0.4)] ring-1 ring-black/[0.04] lg:min-h-[21rem] lg:flex-row">
           {/* Left promo panel */}
-          <div className="relative flex w-full shrink-0 flex-col justify-between bg-gradient-to-br from-[#8faa8c] via-[#7d9a78] to-[#5c7a56] px-6 py-8 text-white lg:w-[min(100%,22rem)] lg:py-10 xl:w-[26rem]">
+          <div className="relative z-0 flex w-full shrink-0 flex-col justify-between bg-[#9eb89a] bg-gradient-to-br from-[#a8c4a3] via-[#8faa8c] to-[#6d8a68] px-6 py-8 text-white lg:w-[min(100%,24rem)] lg:rounded-l-3xl lg:py-10 xl:w-[27rem]">
             <div
               className="pointer-events-none absolute inset-0 opacity-[0.12]"
               style={{
@@ -226,10 +270,13 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
             <div className="relative z-[1] mt-8 flex flex-wrap items-end gap-4 lg:mt-0">
               <Link
                 href={productsHref}
-                className="inline-flex items-center gap-2 rounded-full bg-[#1e3d2f] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#152e24]"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1b4332] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.2)] ring-1 ring-white/10 transition hover:bg-[#142f24]"
               >
-                {cfg.ctaLabel}
-                <span aria-hidden className="text-lg leading-none">
+                <span>{cfg.ctaLabel}</span>
+                <span className="text-white/50" aria-hidden>
+                  |
+                </span>
+                <span className="text-lg leading-none" aria-hidden>
                   ›
                 </span>
               </Link>
@@ -283,10 +330,8 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
             </div>
           </div>
 
-          {/* Product rail */}
-          <div className="relative flex min-h-0 flex-1 flex-col bg-white lg:rounded-r-3xl">
-            <div className="pointer-events-none absolute -left-6 top-8 z-[2] hidden h-32 w-16 rounded-l-3xl bg-white shadow-[-12px_0_24px_-8px_rgba(0,0,0,0.08)] lg:block" aria-hidden />
-
+          {/* Product rail — overlaps green panel (reference layout) */}
+          <div className="relative z-[1] -mt-4 flex min-h-0 flex-1 flex-col rounded-2xl bg-white shadow-[inset_0_1px_0_rgba(255,255,255,1)] sm:-mt-0 lg:-ml-10 lg:mt-0 lg:rounded-l-3xl lg:rounded-r-3xl lg:pl-2 xl:-ml-12">
             {loading ? (
               <div className="flex flex-1 items-center gap-4 overflow-hidden px-4 py-8 sm:px-6">
                 {[0, 1, 2, 3].map((i) => (
@@ -300,9 +345,9 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
               <>
                 <div
                   ref={scrollRef}
-                  className="flex flex-1 gap-4 overflow-x-auto overflow-y-hidden px-4 py-8 pb-14 sm:gap-5 sm:px-6 lg:py-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-3 py-8 pb-14 sm:gap-4 sm:px-5 lg:gap-5 lg:py-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                 >
-                  {products.map((p) => {
+                  {products.map((p, cardIndex) => {
                     const v = pickVariantForCard(p)!;
                     const pct = salePercent(v);
                     const compare = v.compare_at_price && parseFloat(v.compare_at_price) > parseFloat(v.price) ? v.compare_at_price : null;
@@ -312,63 +357,46 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                       <article
                         key={p.id}
                         data-deal-card
-                        className="flex w-[11.5rem] shrink-0 flex-col rounded-2xl border border-slate-100 bg-white shadow-[0_8px_30px_-12px_rgba(15,23,42,0.2)] sm:w-[13rem]"
+                        className={`flex w-[11.75rem] shrink-0 flex-col rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_40px_-16px_rgba(15,23,42,0.25)] sm:w-[13.25rem] ${
+                          cardIndex === 0 ? 'lg:-translate-x-1 lg:shadow-[0_16px_48px_-12px_rgba(15,23,42,0.3)]' : ''
+                        }`}
                       >
-                        <div className="relative px-3 pt-3">
-                          <div className="flex items-start gap-1.5">
-                            <span className="max-w-[5.5rem] rounded-md bg-[#1e3d2f] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-tight tracking-wide text-white">
-                              {storeLabel} · save
-                            </span>
-                            {pct != null ? (
-                              <span
-                                className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[8px] font-extrabold text-white shadow-sm"
-                                style={{ background: `linear-gradient(135deg, ${primary}, #0d9488)` }}
-                              >
-                                <svg className="h-3 w-3 opacity-95" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                                  <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 008 22c5 0 9-4 9-9 0-1.63-.44-3.16-1.2-4.5L17 8z" />
-                                </svg>
-                                {pct}% off
-                              </span>
-                            ) : (
-                              <span
-                                className="rounded-md px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-teal-800"
-                                style={{ backgroundColor: `color-mix(in srgb, ${primary} 18%, white)` }}
-                              >
-                                Deal
-                              </span>
-                            )}
-                          </div>
-                          <Link href={href} className="relative mt-2 block h-32 w-full overflow-hidden rounded-xl bg-slate-50 sm:h-36">
+                        <div className="relative px-2.5 pt-2.5 sm:px-3 sm:pt-3">
+                          <MemberDealRibbon storeLabel={storeLabel} pct={pct} primary={primary} />
+                          <Link
+                            href={href}
+                            className="relative mt-1 block h-[7.5rem] w-full overflow-hidden rounded-xl bg-white sm:h-36"
+                          >
                             <Image
                               src={cardImageUrl(p)}
                               alt={p.title}
                               fill
-                              sizes="200px"
-                              className="object-contain p-2"
+                              sizes="220px"
+                              className="object-contain object-center p-2"
                             />
                           </Link>
                           <button
                             type="button"
                             disabled={!inStock || addingId === v.id}
                             onClick={() => onAdd(p)}
-                            className="absolute bottom-2 right-3 flex items-center gap-1 rounded-md border border-slate-200 bg-white/95 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:border-teal-300 hover:bg-teal-50/80 disabled:cursor-not-allowed disabled:opacity-45"
+                            className="absolute bottom-1.5 right-2 flex items-center gap-1 rounded border border-slate-300/90 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
                           >
-                            <span className="text-sm leading-none">+</span>
+                            <span className="text-sm font-normal leading-none text-slate-500">+</span>
                             {addingId === v.id ? '…' : 'Add'}
                           </button>
                         </div>
-                        <div className="flex flex-1 flex-col px-3 pb-3 pt-1">
+                        <div className="flex flex-1 flex-col px-3 pb-4 pt-2">
                           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                             <span className="text-sm font-bold tabular-nums" style={{ color: primary }}>
-                              {v.price}
+                              {priceDisplayLine(p, v)}
                             </span>
                             {compare ? (
-                              <span className="text-xs text-slate-400 line-through tabular-nums">{compare}</span>
+                              <span className="text-xs text-neutral-400 line-through tabular-nums">{compare}</span>
                             ) : null}
                           </div>
                           <Link
                             href={href}
-                            className="mt-1 line-clamp-2 text-left text-xs font-medium leading-snug text-slate-600 hover:text-slate-900"
+                            className="mt-2 line-clamp-2 text-left text-sm font-normal leading-snug text-neutral-900 hover:underline"
                           >
                             {p.title}
                           </Link>
@@ -378,13 +406,13 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                   })}
                 </div>
 
-                <div className="absolute bottom-4 right-4 z-[3] flex gap-2 sm:right-6">
+                <div className="absolute bottom-4 right-4 z-[3] flex gap-1.5 sm:right-6">
                   <button
                     type="button"
                     aria-label="Scroll deals left"
                     disabled={!canPrev}
                     onClick={() => scrollByDir(-1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200/90 bg-slate-100/90 text-slate-500 shadow-sm transition enabled:hover:bg-slate-200/90 disabled:cursor-not-allowed disabled:opacity-35"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -395,7 +423,7 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                     aria-label="Scroll deals right"
                     disabled={!canNext}
                     onClick={() => scrollByDir(1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition enabled:hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200/90 bg-slate-100/90 text-slate-500 shadow-sm transition enabled:hover:bg-slate-200/90 disabled:cursor-not-allowed disabled:opacity-35"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
