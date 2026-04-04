@@ -123,7 +123,8 @@ export default function PosterPromoSection({
   const viewLabel = config.viewAllLabel?.trim() ?? '';
   const viewUrl = config.viewAllUrl?.trim() ?? '';
 
-  const shell = wideLayout ? 'max-w-screen-2xl' : 'max-w-7xl';
+  /** Match Header, BrowseCategories, CategoryProducts, SpecialOffers (`max-w-7xl` + same horizontal padding). */
+  const shell = wideLayout ? 'max-w-7xl' : 'max-w-6xl';
 
   return (
     <section
