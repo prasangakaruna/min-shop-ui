@@ -6,7 +6,7 @@ import { storefrontRequest } from '@/lib/storefrontApi';
 
 type StorefrontCouponRow = { code: string; summary: string; min_subtotal?: string };
 
-type StorefrontCouponsResponse = {
+export type StorefrontCouponsResponse = {
   data?: StorefrontCouponRow[];
   volume_promo?: {
     min_subtotal: string;
@@ -14,6 +14,12 @@ type StorefrontCouponsResponse = {
     starts_at?: string | null;
     ends_at?: string | null;
   } | null;
+};
+
+export type PrefetchedCouponsPromo = {
+  coupons: StorefrontCouponRow[];
+  volume_promo: StorefrontCouponsResponse['volume_promo'];
+  loaded: boolean;
 };
 
 function formatMoney(s: string): string {
@@ -153,7 +159,7 @@ function CountdownBoxes({
   );
 }
 
-type VolumePromo = NonNullable<StorefrontCouponsResponse['volume_promo']>;
+export type VolumePromo = NonNullable<StorefrontCouponsResponse['volume_promo']>;
 
 function EyebrowPill({ children }: { children: React.ReactNode }) {
   return (
@@ -163,7 +169,7 @@ function EyebrowPill({ children }: { children: React.ReactNode }) {
   );
 }
 
-function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; productsHref: string }) {
+export function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; productsHref: string }) {
   const countdown = usePromoCountdown(volume.ends_at ?? null);
   const timed = Boolean(volume.ends_at?.trim());
 
@@ -244,48 +250,64 @@ function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo; produc
 /**
  * Homepage promotions: coupon-focused card + optional volume card.
  */
-export default function CouponPromoSection({ storeSlug }: { storeSlug?: string | null }) {
-  const [coupons, setCoupons] = useState<StorefrontCouponRow[]>([]);
-  const [volumePromo, setVolumePromo] = useState<StorefrontCouponsResponse['volume_promo']>(null);
-  const [loaded, setLoaded] = useState(false);
+export default function CouponPromoSection({
+  storeSlug,
+  prefetched,
+  volumePromoRenderedInHero = false,
+}: {
+  storeSlug?: string | null;
+  /** When set, skips internal fetch (shared with {@link HomeHeroAndCouponPromo}). */
+  prefetched?: PrefetchedCouponsPromo;
+  volumePromoRenderedInHero?: boolean;
+}) {
+  const [internalCoupons, setInternalCoupons] = useState<StorefrontCouponRow[]>([]);
+  const [internalVolumePromo, setInternalVolumePromo] = useState<StorefrontCouponsResponse['volume_promo']>(null);
+  const [internalLoaded, setInternalLoaded] = useState(false);
+
+  const coupons = prefetched ? prefetched.coupons : internalCoupons;
+  const volumePromo = prefetched ? prefetched.volume_promo : internalVolumePromo;
+  const loaded = prefetched ? prefetched.loaded : internalLoaded;
 
   const cartHref = !storeSlug ? '/cart' : `/cart?store=${encodeURIComponent(storeSlug)}`;
   const productsHref = !storeSlug ? '/products' : `/products?store=${encodeURIComponent(storeSlug)}`;
 
   useEffect(() => {
+    if (prefetched) return;
     if (!storeSlug) {
-      setCoupons([]);
-      setVolumePromo(null);
-      setLoaded(true);
+      setInternalCoupons([]);
+      setInternalVolumePromo(null);
+      setInternalLoaded(true);
       return;
     }
     let cancelled = false;
-    setLoaded(false);
+    setInternalLoaded(false);
     storefrontRequest<StorefrontCouponsResponse>('/storefront/coupons', { store: storeSlug })
       .then((res) => {
         if (cancelled) return;
-        setCoupons(Array.isArray(res.data) ? res.data : []);
-        setVolumePromo(res.volume_promo ?? null);
+        setInternalCoupons(Array.isArray(res.data) ? res.data : []);
+        setInternalVolumePromo(res.volume_promo ?? null);
       })
       .catch(() => {
         if (!cancelled) {
-          setCoupons([]);
-          setVolumePromo(null);
+          setInternalCoupons([]);
+          setInternalVolumePromo(null);
         }
       })
       .finally(() => {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) setInternalLoaded(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [storeSlug]);
+  }, [storeSlug, prefetched]);
 
   const countdown = usePromoCountdown(volumePromo?.ends_at ?? null);
   const hasVolume = Boolean(volumePromo);
   const hasCoupons = coupons.length > 0;
   const hasAnyDeal = hasVolume || hasCoupons;
-  const showVolumeColumn = Boolean(storeSlug && loaded && volumePromo);
+  const showVolumeColumn = Boolean(
+    storeSlug && loaded && volumePromo && !volumePromoRenderedInHero,
+  );
 
   return (
     <section
