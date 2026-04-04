@@ -197,6 +197,30 @@ export interface Me {
   user_type: UserType | null;
 }
 
+/** POST /me/register-store-customer — shopper linked to a tenant store (admin Customers list). */
+export type RegisterStoreCustomerResponse = {
+  id: number;
+  store_id: number;
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  accepts_marketing: boolean;
+  orders_count: number;
+  total_spent: string;
+};
+
+export async function registerMeAsStoreCustomer(options: {
+  token: string;
+  storeSlug: string;
+}): Promise<RegisterStoreCustomerResponse> {
+  return apiRequest<RegisterStoreCustomerResponse>('/me/register-store-customer', {
+    method: 'POST',
+    token: options.token,
+    body: { store_slug: options.storeSlug.trim() },
+  });
+}
+
 /** Pro admin home (`/admin/pro`) layout and copy — stored per store; only applies when that store is selected in the admin header. */
 export interface ProDashboardSettings {
   title?: string | null;

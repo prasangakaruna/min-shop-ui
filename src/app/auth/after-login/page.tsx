@@ -3,9 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, registerMeAsStoreCustomer } from '@/lib/api';
 import type { Me } from '@/lib/api';
-import { storeSlugFromHost, customerPostAuthPath } from '@/lib/storeSlug';
+import { storeSlugFromHost, customerPostAuthPath, resolveStorefrontStoreSlug } from '@/lib/storeSlug';
 
 const USER_TYPE_COOKIE = 'USER_TYPE_TO_REGISTER';
 const USER_TYPE_PERSIST = 'USER_TYPE';
@@ -81,6 +81,14 @@ export default function AfterLoginPage() {
 
         // Tenant storefront: always shopper UX on this host (stay on store origin, never admin).
         if (onStoreSubdomain) {
+          const slug = resolveStorefrontStoreSlug();
+          if (slug) {
+            try {
+              await registerMeAsStoreCustomer({ token, storeSlug: slug });
+            } catch {
+              // Non-blocking: user can still shop; customer record may already exist or API unreachable.
+            }
+          }
           setCookie(USER_TYPE_PERSIST, 'customer');
           router.replace(customerPostAuthPath(hostname));
           return;
