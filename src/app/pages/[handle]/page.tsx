@@ -61,60 +61,86 @@ function StorePageInner() {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const storeQuery = storeSlug ? `?store=${encodeURIComponent(storeSlug)}` : `?store_id=${storeId}`;
+  const homeHref = storeSlug ? `/?store=${encodeURIComponent(storeSlug)}` : '/';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50">
       <Header />
       <main
-        className={`mx-auto w-full px-4 py-10 sm:px-6 lg:px-8 ${cmsPageMainMaxWidthClass(layoutWidth)}`}
+        className={`mx-auto w-full px-4 py-8 sm:px-6 lg:px-8 lg:py-10 ${cmsPageMainMaxWidthClass(layoutWidth)}`}
       >
-        <nav className="mb-6 text-sm text-gray-600">
-          <Link href={storeSlug ? `/?store=${encodeURIComponent(storeSlug)}` : '/'} className="hover:text-mint">
+        <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-600 md:mb-8">
+          <Link href={homeHref} className="transition-colors hover:text-mint-dark">
             Home
           </Link>
-          <span className="mx-2">/</span>
-          <span className="text-gray-800">{title || 'Page'}</span>
+          <span className="text-gray-300" aria-hidden>
+            /
+          </span>
+          <span className="font-medium text-gray-900">{title || 'Page'}</span>
         </nav>
 
         {loading ? (
-          <div className="animate-pulse space-y-4 rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="h-8 w-2/3 rounded bg-gray-200" />
-            <div className="h-4 w-full rounded bg-gray-100" />
-            <div className="h-4 w-full rounded bg-gray-100" />
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div className="aspect-[21/9] max-h-72 animate-pulse bg-gray-200" />
+            <div className="space-y-4 p-8 md:p-10">
+              <div className="h-4 w-32 rounded bg-gray-200" />
+              <div className="h-10 w-2/3 max-w-md rounded bg-gray-200" />
+              <div className="h-4 w-full rounded bg-gray-100" />
+              <div className="h-4 w-full rounded bg-gray-100" />
+            </div>
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800">
+          <div className="rounded-2xl border border-red-200 bg-red-50/90 p-8 text-red-800 shadow-sm">
             <p className="font-medium">{error}</p>
-            <Link href="/products" className="mt-4 inline-block text-sm text-mint hover:underline">
+            <Link
+              href={`/products${storeQuery}`}
+              className="mt-4 inline-block text-sm font-semibold text-mint hover:text-mint-dark"
+            >
               Browse products
             </Link>
           </div>
         ) : (
-          <article className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-            {storeName ? <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">{storeName}</p> : null}
+          <article className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             {featuredImage ? (
-              // CMS URLs may be arbitrary API/storage paths; next/image remotePatterns would be too broad.
-              // eslint-disable-next-line @next/next/no-img-element -- dynamic storefront media URL
-              <img
-                src={getImageDisplayUrl(featuredImage)}
-                alt=""
-                className="mb-6 max-h-80 w-full rounded-lg object-cover"
-              />
+              <div className="relative w-full min-h-[200px] max-h-[min(28rem,42vh)] aspect-[21/9] bg-gray-100">
+                {/* CMS URLs may be arbitrary API/storage paths; next/image remotePatterns would be too broad. */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- dynamic storefront media URL */}
+                <img
+                  src={getImageDisplayUrl(featuredImage)}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              </div>
             ) : null}
-            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-            {excerpt ? <p className="mt-3 text-lg text-gray-600">{excerpt}</p> : null}
-            {body ? (
-              <div
-                className="cms-page-body prose prose-gray mt-6 max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{ __html: body }}
-              />
-            ) : (
-              <p className="mt-6 text-gray-500">No content yet.</p>
-            )}
-            <div className="mt-10 border-t border-gray-100 pt-6">
-              <Link href={`/products${storeQuery}`} className="text-sm font-medium text-mint hover:underline">
-                ← Back to catalog
-              </Link>
+            <div className="px-6 py-8 md:px-10 md:py-10 lg:px-12">
+              {storeName ? (
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-mint-dark">
+                  {storeName}
+                </p>
+              ) : null}
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">{title}</h1>
+              {excerpt ? (
+                <p className="mt-4 max-w-3xl text-lg leading-relaxed text-gray-600 md:text-xl">{excerpt}</p>
+              ) : null}
+              {body ? (
+                <div
+                  className="cms-page-body prose prose-gray prose-lg mt-8 max-w-none text-gray-700 prose-headings:scroll-mt-24 prose-headings:font-bold prose-headings:text-gray-900 prose-a:font-medium prose-a:text-mint prose-a:no-underline hover:prose-a:text-mint-dark hover:prose-a:underline"
+                  dangerouslySetInnerHTML={{ __html: body }}
+                />
+              ) : (
+                <p className="mt-8 text-gray-500">No content yet.</p>
+              )}
+              <div className="mt-12 flex flex-wrap gap-4 border-t border-gray-100 pt-8">
+                <Link
+                  href={`/products${storeQuery}`}
+                  className="text-sm font-semibold text-mint transition-colors hover:text-mint-dark"
+                >
+                  ← Back to catalog
+                </Link>
+                <Link href={homeHref} className="text-sm font-semibold text-gray-600 hover:text-gray-900">
+                  Home
+                </Link>
+              </div>
             </div>
           </article>
         )}
@@ -128,9 +154,11 @@ export default function StoreCmsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
           <Header />
-          <div className="mx-auto max-w-3xl px-4 py-20 text-center text-gray-500">Loading…</div>
+          <div className="mx-auto max-w-7xl px-4 py-20 text-center text-gray-500 sm:px-6 lg:px-8">
+            Loading…
+          </div>
           <Footer />
         </div>
       }

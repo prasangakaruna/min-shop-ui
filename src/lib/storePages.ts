@@ -25,8 +25,8 @@ export type CmsPageLayoutWidth = 'narrow' | 'default' | 'wide' | 'full';
 
 export const CMS_PAGE_LAYOUT_OPTIONS: { value: CmsPageLayoutWidth; label: string }[] = [
   { value: 'narrow', label: 'Narrow (~36rem)' },
-  { value: 'default', label: 'Default (~48rem)' },
-  { value: 'wide', label: 'Wide (~64rem)' },
+  { value: 'default', label: 'Default (storefront width, ~80rem)' },
+  { value: 'wide', label: 'Wide (~90rem)' },
   { value: 'full', label: 'Full (~96rem)' },
 ];
 
@@ -43,12 +43,12 @@ export function cmsPageMainMaxWidthClass(layout: string | null | undefined): str
     case 'narrow':
       return 'max-w-xl';
     case 'wide':
-      return 'max-w-5xl';
+      return 'max-w-[min(100%,90rem)]';
     case 'full':
       return 'max-w-[min(100%,96rem)]';
     case 'default':
     default:
-      return 'max-w-3xl';
+      return 'max-w-7xl';
   }
 }
 
