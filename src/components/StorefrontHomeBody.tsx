@@ -16,8 +16,8 @@ import MarketplaceInsights from '@/components/MarketplaceInsights';
 import Newsletter from '@/components/Newsletter';
 import Footer from '@/components/Footer';
 import AnnouncementBar from '@/components/AnnouncementBar';
-import CouponPromoSection from '@/components/CouponPromoSection';
 import HomeHeroAndCouponPromo from '@/components/HomeHeroAndCouponPromo';
+import MembersDealsRail from '@/components/MembersDealsRail';
 import PosterPromoSection from '@/components/PosterPromoSection';
 import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
@@ -106,6 +106,8 @@ function renderSection(
       return wrap(<Newsletter />);
     case 'newsletter':
       return wrap(<Newsletter />);
+    case 'member_deals_rail':
+      return wrap(<MembersDealsRail storeSlug={storeSlug} settings={settings} />);
     default:
       return null;
   }
@@ -172,6 +174,7 @@ function DefaultMarketplaceHome({
   return (
     <>
       <HomeHeroAndCouponPromo storeSlug={storeSlug} heroSettings={heroSettings ?? undefined} />
+      <MembersDealsRail storeSlug={storeSlug} />
       <div className="border-t border-gray-100" />
       <BrowseCategories />
       <CategoryProducts />
@@ -286,8 +289,6 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       <main className="min-h-screen bg-gray-50">
         <StorefrontAppEmbedScripts embeds={appEmbeds} />
         <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        {/* Coupon strip + API need the store slug; this block used to hide the whole home (no promo) until branding finished */}
-        <CouponPromoSection storeSlug={effectiveSlug} />
         <div
           role="status"
           aria-live="polite"
@@ -355,13 +356,11 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
 
   const spacing = customTheme.theme.sectionSpacing;
   const innerClass = customTheme.theme.wideLayout ? '' : 'max-w-6xl mx-auto';
-  const hasEnabledHero = customTheme.sections.some((s) => s.enabled !== false && s.type === 'default_hero');
 
   return (
     <main className="min-h-screen" style={outerStyle}>
       <StorefrontAppEmbedScripts embeds={appEmbeds} />
       <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-      {!hasEnabledHero ? <CouponPromoSection storeSlug={effectiveSlug} /> : null}
       <div className={innerClass}>
         {renderSectionsWithPosterSlot(
           customTheme.sections,

@@ -161,6 +161,30 @@ export async function uploadProductImage(
   return data as { url: string };
 }
 
+/** Upload a store category image; returns the public URL (saved under store-categories/). */
+export async function uploadStoreCategoryImage(
+  file: File,
+  options: { token: string; storeId: number }
+): Promise<{ url: string }> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
+  const form = new FormData();
+  form.append('image', file);
+  const url = `${base}/store/categories/upload-image`;
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (options.token) headers['Authorization'] = `Bearer ${options.token}`;
+  headers['X-Store-Id'] = String(options.storeId);
+  const res = await fetch(url, { method: 'POST', headers, body: form });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err: ApiError = (data?.message && { message: data.message }) || { message: res.statusText };
+    if (data?.errors) err.errors = data.errors;
+    const out = Object.assign(new Error(err.message) as Error & ApiError, err);
+    throw out;
+  }
+  return data as { url: string };
+}
+
 /** Upload a content library file (images, PDFs, video, etc.); registers entry in store content. */
 export async function uploadContentLibraryFile(
   file: File,

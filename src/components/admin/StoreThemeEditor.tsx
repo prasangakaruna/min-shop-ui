@@ -632,9 +632,86 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                       theme={draft.theme}
                     />
                   )}
+                  {selected.type === 'member_deals_rail' && (
+                    <div className="space-y-3 text-xs">
+                      <p className="text-gray-600">
+                        <span className="font-medium text-gray-800">Members deals rail</span> — left promo panel and a scrollable product strip (sale items first). Uses your storefront product list.
+                      </p>
+                      <label className="block font-medium text-gray-700">Headline</label>
+                      <input
+                        type="text"
+                        value={typeof selected.settings?.headline === 'string' ? selected.settings.headline : ''}
+                        onChange={(e) =>
+                          updateSection(selected.id, {
+                            settings: { ...(selected.settings ?? {}), headline: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Members Save"
+                      />
+                      <label className="block font-medium text-gray-700">Subline</label>
+                      <textarea
+                        value={typeof selected.settings?.subline === 'string' ? selected.settings.subline : ''}
+                        onChange={(e) =>
+                          updateSection(selected.id, {
+                            settings: { ...(selected.settings ?? {}), subline: e.target.value },
+                          })
+                        }
+                        rows={2}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Short supporting copy…"
+                      />
+                      <label className="block font-medium text-gray-700">CTA label</label>
+                      <input
+                        type="text"
+                        value={typeof selected.settings?.ctaLabel === 'string' ? selected.settings.ctaLabel : ''}
+                        onChange={(e) =>
+                          updateSection(selected.id, {
+                            settings: { ...(selected.settings ?? {}), ctaLabel: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="View More Deals"
+                      />
+                      <label className="block font-medium text-gray-700">CTA URL (optional)</label>
+                      <input
+                        type="text"
+                        value={typeof selected.settings?.ctaUrl === 'string' ? selected.settings.ctaUrl : ''}
+                        onChange={(e) =>
+                          updateSection(selected.id, {
+                            settings: { ...(selected.settings ?? {}), ctaUrl: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Leave empty for /products?store=…"
+                      />
+                      <label className="block font-medium text-gray-700">Max products</label>
+                      <input
+                        type="number"
+                        min={4}
+                        max={24}
+                        value={
+                          typeof selected.settings?.productLimit === 'number'
+                            ? selected.settings.productLimit
+                            : 14
+                        }
+                        onChange={(e) => {
+                          const n = parseInt(e.target.value, 10);
+                          updateSection(selected.id, {
+                            settings: {
+                              ...(selected.settings ?? {}),
+                              productLimit: Number.isFinite(n) ? n : 14,
+                            },
+                          });
+                        }}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      />
+                    </div>
+                  )}
                   {selected.type !== 'announcement_bar' &&
                     selected.type !== 'video_hero' &&
-                    selected.type !== 'default_hero' && (
+                    selected.type !== 'default_hero' &&
+                    selected.type !== 'member_deals_rail' && (
                       <p className="text-xs text-gray-500">Fine-grained controls for this block type can be extended here (copy, images, links).</p>
                     )}
                 </div>
@@ -1985,6 +2062,30 @@ function PreviewBlock({
               </svg>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+  if (section.type === 'member_deals_rail') {
+    return (
+      <div
+        className={`mx-2 flex gap-2 overflow-hidden rounded-2xl border border-slate-200/80 ${device === 'desktop' ? 'min-h-[120px]' : 'min-h-[100px]'}`}
+        style={{ marginTop: theme.sectionSpacing / 5 }}
+      >
+        <div
+          className="flex w-[38%] shrink-0 flex-col justify-between p-3 text-white"
+          style={{
+            background: `linear-gradient(135deg, color-mix(in srgb, ${primary} 55%, #3d5c38), color-mix(in srgb, ${primary} 40%, #2a4030))`,
+          }}
+        >
+          <div className="text-[8px] font-bold uppercase tracking-wide opacity-90">Members</div>
+          <div className="text-[11px] font-extrabold leading-tight">Members Save</div>
+          <div className="mt-1 h-5 w-16 rounded-full bg-black/25 text-[7px] font-semibold leading-5 text-center">Deals →</div>
+        </div>
+        <div className="flex flex-1 gap-1.5 overflow-hidden bg-white p-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-16 w-12 shrink-0 rounded-lg bg-slate-100" />
+          ))}
         </div>
       </div>
     );

@@ -256,7 +256,7 @@ export default function CouponPromoSection({
   volumePromoRenderedInHero = false,
 }: {
   storeSlug?: string | null;
-  /** When set, skips internal fetch (shared with {@link HomeHeroAndCouponPromo}). */
+  /** When set, skips internal fetch (e.g. parent already called `/storefront/coupons`). */
   prefetched?: PrefetchedCouponsPromo;
   volumePromoRenderedInHero?: boolean;
 }) {

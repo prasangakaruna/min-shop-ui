@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
 import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
+import { getImageDisplayUrl } from '@/lib/api';
+import { storefrontRequest, type StorefrontBrowseCategoriesResponse } from '@/lib/storefrontApi';
 
 const CATEGORY_IMAGES: Record<string, string> = {
   vehicles: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
@@ -25,14 +27,14 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 interface BrowseCategoriesProps {
-  categories?: { title: string; count: number; link: string }[];
+  categories?: { id: string; title: string; count: number; link: string; imageUrl?: string | null }[];
   loading?: boolean;
 }
 
 function deriveCategoriesFromProducts(
   products: { category: string | null }[],
   storeSlug?: string | null
-): { title: string; count: number; link: string }[] {
+): { id: string; title: string; count: number; link: string; imageUrl: string | null }[] {
   const map = new Map<string, number>();
   products.forEach((p) => {
     const cat = (p.category && p.category.trim()) || 'Other';
@@ -41,36 +43,89 @@ function deriveCategoriesFromProducts(
   return Array.from(map.entries())
     .filter(([rawId]) => !isCategoryHiddenFromStorefrontBrowse(rawId))
     .map(([rawId, count]) => ({
+      id: rawId,
       title: formatCategoryLabel(rawId),
-      // keep the original ID in the query so the backend filter still works
       count,
       link: storeSlug
         ? `/products?category=${encodeURIComponent(rawId)}&store=${encodeURIComponent(storeSlug)}`
         : `/products?category=${encodeURIComponent(rawId)}`,
+      imageUrl: null,
     }))
     .sort((a, b) => b.count - a.count);
+}
+
+function resolveCategoryCardImage(title: string, imageUrl: string | null | undefined): string {
+  const fromStore = imageUrl?.trim() ? getImageDisplayUrl(imageUrl).trim() : '';
+  if (fromStore) return fromStore;
+  const key = title.toLowerCase();
+  return CATEGORY_IMAGES[key] ?? CATEGORY_IMAGES.default;
 }
 
 export default function BrowseCategories({ categories: propCategories, loading: propLoading }: BrowseCategoriesProps = {}) {
   const storefront = useStorefront();
   const storeSlug = storefront?.storeSlug ?? null;
+  const [browseRows, setBrowseRows] = useState<StorefrontBrowseCategoriesResponse['data']['categories'] | null>(null);
+  const [browseLoading, setBrowseLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBrowseLoading(true);
+    storefrontRequest<StorefrontBrowseCategoriesResponse>('/storefront/browse-categories', {
+      ...(storeSlug ? { store: storeSlug } : {}),
+    })
+      .then((r) => {
+        if (cancelled) return;
+        setBrowseRows(Array.isArray(r.data?.categories) ? r.data!.categories : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBrowseRows(null);
+      })
+      .finally(() => {
+        if (!cancelled) setBrowseLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeSlug]);
+
   const derived = useMemo(
     () => (storefront ? deriveCategoriesFromProducts(storefront.products, storefront.storeSlug) : []),
     [storefront?.products, storefront?.storeSlug]
   );
-  const propCategoriesSafe = propCategories ?? derived;
-  const loading = propLoading ?? storefront?.loading ?? false;
+
+  const baseRows = useMemo(() => {
+    if (propCategories != null) return propCategories;
+    if (browseRows !== null) {
+      return browseRows
+        .filter((row) => !isCategoryHiddenFromStorefrontBrowse(row.id))
+        .map((row) => ({
+          id: row.id,
+          title: formatCategoryLabel(row.id),
+          count: row.count,
+          link: storeSlug
+            ? `/products?category=${encodeURIComponent(row.id)}&store=${encodeURIComponent(storeSlug)}`
+            : `/products?category=${encodeURIComponent(row.id)}`,
+          imageUrl: row.image_url ?? null,
+        }));
+    }
+    return derived;
+  }, [propCategories, browseRows, derived, storeSlug]);
+
+  const loading =
+    propLoading ?? (propCategories == null ? browseLoading || (browseRows === null && (storefront?.loading ?? false)) : false);
 
   const categories = useMemo(() => {
-    return propCategoriesSafe.map((c) => ({
+    return baseRows.map((c) => ({
+      slug: c.id,
       title: c.title,
       listings: `${c.count} Listing${c.count !== 1 ? 's' : ''}`,
-      image: CATEGORY_IMAGES[c.title.toLowerCase()] ?? CATEGORY_IMAGES.default,
+      image: resolveCategoryCardImage(c.title, c.imageUrl ?? null),
       link: c.link,
       icon: '📦',
       color: CATEGORY_COLORS[c.title.toLowerCase()] ?? CATEGORY_COLORS.default,
     }));
-  }, [propCategoriesSafe]);
+  }, [baseRows]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [cardsPerView, setCardsPerView] = useState(4);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -228,9 +283,9 @@ export default function BrowseCategories({ categories: propCategories, loading: 
                 transform: `translateX(${translateX}%)`,
               }}
             >
-              {categories.map((category, index) => (
+              {categories.map((category) => (
                 <div
-                  key={index}
+                  key={category.slug}
                   className="flex-shrink-0 px-3"
                   style={{ width: `${100 / cardsPerView}%` }}
                 >

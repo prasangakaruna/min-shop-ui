@@ -48,7 +48,7 @@ export interface StorefrontProductsResponse {
 export type StorefrontHeaderMenuItem = { label: string; url: string };
 
 /** GET /storefront/browse-categories — distinct category ids from active catalog (optional `store` slug) */
-export type StorefrontBrowseCategoryRow = { id: string; count: number };
+export type StorefrontBrowseCategoryRow = { id: string; count: number; image_url?: string | null };
 
 export type StorefrontBrowseCategoriesResponse = {
   data: { categories: StorefrontBrowseCategoryRow[] };

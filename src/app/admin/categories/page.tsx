@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, getImageDisplayUrl, uploadStoreCategoryImage } from '@/lib/api';
 
 type DefaultCategoryRow = { id: string; name: string };
 
@@ -15,6 +15,7 @@ type CustomCategoryRow = {
   sort_order: number;
   parent_id: number | null;
   parent_default_id: string | null;
+  image_url?: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -60,6 +61,83 @@ function matchesQuery(text: string, q: string): boolean {
   return words.every((w) => n.includes(w));
 }
 
+function useObjectPreviewUrl(file: File | null): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) {
+      setUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url;
+}
+
+function CategoryImageControls({
+  inputId,
+  previewUrl,
+  onFileChange,
+  onClear,
+  disabled,
+  compact,
+}: {
+  inputId: string;
+  previewUrl: string | null;
+  onFileChange: (file: File | null) => void;
+  onClear: () => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? 'space-y-2' : 'space-y-3'}>
+      <label htmlFor={inputId} className="block text-xs font-semibold text-gray-700">
+        Category image <span className="font-normal text-gray-400">(optional)</span>
+      </label>
+      <div className="flex flex-wrap items-start gap-3">
+        <div
+          className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-200 bg-gray-50 ${
+            compact ? 'h-16 w-16' : 'h-24 w-24'
+          }`}
+        >
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- admin arbitrary upload URLs
+            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span className="px-2 text-center text-[10px] text-gray-400">No image</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <input
+            id={inputId}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/jpg"
+            disabled={disabled}
+            className="block w-full max-w-xs text-xs text-gray-600 file:mr-2 file:rounded-lg file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-800 hover:file:bg-teal-100"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              onFileChange(f);
+              e.target.value = '';
+            }}
+          />
+          <p className="text-[10px] text-gray-500">JPEG, PNG, or WebP. Shown in admin and can be used on the storefront.</p>
+          {previewUrl ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={onClear}
+              className="text-xs font-medium text-red-600 hover:underline disabled:opacity-40"
+            >
+              Remove image
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -96,6 +174,16 @@ export default function AdminCategoriesPage() {
   const [subName, setSubName] = useState('');
   const [subSlug, setSubSlug] = useState('');
   const [subSort, setSubSort] = useState('0');
+  const [subImageFile, setSubImageFile] = useState<File | null>(null);
+
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [editImageBaselineUrl, setEditImageBaselineUrl] = useState<string | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImageCleared, setEditImageCleared] = useState(false);
+
+  const newImagePreview = useObjectPreviewUrl(newImageFile);
+  const subImagePreview = useObjectPreviewUrl(subImageFile);
+  const editFilePreview = useObjectPreviewUrl(editImageFile);
 
   const customSlugSet = useMemo(() => new Set(custom.map((c) => c.slug)), [custom]);
 
@@ -193,12 +281,19 @@ export default function AdminCategoriesPage() {
     setSaving(true);
     setError(null);
     try {
-      const body: { name: string; sort_order: number; slug?: string } = {
+      const body: { name: string; sort_order: number; slug?: string; image_url?: string } = {
         name,
         sort_order: parseInt(newSort, 10) || 0,
       };
       const s = newSlug.trim();
       if (s) body.slug = s;
+      if (newImageFile) {
+        const { url } = await uploadStoreCategoryImage(newImageFile, {
+          token,
+          storeId: currentStore.id,
+        });
+        body.image_url = url;
+      }
       await apiRequest<CustomCategoryRow>('/store/categories', {
         method: 'POST',
         token,
@@ -208,6 +303,7 @@ export default function AdminCategoriesPage() {
       setNewName('');
       setNewSlug('');
       setNewSort('0');
+      setNewImageFile(null);
       setShowNewRoot(false);
       load();
     } catch (err) {
@@ -231,6 +327,7 @@ export default function AdminCategoriesPage() {
         slug?: string;
         parent_id?: number;
         parent_default_id?: string;
+        image_url?: string;
       } = {
         name,
         sort_order: parseInt(subSort, 10) || 0,
@@ -242,6 +339,13 @@ export default function AdminCategoriesPage() {
       } else {
         body.parent_id = subContext.parentId;
       }
+      if (subImageFile) {
+        const { url } = await uploadStoreCategoryImage(subImageFile, {
+          token,
+          storeId: currentStore.id,
+        });
+        body.image_url = url;
+      }
       await apiRequest<CustomCategoryRow>('/store/categories', {
         method: 'POST',
         token,
@@ -252,6 +356,7 @@ export default function AdminCategoriesPage() {
       setSubName('');
       setSubSlug('');
       setSubSort('0');
+      setSubImageFile(null);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create subcategory');
@@ -265,16 +370,23 @@ export default function AdminCategoriesPage() {
     setSubName('');
     setSubSlug('');
     setSubSort('0');
+    setSubImageFile(null);
   };
 
   const startEdit = (row: CustomCategoryRow) => {
     setEditingId(row.id);
     setEditName(row.name);
     setEditSort(String(row.sort_order ?? 0));
+    setEditImageBaselineUrl(row.image_url ?? null);
+    setEditImageFile(null);
+    setEditImageCleared(false);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
+    setEditImageBaselineUrl(null);
+    setEditImageFile(null);
+    setEditImageCleared(false);
   };
 
   const saveEdit = async (id: number) => {
@@ -284,13 +396,29 @@ export default function AdminCategoriesPage() {
     setSaving(true);
     setError(null);
     try {
+      const body: { name: string; sort_order: number; image_url?: string | null } = {
+        name,
+        sort_order: parseInt(editSort, 10) || 0,
+      };
+      if (editImageFile) {
+        const { url } = await uploadStoreCategoryImage(editImageFile, {
+          token,
+          storeId: currentStore.id,
+        });
+        body.image_url = url;
+      } else if (editImageCleared && editImageBaselineUrl) {
+        body.image_url = null;
+      }
       await apiRequest<CustomCategoryRow>(`/store/categories/${id}`, {
         method: 'PATCH',
         token,
         storeId: currentStore.id,
-        body: { name, sort_order: parseInt(editSort, 10) || 0 },
+        body,
       });
       setEditingId(null);
+      setEditImageBaselineUrl(null);
+      setEditImageFile(null);
+      setEditImageCleared(false);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Update failed');
@@ -433,6 +561,15 @@ export default function AdminCategoriesPage() {
                   value={subSort}
                   onChange={(e) => setSubSort(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm outline-none focus:border-mint focus:bg-white focus:ring-2 focus:ring-mint/25"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <CategoryImageControls
+                  inputId="sub-cat-image"
+                  previewUrl={subImagePreview}
+                  onFileChange={(f) => setSubImageFile(f)}
+                  onClear={() => setSubImageFile(null)}
+                  disabled={saving || !token}
                 />
               </div>
               <div className="sm:col-span-2 flex flex-wrap gap-2">
@@ -686,6 +823,13 @@ export default function AdminCategoriesPage() {
                       />
                     </div>
                   </div>
+                  <CategoryImageControls
+                    inputId="new-root-cat-image"
+                    previewUrl={newImagePreview}
+                    onFileChange={(f) => setNewImageFile(f)}
+                    onClear={() => setNewImageFile(null)}
+                    disabled={saving || !token}
+                  />
                   <button type="submit" disabled={saving || !token} className={`w-full ${btnPrimary}`}>
                     {saving ? 'Saving…' : 'Create root category'}
                   </button>
@@ -741,13 +885,44 @@ export default function AdminCategoriesPage() {
                                 Cancel
                               </button>
                             </div>
+                            <CategoryImageControls
+                              inputId={`edit-cat-image-${row.id}`}
+                              previewUrl={
+                                editFilePreview ??
+                                (!editImageCleared && editImageBaselineUrl
+                                  ? getImageDisplayUrl(editImageBaselineUrl)
+                                  : null)
+                              }
+                              onFileChange={(f) => {
+                                setEditImageFile(f);
+                                if (f) setEditImageCleared(false);
+                              }}
+                              onClear={() => {
+                                setEditImageFile(null);
+                                setEditImageCleared(true);
+                              }}
+                              disabled={saving}
+                              compact
+                            />
                             <p className="text-[10px] text-gray-400">{categoryPath({ ...row, name: editName }, custom, defaults)}</p>
                           </div>
                         ) : (
                           <>
-                            <p className="text-sm font-semibold leading-snug text-gray-900">
-                              {categoryPath(row, custom, defaults)}
-                            </p>
+                            <div className="flex gap-3">
+                              {row.image_url ? (
+                                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={getImageDisplayUrl(row.image_url)}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              ) : null}
+                              <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-gray-900">
+                                {categoryPath(row, custom, defaults)}
+                              </p>
+                            </div>
                             <p className="mt-1 font-mono text-[11px] text-gray-500">{row.slug}</p>
                             <div className="mt-2 flex flex-wrap gap-1.5">
                               <button

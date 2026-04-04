@@ -2,13 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import Hero from '@/components/Hero';
-import CouponPromoSection from '@/components/CouponPromoSection';
 import { storefrontRequest } from '@/lib/storefrontApi';
 
-type StorefrontCouponRow = { code: string; summary: string; min_subtotal?: string };
-
 type StorefrontCouponsResponse = {
-  data?: StorefrontCouponRow[];
+  data?: unknown;
   volume_promo?: {
     min_subtotal: string;
     percent: number;
@@ -24,16 +21,14 @@ type Props = {
 };
 
 /**
- * Single `/storefront/coupons` fetch for the default hero + promo strip; volume card renders in the hero (right).
+ * Fetches `/storefront/coupons` for volume promo only; the large “Smart checkout” strip is not rendered on the home page.
  */
 export default function HomeHeroAndCouponPromo({ storeSlug, heroSettings }: Props) {
-  const [coupons, setCoupons] = useState<StorefrontCouponRow[]>([]);
   const [volumePromo, setVolumePromo] = useState<StorefrontCouponsResponse['volume_promo']>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!storeSlug) {
-      setCoupons([]);
       setVolumePromo(null);
       setLoaded(true);
       return;
@@ -43,12 +38,10 @@ export default function HomeHeroAndCouponPromo({ storeSlug, heroSettings }: Prop
     storefrontRequest<StorefrontCouponsResponse>('/storefront/coupons', { store: storeSlug })
       .then((res) => {
         if (cancelled) return;
-        setCoupons(Array.isArray(res.data) ? res.data : []);
         setVolumePromo(res.volume_promo ?? null);
       })
       .catch(() => {
         if (!cancelled) {
-          setCoupons([]);
           setVolumePromo(null);
         }
       })
@@ -61,18 +54,11 @@ export default function HomeHeroAndCouponPromo({ storeSlug, heroSettings }: Prop
   }, [storeSlug]);
 
   return (
-    <>
-      <Hero
-        settings={heroSettings ?? undefined}
-        storeSlug={storeSlug}
-        volumePromo={volumePromo}
-        volumePromoLoaded={loaded}
-      />
-      <CouponPromoSection
-        storeSlug={storeSlug}
-        prefetched={{ coupons, volume_promo: volumePromo, loaded }}
-        volumePromoRenderedInHero
-      />
-    </>
+    <Hero
+      settings={heroSettings ?? undefined}
+      storeSlug={storeSlug}
+      volumePromo={volumePromo}
+      volumePromoLoaded={loaded}
+    />
   );
 }

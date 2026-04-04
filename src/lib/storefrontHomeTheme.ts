@@ -20,7 +20,8 @@ export type HomeSectionType =
   | 'new_arrivals'
   | 'user_levels'
   | 'marketplace_insights'
-  | 'newsletter';
+  | 'newsletter'
+  | 'member_deals_rail';
 
 export type HomeSection = {
   id: string;
@@ -551,6 +552,7 @@ export const SECTION_CATALOG: { type: HomeSectionType; label: string }[] = [
   { type: 'user_levels', label: 'User Levels' },
   { type: 'marketplace_insights', label: 'Marketplace Insights' },
   { type: 'newsletter', label: 'Newsletter' },
+  { type: 'member_deals_rail', label: 'Members deals rail' },
 ];
 
 export const DEFAULT_THEME_SETTINGS: StorefrontHomeThemeSettings = {
