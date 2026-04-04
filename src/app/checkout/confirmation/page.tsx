@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { getStorefrontOrder, type StorefrontOrder } from '@/lib/api';
+import { getLastCartStoreId } from '@/lib/storefrontLastCartStore';
 
 function formatOrderDate(iso: string | null): string {
   if (!iso) return '—';
@@ -41,34 +42,52 @@ function ConfirmationContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const storeIdParam = searchParams.get('store_id');
-  const storeId = storeIdParam ? parseInt(storeIdParam, 10) : NaN;
-  const effectiveStoreId = !isNaN(storeId) && storeId > 0 ? storeId : null;
+  const storeIdFromQuery = storeIdParam ? parseInt(storeIdParam, 10) : NaN;
+  const storeFromUrl = !isNaN(storeIdFromQuery) && storeIdFromQuery > 0 ? storeIdFromQuery : null;
+
+  /** `undefined` = client has not yet applied URL + localStorage fallback */
+  const [resolvedStoreId, setResolvedStoreId] = useState<number | null | undefined>(undefined);
 
   const [order, setOrder] = useState<StorefrontOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (storeFromUrl != null) {
+      setResolvedStoreId(storeFromUrl);
+      return;
+    }
+    setResolvedStoreId(getLastCartStoreId());
+  }, [storeFromUrl]);
+
+  useEffect(() => {
+    if (resolvedStoreId === undefined) {
+      setLoading(true);
+      setError(null);
+      return;
+    }
     if (!orderId?.trim()) {
       setLoading(false);
       setError('Order ID is required.');
       return;
     }
-    if (effectiveStoreId == null) {
+    if (resolvedStoreId === null) {
       setLoading(false);
-      setError('Store is required. Use the link from your checkout email or go back to the store.');
+      setError(
+        'We need to know which store this order belongs to. Open the link from after checkout, or visit the store’s cart once and try again.',
+      );
       return;
     }
     setLoading(true);
     setError(null);
-    getStorefrontOrder(effectiveStoreId, orderId.trim())
+    getStorefrontOrder(resolvedStoreId, orderId.trim())
       .then(setOrder)
       .catch((e) => {
         setError(e instanceof Error ? e.message : 'Failed to load order.');
         setOrder(null);
       })
       .finally(() => setLoading(false));
-  }, [orderId, effectiveStoreId]);
+  }, [orderId, resolvedStoreId]);
 
   if (loading) {
     return (

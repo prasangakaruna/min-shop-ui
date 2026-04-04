@@ -6,7 +6,15 @@ import { useSession } from 'next-auth/react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
-import { getStorefrontCart, getImageDisplayUrl, type StorefrontCart } from '@/lib/api';
+import {
+  getStorefrontCart,
+  getImageDisplayUrl,
+  getCartTokenForStore,
+  completeStorefrontCheckout,
+  setCartCount,
+  type StorefrontCart,
+} from '@/lib/api';
+import { setLastCartStoreId } from '@/lib/storefrontLastCartStore';
 
 function PaymentPageInner() {
   const router = useRouter();
@@ -15,7 +23,7 @@ function PaymentPageInner() {
   const storeId = storeIdParam ? parseInt(storeIdParam, 10) : NaN;
   const effectiveStoreId = !isNaN(storeId) && storeId > 0 ? storeId : null;
 
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -23,6 +31,7 @@ function PaymentPageInner() {
   const [cardName, setCardName] = useState('');
   const [saveCard, setSaveCard] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
 
   const [cart, setCart] = useState<StorefrontCart | null>(null);
@@ -45,7 +54,10 @@ function PaymentPageInner() {
     setCartLoading(true);
     setCartError(null);
     getStorefrontCart(effectiveStoreId)
-      .then(setCart)
+      .then((c) => {
+        setLastCartStoreId(effectiveStoreId);
+        setCart(c);
+      })
       .catch((e) => {
         setCartError(e instanceof Error ? e.message : 'Failed to load cart');
         setCart(null);
@@ -99,17 +111,30 @@ function PaymentPageInner() {
     setExpiryDate(formatted);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (paymentMethod !== 'card' || effectiveStoreId == null) return;
+    const cartToken = getCartTokenForStore(effectiveStoreId);
+    if (!cartToken) {
+      setCheckoutError('Your cart session expired. Return to the cart and try again.');
+      return;
+    }
+    setCheckoutError(null);
     setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      // Redirect to confirmation page (include store_id so confirmation can fetch order)
-      const params = new URLSearchParams({ orderId: 'ORD-' + Date.now() });
-      if (effectiveStoreId != null) params.set('store_id', String(effectiveStoreId));
+    try {
+      const order = await completeStorefrontCheckout(effectiveStoreId, {
+        cartToken,
+        email: session?.user?.email ?? undefined,
+      });
+      setCartCount(0);
+      const params = new URLSearchParams({ orderId: order.number });
+      params.set('store_id', String(effectiveStoreId));
       router.push('/checkout/confirmation?' + params.toString());
-    }, 2000);
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : 'Payment could not be completed.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const lines = Array.isArray(cart?.lines) ? cart.lines : [];
@@ -224,7 +249,7 @@ function PaymentPageInner() {
               </div>
 
               {paymentMethod === 'card' && (
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={(ev) => void handleSubmit(ev)} className="space-y-5">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Cardholder Name
@@ -491,9 +516,18 @@ function PaymentPageInner() {
                 </>
               )}
 
+              {checkoutError ? (
+                <p className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{checkoutError}</p>
+              ) : null}
               <button
-                onClick={handleSubmit}
-                disabled={isProcessing || orderSummaryEmpty || cartLoading}
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={
+                  isProcessing ||
+                  orderSummaryEmpty ||
+                  cartLoading ||
+                  paymentMethod !== 'card'
+                }
                 className={`w-full bg-gradient-to-r from-mint to-mint-dark text-white py-4 rounded-xl font-bold hover:from-mint-dark hover:to-mint transition-all shadow-lg hover:shadow-xl mb-4 flex items-center justify-center gap-2 ${
                   isProcessing || orderSummaryEmpty || cartLoading ? 'opacity-75 cursor-not-allowed' : ''
                 }`}

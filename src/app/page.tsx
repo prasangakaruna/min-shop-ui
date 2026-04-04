@@ -3,13 +3,13 @@ import { StorefrontProvider } from '@/context/StorefrontContext';
 import StorefrontHomeBody from '@/components/StorefrontHomeBody';
 import { storeSlugFromHost } from '@/lib/storeSlug';
 
-type SearchParamsInput = { store?: string | string[] } | Promise<{ store?: string | string[] }> | undefined;
-
-async function resolveSearchParams(searchParams: SearchParamsInput): Promise<{ store?: string | string[] }> {
+async function resolveSearchParams(
+  searchParams: Promise<{ store?: string | string[] }> | undefined,
+): Promise<{ store?: string | string[] }> {
   if (searchParams == null) {
     return {};
   }
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return searchParams;
 }
 
 async function storeSlugFromRequestHost(): Promise<string | null> {
@@ -30,7 +30,11 @@ async function storeSlugFromRequestHost(): Promise<string | null> {
  * - `/?store=your-store-slug` — preview that store’s theme + logo on localhost
  * - Production: `https://{slug}.mint-shop.pro` (subdomain = store slug, resolved from Host on the server)
  */
-export default async function Home({ searchParams }: { searchParams?: SearchParamsInput }) {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ store?: string | string[] }>;
+}) {
   const sp = await resolveSearchParams(searchParams);
   const raw = sp?.store;
   const fromQuery = Array.isArray(raw) ? raw[0] : raw ?? null;

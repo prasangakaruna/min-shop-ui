@@ -763,6 +763,40 @@ export async function getStorefrontOrder(
   return data as StorefrontOrder;
 }
 
+/** Create a real order from the storefront cart (demo checkout; marks order paid). */
+export async function completeStorefrontCheckout(
+  storeId: number,
+  options: {
+    cartToken: string;
+    email?: string | null;
+    shipping_address?: Record<string, unknown>;
+    billing_address?: Record<string, unknown>;
+  }
+): Promise<StorefrontOrder> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('NEXT_PUBLIC_API_URL is not set');
+  const { cartToken, email, shipping_address, billing_address } = options;
+  const res = await fetch(`${base}/storefront/checkout/complete`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Store-Id': String(storeId),
+      'X-Cart-Token': cartToken,
+    },
+    body: JSON.stringify({
+      store_id: storeId,
+      cart_token: cartToken,
+      ...(email ? { email } : {}),
+      ...(shipping_address && Object.keys(shipping_address).length > 0 ? { shipping_address } : {}),
+      ...(billing_address && Object.keys(billing_address).length > 0 ? { billing_address } : {}),
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data?.message as string) || res.statusText);
+  return data as StorefrontOrder;
+}
+
 export interface OrderLineItem {
   id: number;
   title: string;

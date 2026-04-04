@@ -16,19 +16,7 @@ import {
   setCartCount,
 } from '@/lib/api';
 import type { StorefrontCart, StorefrontCartLine } from '@/lib/api';
-
-const LAST_CART_STORE_KEY = 'mint_cart_store_id';
-
-function getLastCartStoreId(): number | null {
-  if (typeof window === 'undefined') return null;
-  const id = localStorage.getItem(LAST_CART_STORE_KEY);
-  return id ? parseInt(id, 10) : null;
-}
-
-function setLastCartStoreId(storeId: number): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(LAST_CART_STORE_KEY, String(storeId));
-}
+import { getLastCartStoreId, setLastCartStoreId } from '@/lib/storefrontLastCartStore';
 
 /** Ensure we always get an array of lines (API returns array; guard against object or null). */
 function normalizeCartLines(cart: StorefrontCart | null): StorefrontCartLine[] {
