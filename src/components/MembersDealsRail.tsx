@@ -244,11 +244,11 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
   return (
     <section className="relative w-full overflow-x-hidden bg-white py-10 sm:py-12" aria-labelledby="members-deals-heading">
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative flex min-h-[min(22rem,78vw)] flex-col overflow-visible rounded-3xl shadow-[0_24px_56px_-28px_rgba(27,77,46,0.35)] ring-1 ring-black/[0.06] lg:min-h-[20rem] lg:flex-row">
-          {/* Left promo panel — custom full banner image, or default sage + leaf + collage */}
+        <div className="relative grid min-h-[min(22rem,78vw)] grid-cols-1 overflow-visible rounded-3xl shadow-[0_24px_56px_-28px_rgba(27,77,46,0.35)] ring-1 ring-black/[0.06] lg:min-h-[20rem] lg:grid-cols-[min(100%,26rem)_minmax(0,1fr)] xl:grid-cols-[28rem_minmax(0,1fr)]">
+          {/* Left promo panel — custom full banner image, or default sage + leaf + collage (grid column stretches to match product rail height) */}
           {cfg.promoPanelImageUrl ? (
             <div
-              className="relative z-0 flex min-h-[min(22rem,78vw)] w-full shrink-0 flex-col justify-end overflow-hidden text-white lg:min-h-0 lg:h-full lg:w-[min(100%,26rem)] lg:rounded-l-3xl xl:w-[28rem]"
+              className="relative z-0 flex min-h-[min(22rem,78vw)] w-full flex-col justify-end overflow-hidden text-white lg:min-h-0 lg:h-full lg:rounded-l-3xl"
               style={{ backgroundColor: PANEL }}
             >
               <h2 id="members-deals-heading" className="sr-only">
@@ -283,7 +283,7 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
             </div>
           ) : (
             <div
-              className="relative z-0 flex w-full shrink-0 flex-col justify-between overflow-hidden px-6 py-8 text-white lg:w-[min(100%,26rem)] lg:rounded-l-3xl lg:py-10 xl:w-[28rem]"
+              className="relative z-0 flex min-h-[min(22rem,78vw)] w-full flex-col justify-between overflow-hidden px-6 py-8 text-white lg:min-h-0 lg:h-full lg:rounded-l-3xl lg:py-10"
               style={{ backgroundColor: PANEL }}
             >
               <div className="relative z-[1] flex flex-col gap-6 lg:min-h-[12rem]">
@@ -399,7 +399,7 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
           )}
 
           {/* Product rail — white panel, overlaps sage (reference) */}
-          <div className="relative z-[1] -mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border-l-4 border-white bg-white shadow-[inset_0_1px_0_rgba(255,255,255,1)] sm:-mt-0 lg:-ml-10 lg:mt-0 lg:rounded-l-3xl lg:rounded-r-3xl lg:border-l-[6px] lg:pl-1 xl:-ml-12">
+          <div className="relative z-[1] -mt-3 flex min-h-0 min-w-0 flex-col overflow-visible rounded-2xl border-l-4 border-white bg-white shadow-[inset_0_1px_0_rgba(255,255,255,1)] sm:-mt-0 lg:-ml-10 lg:mt-0 lg:rounded-l-3xl lg:rounded-r-3xl lg:border-l-[6px] lg:pl-1 xl:-ml-12">
             {loading ? (
               <div className="flex flex-1 items-center gap-4 overflow-hidden px-4 py-8 sm:px-6">
                 {[0, 1, 2, 3].map((i) => (
@@ -421,10 +421,11 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
               </div>
             ) : (
               <>
-                <div
-                  ref={scrollRef}
-                  className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-3 py-8 sm:gap-4 sm:px-5 lg:gap-5 lg:py-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-                >
+                <div className="relative min-h-0 flex-1">
+                  <div
+                    ref={scrollRef}
+                    className="flex h-full min-h-[16rem] gap-3 overflow-x-auto overflow-y-hidden px-3 py-8 pl-11 pr-11 sm:gap-4 sm:px-5 sm:pl-12 sm:pr-12 lg:gap-5 lg:py-10 lg:pl-14 lg:pr-14 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  >
                   {products.map((p, cardIndex) => {
                     const v = pickVariantForCard(p)!;
                     const pct = salePercent(v);
@@ -484,35 +485,36 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                       </article>
                     );
                   })}
-                </div>
+                  </div>
 
-                <div
-                  className="flex shrink-0 justify-end gap-1.5 border-t border-slate-200/70 bg-white px-3 py-3 sm:px-5"
-                  role="toolbar"
-                  aria-label="Scroll product deals"
-                >
-                  <button
-                    type="button"
-                    aria-label="Scroll deals left"
-                    disabled={!canPrev}
-                    onClick={() => scrollByDir(-1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
+                  <div
+                    className="pointer-events-none absolute inset-y-0 left-0 right-0 z-30 flex items-center justify-between px-1 sm:px-2"
+                    role="toolbar"
+                    aria-label="Scroll product deals"
                   >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Scroll deals right"
-                    disabled={!canNext}
-                    onClick={() => scrollByDir(1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
-                  >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                    <button
+                      type="button"
+                      aria-label="Scroll deals left"
+                      disabled={!canPrev}
+                      onClick={() => scrollByDir(-1)}
+                      className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300/90 bg-white text-slate-800 shadow-[0_4px_14px_rgba(15,23,42,0.12)] ring-2 ring-white/80 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Scroll deals right"
+                      disabled={!canNext}
+                      onClick={() => scrollByDir(1)}
+                      className="pointer-events-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-300/90 bg-white text-slate-800 shadow-[0_4px_14px_rgba(15,23,42,0.12)] ring-2 ring-white/80 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </>
             )}
