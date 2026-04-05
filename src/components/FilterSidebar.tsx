@@ -1,198 +1,154 @@
-import React from 'react';
+'use client';
 
-interface FilterSidebarProps {
-  category?: string;
+import React, { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
+import {
+  storefrontRequest,
+  type StorefrontBrowseCategoryRow,
+  type StorefrontBrowseCategoriesResponse,
+} from '@/lib/storefrontApi';
+import { STOREFRONT_PRIMARY_BUTTON_STYLE, STOREFRONT_PRIMARY_SOLID_HOVER_CLASS } from '@/lib/storefrontHomeTheme';
+
+function buildProductsHref(opts: { storeSlug?: string; search?: string; categoryId?: string | null }) {
+  const params = new URLSearchParams();
+  if (opts.storeSlug) params.set('store', opts.storeSlug);
+  if (opts.search && opts.search.trim()) params.set('search', opts.search.trim());
+  if (opts.categoryId && opts.categoryId.trim()) params.set('category', opts.categoryId.trim());
+  const qs = params.toString();
+  return qs ? `/products?${qs}` : '/products';
 }
 
-export default function FilterSidebar({ category }: FilterSidebarProps) {
-  const allCategories = [
-    { name: 'All Products', count: 1240, active: !category || category === 'all' },
-    { name: 'Electronics', count: 342, active: category === 'electronics' },
-    { name: 'Furniture', count: 289, active: category === 'furniture' },
-    { name: 'Fashion', count: 156, active: category === 'fashion' },
-    { name: 'Groceries', count: 453, active: category === 'groceries' },
-  ];
+function categoryIsActive(selected: string, rowId: string): boolean {
+  if (!selected.trim()) return false;
+  return selected.trim() === rowId.trim();
+}
 
-  const vehicleCategories = [
-    { name: 'All Vehicles', count: 2450, active: true },
-    { name: 'Electric Vehicles', count: 420, active: false },
-    { name: 'Luxury Cars', count: 380, active: false },
-    { name: 'SUVs', count: 650, active: false },
-    { name: 'Trucks', count: 320, active: false },
-    { name: 'Sports Cars', count: 280, active: false },
-    { name: 'Hybrid', count: 400, active: false },
-  ];
+interface FilterSidebarProps {
+  /** Raw `category` query value (decoded). */
+  category?: string;
+  storeSlug?: string;
+  search?: string;
+}
 
-  const realEstateCategories = [
-    { name: 'All Properties', count: 1120, active: true },
-    { name: 'Luxury Homes', count: 280, active: false },
-    { name: 'Condominiums', count: 320, active: false },
-    { name: 'Single Family', count: 250, active: false },
-    { name: 'Beach Properties', count: 120, active: false },
-    { name: 'Estates', count: 80, active: false },
-    { name: 'Investment', count: 70, active: false },
-  ];
+export default function FilterSidebar({ category = '', storeSlug, search }: FilterSidebarProps) {
+  const [rows, setRows] = useState<StorefrontBrowseCategoryRow[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const electronicsCategories = [
-    { name: 'All Electronics', count: 1240, active: true },
-    { name: 'Audio & Headphones', count: 342, active: false },
-    { name: 'Cameras & Photography', count: 156, active: false },
-    { name: 'Smart Home', count: 289, active: false },
-    { name: 'Gaming', count: 245, active: false },
-    { name: 'Televisions', count: 208, active: false },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    setLoadError(null);
+    storefrontRequest<StorefrontBrowseCategoriesResponse>('/storefront/browse-categories', {
+      ...(storeSlug ? { store: storeSlug } : {}),
+    })
+      .then((r) => {
+        if (cancelled) return;
+        const raw = Array.isArray(r.data?.categories) ? r.data!.categories! : [];
+        setRows(raw.filter((row) => !isCategoryHiddenFromStorefrontBrowse(row.id)));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRows([]);
+          setLoadError('Could not load categories.');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storeSlug]);
 
-  const groceryCategories = [
-    { name: 'All Groceries', count: 453, active: true },
-    { name: 'Fruits', count: 85, active: false },
-    { name: 'Vegetables', count: 92, active: false },
-    { name: 'Dairy & Eggs', count: 124, active: false },
-    { name: 'Bakery', count: 68, active: false },
-    { name: 'Pantry Staples', count: 84, active: false },
-  ];
+  const totalFromCategories = useMemo(() => rows?.reduce((s, r) => s + (r.count ?? 0), 0) ?? 0, [rows]);
 
-  let categories = allCategories;
-  if (category === 'vehicles') categories = vehicleCategories;
-  else if (category === 'real-estate') categories = realEstateCategories;
-  else if (category === 'electronics') categories = electronicsCategories;
-  else if (category === 'groceries') categories = groceryCategories;
+  const allHref = useMemo(
+    () => buildProductsHref({ storeSlug, search, categoryId: null }),
+    [storeSlug, search]
+  );
 
-  const allBrands = ['Sony', 'Bose', 'Apple', 'Samsung', 'Logitech', 'Nordic Design', 'EcoLiving'];
-  const vehicleBrands = ['Tesla', 'BMW', 'Mercedes-Benz', 'Audi', 'Toyota', 'Ford', 'Honda'];
-  const realEstateBrands = ['Luxury Estates', 'Coastal Properties', 'Urban Living', 'Country Homes', 'Beachfront Realty'];
-  const electronicsBrands = ['Sony', 'Bose', 'Apple', 'Samsung', 'Logitech', 'Canon', 'Nikon'];
-  const groceryBrands = ['Earth\'s Best', 'Organic Valley', 'Fresh Farm', 'Nature\'s Choice', 'Green Harvest', 'Farm Fresh', 'Pure Organic'];
-  
-  let brands = allBrands;
-  if (category === 'vehicles') brands = vehicleBrands;
-  else if (category === 'real-estate') brands = realEstateBrands;
-  else if (category === 'electronics') brands = electronicsBrands;
-  else if (category === 'groceries') brands = groceryBrands;
+  if (rows === null) {
+    return (
+      <aside className="w-full space-y-4 lg:w-64" aria-busy="true">
+        <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />
+        <ul className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="h-10 animate-pulse rounded-lg bg-gray-100" />
+          ))}
+        </ul>
+      </aside>
+    );
+  }
+
+  const showEmpty = rows.length === 0;
 
   return (
-    <aside className="w-full lg:w-64 space-y-6">
-      {/* Categories */}
+    <aside className="w-full space-y-6 lg:w-64">
       <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-          <svg className="w-5 h-5 mr-2 text-mint" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        <h3 className="mb-4 flex items-center text-lg font-bold text-gray-800">
+          <svg
+            className="mr-2 h-5 w-5 shrink-0 text-[color:var(--sf-color-primary,#4FD1C7)]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
           </svg>
           Categories
         </h3>
+        {loadError ? <p className="mb-2 text-sm text-amber-800">{loadError}</p> : null}
+        {showEmpty ? (
+          <p className="text-sm text-gray-600">No categories yet for this catalog.</p>
+        ) : null}
         <ul className="space-y-2">
-          {categories.map((cat, index) => (
-            <li key={index}>
-              <label className="flex items-center cursor-pointer group">
-                <input
-                  type="radio"
-                  name="category"
-                  defaultChecked={cat.active}
-                  className="sr-only"
-                />
-                <div className={`flex-1 flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-                  cat.active 
-                    ? 'bg-mint text-white' 
-                    : 'bg-gray-50 text-gray-700 group-hover:bg-gray-100'
-                }`}>
-                  <span className="font-medium">{cat.name}</span>
-                  <span className={`text-sm ${cat.active ? 'text-white/80' : 'text-gray-500'}`}>
-                    {cat.count}
-                  </span>
-                </div>
-              </label>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Brands */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Brands</h3>
-        <ul className="space-y-2">
-          {brands.map((brand, index) => (
-            <li key={index}>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  defaultChecked={index === 2}
-                  className="w-5 h-5 text-mint border-gray-300 rounded focus:ring-mint focus:ring-2"
-                />
-                <span className="ml-3 text-gray-700">{brand}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Price Range */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Price Range</h3>
-        <div className="space-y-4">
-          <div className="relative">
-            <input
-              type="range"
-              min="0"
-              max={
-                category === 'groceries' ? '50' :
-                category === 'vehicles' ? '100000' :
-                category === 'real-estate' ? '10000000' :
-                '5000'
-              }
-              defaultValue={
-                category === 'groceries' ? '25' :
-                category === 'vehicles' ? '50000' :
-                category === 'real-estate' ? '2000000' :
-                '2500'
-              }
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-mint"
-            />
-            <div className="flex justify-between mt-2 text-sm text-gray-600">
-              <span>$0</span>
-              <span>
-                {category === 'groceries' ? '$50+' :
-                 category === 'vehicles' ? '$100,000+' :
-                 category === 'real-estate' ? '$10M+' :
-                 '$5,000+'}
+          <li>
+            <Link
+              href={allHref}
+              scroll={false}
+              className={`flex items-center justify-between rounded-lg px-3 py-2 font-medium transition-colors ${
+                !category.trim()
+                  ? `text-white ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`
+                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+              }`}
+              style={!category.trim() ? STOREFRONT_PRIMARY_BUTTON_STYLE : undefined}
+            >
+              <span>All products</span>
+              <span className={`text-sm tabular-nums ${!category.trim() ? 'text-white/80' : 'text-gray-500'}`}>
+                {totalFromCategories}
               </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Rating */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-4">Customer Rating</h3>
-        <ul className="space-y-2">
-          {[5, 4, 3].map((stars) => (
-            <li key={stars}>
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 text-mint border-gray-300 rounded focus:ring-mint focus:ring-2"
-                />
-                <div className="flex items-center ml-3">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className={`w-4 h-4 ${i < stars ? 'text-yellow-400' : 'text-gray-300'}`}
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                  <span className="text-sm text-gray-600 ml-1">& Up</span>
-                </div>
-              </label>
-            </li>
-          ))}
+            </Link>
+          </li>
+          {rows.map((row) => {
+            const active = categoryIsActive(category, row.id);
+            const href = buildProductsHref({ storeSlug, search, categoryId: row.id });
+            return (
+              <li key={row.id}>
+                <Link
+                  href={href}
+                  scroll={false}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 font-medium transition-colors ${
+                    active ? `text-white ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}` : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                  }`}
+                  style={active ? STOREFRONT_PRIMARY_BUTTON_STYLE : undefined}
+                >
+                  <span className="line-clamp-2 pr-2">{formatCategoryLabel(row.id)}</span>
+                  <span className={`shrink-0 text-sm tabular-nums ${active ? 'text-white/80' : 'text-gray-500'}`}>
+                    {row.count}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </div>
 
-      {/* Clear Filters Button */}
-      <button type="button" className="w-full bg-white border-2 border-mint text-mint py-2 rounded-lg font-medium hover:bg-mint/10 transition-colors" suppressHydrationWarning>
-        Clear Filters
-      </button>
+      <div className="border-t border-gray-200 pt-4">
+        <p className="text-xs text-gray-500">Counts reflect active products in this storefront.</p>
+      </div>
     </aside>
   );
 }

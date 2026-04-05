@@ -1,6 +1,12 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  STOREFRONT_PRIMARY_BUTTON_STYLE,
+  STOREFRONT_PRIMARY_HOVER_HEADING_CLASS,
+  STOREFRONT_PRIMARY_PRICE_CLASS,
+  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 interface ProductCardProps {
   id: string;
@@ -41,7 +47,7 @@ export default function ProductCard({
     if (canAddToCart) onAddToCart(storeId!, productVariantId!);
   };
   const badgeColors = {
-    mint: 'bg-mint',
+    mint: 'bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))]',
     red: 'bg-red-500',
     blue: 'bg-blue-500',
   };
@@ -75,7 +81,9 @@ export default function ProductCard({
       <div className="p-4">
         <p className="text-xs text-gray-500 uppercase mb-1">{category}</p>
         <Link href={`/product/${id}`} prefetch={false}>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2 hover:text-mint transition-colors line-clamp-2">
+          <h3
+            className={`text-lg font-semibold text-gray-800 mb-2 transition-colors line-clamp-2 ${STOREFRONT_PRIMARY_HOVER_HEADING_CLASS}`}
+          >
             {title}
           </h3>
         </Link>
@@ -100,7 +108,7 @@ export default function ProductCard({
 
         <div className="flex items-center justify-between mb-3">
           <div>
-            <span className="text-xl font-bold text-mint">{price}</span>
+            <span className={`text-xl ${STOREFRONT_PRIMARY_PRICE_CLASS}`}>{price}</span>
             {originalPrice && (
               <span className="text-sm text-gray-500 line-through ml-2">{originalPrice}</span>
             )}
@@ -112,7 +120,8 @@ export default function ProductCard({
             type="button"
             onClick={handleAddToCart}
             disabled={addToCartLoading}
-            className="w-full bg-mint text-white py-2 rounded-lg font-medium hover:bg-mint-dark transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
+            className={`w-full text-white py-2 font-medium rounded-[var(--sf-button-radius,0.5rem)] flex items-center justify-center space-x-2 disabled:opacity-50 ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+            style={STOREFRONT_PRIMARY_BUTTON_STYLE}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -120,7 +129,12 @@ export default function ProductCard({
             <span>{addToCartLoading ? 'Adding…' : 'Add to Cart'}</span>
           </button>
         ) : (
-          <Link href={`/product/${id}`} prefetch={false} className="block w-full bg-mint text-white py-2 rounded-lg font-medium hover:bg-mint-dark transition-colors flex items-center justify-center space-x-2">
+          <Link
+            href={`/product/${id}`}
+            prefetch={false}
+            className={`block w-full text-white py-2 font-medium rounded-[var(--sf-button-radius,0.5rem)] flex items-center justify-center space-x-2 ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+            style={STOREFRONT_PRIMARY_BUTTON_STYLE}
+          >
             <span>View Details</span>
           </Link>
         )}

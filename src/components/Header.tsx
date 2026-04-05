@@ -17,6 +17,15 @@ import {
 import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
 import { storeSlugFromHost, storeSlugFromHostname } from '@/lib/storeSlug';
 import { keycloakCallbackUrl } from '@/lib/keycloakRedirect';
+import {
+  STOREFRONT_PRIMARY_ACCENT_BG_CLASS,
+  STOREFRONT_PRIMARY_BADGE_BG_CLASS,
+  STOREFRONT_PRIMARY_FOCUS_RING_CLASS,
+  STOREFRONT_PRIMARY_LINK_CLASS,
+  STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS,
+  STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS,
+  STOREFRONT_PRIMARY_HOVER_TEXT_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 const USER_TYPE_COOKIE = 'USER_TYPE';
 const USER_TYPE_TO_REGISTER = 'USER_TYPE_TO_REGISTER';
@@ -283,17 +292,18 @@ function HeaderCore({
   const resolvedLogo = logoSource ? getImageDisplayUrl(logoSource) : '';
   const useCustomLogo = Boolean(resolvedLogo && resolvedLogo !== '');
 
-  const navLinkClass =
-    'relative text-gray-700 hover:text-mint transition-colors font-medium text-sm group inline-block whitespace-nowrap shrink-0 py-2';
+  const navLinkClass = `relative text-gray-700 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors font-medium text-sm group inline-block whitespace-nowrap shrink-0 py-2`;
   const navUnderline = (
-    <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-mint group-hover:w-full transition-all duration-200" />
+    <span
+      className={`absolute bottom-0 left-0 w-0 h-0.5 group-hover:w-full transition-all duration-200 ${STOREFRONT_PRIMARY_ACCENT_BG_CLASS}`}
+    />
   );
 
   const renderNavLinks = (variant: 'desktop-bar' | 'mobile') => {
     return navItems.map((item) => {
       const cls =
         variant === 'mobile'
-          ? 'px-4 py-2 text-gray-700 hover:text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium'
+          ? `px-4 py-2 text-gray-700 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS} rounded-lg transition-colors font-medium`
           : navLinkClass;
       const wrap = variant === 'desktop-bar' ? navUnderline : null;
       if (isExternalMenuUrl(item.url)) {
@@ -378,7 +388,7 @@ function HeaderCore({
                 onFocus={onSearchFocus}
                 onBlur={onSearchBlur}
                 placeholder="Search products, categories, brands…"
-                className="block w-full pl-10 pr-12 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+                className={`block w-full pl-10 pr-12 py-2.5 border-2 border-gray-200 rounded-lg ${STOREFRONT_PRIMARY_FOCUS_RING_CLASS} transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400`}
                 suppressHydrationWarning
                 enterKeyHint="search"
                 aria-label="Search products"
@@ -389,7 +399,7 @@ function HeaderCore({
               />
               <button
                 type="submit"
-                className="absolute inset-y-0 right-1.5 my-auto h-9 w-9 rounded-md flex items-center justify-center text-gray-500 hover:text-mint hover:bg-mint/10 transition-colors"
+                className={`absolute inset-y-0 right-1.5 my-auto h-9 w-9 rounded-md flex items-center justify-center text-gray-500 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS} transition-colors`}
                 aria-label="Submit search"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -413,14 +423,16 @@ function HeaderCore({
           <div className="flex items-center space-x-3 shrink-0">
             <Link
               href="/cart"
-              className="relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-200 group"
+              className={`relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center ${STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS} hover:text-white transition-all duration-200 group`}
               aria-label={cartCount > 0 ? `Shopping cart (${cartCount} items)` : 'Shopping cart'}
             >
               <svg className="w-6 h-6 text-gray-600 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center bg-mint text-white text-xs font-bold rounded-full">
+                <span
+                  className={`absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center ${STOREFRONT_PRIMARY_BADGE_BG_CLASS} text-white text-xs font-bold rounded-full`}
+                >
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
@@ -431,7 +443,7 @@ function HeaderCore({
               <button
                 type="button"
                 onClick={handleProfileClick}
-                className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-200"
+                className={`w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center ${STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS} hover:text-white transition-all duration-200`}
                 aria-label="User profile"
                 suppressHydrationWarning
               >
@@ -460,7 +472,7 @@ function HeaderCore({
                     </div>
                     <Link
                       href="/dashboard"
-                      className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-mint/10"
+                      className={`block px-4 py-2.5 text-sm text-gray-700 ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS}`}
                       onClick={() => setUserMenuOpen(false)}
                     >
                       Dashboard
@@ -468,14 +480,14 @@ function HeaderCore({
                     <button
                       type="button"
                       onClick={handleAccountClick}
-                      className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-mint/10"
+                      className={`block w-full text-left px-4 py-2.5 text-sm text-gray-700 ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS}`}
                     >
                       Account
                     </button>
                     <button
                       type="button"
                       onClick={handleSignOut}
-                      className="block w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-mint/10"
+                      className={`block w-full text-left px-4 py-2.5 text-sm text-gray-700 ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS}`}
                     >
                       Sign out
                     </button>
@@ -517,7 +529,7 @@ function HeaderCore({
               onFocus={onSearchFocus}
               onBlur={onSearchBlur}
               placeholder="Search products…"
-              className="block w-full pl-10 pr-12 py-2.5 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-mint focus:border-mint transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+              className={`block w-full pl-10 pr-12 py-2.5 border-2 border-gray-200 rounded-lg ${STOREFRONT_PRIMARY_FOCUS_RING_CLASS} transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400`}
               suppressHydrationWarning
               enterKeyHint="search"
               aria-label="Search products"
@@ -528,7 +540,7 @@ function HeaderCore({
             />
             <button
               type="submit"
-              className="absolute inset-y-0 right-1.5 my-auto h-9 w-9 rounded-md flex items-center justify-center text-gray-500 hover:text-mint hover:bg-mint/10 transition-colors"
+              className={`absolute inset-y-0 right-1.5 my-auto h-9 w-9 rounded-md flex items-center justify-center text-gray-500 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS} transition-colors`}
               aria-label="Submit search"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -569,7 +581,7 @@ function HeaderCore({
               <div className="pt-4 border-t border-gray-200">
                 <Link 
                   href="/login" 
-                  className="block px-4 py-2 text-mint hover:bg-mint/10 rounded-lg transition-colors font-medium"
+                  className={`block px-4 py-2 ${STOREFRONT_PRIMARY_LINK_CLASS} ${STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS} rounded-lg transition-colors`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Sign In

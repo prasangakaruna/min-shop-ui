@@ -1,4 +1,5 @@
 import React from 'react';
+import { STOREFRONT_PRIMARY_BUTTON_STYLE, STOREFRONT_PRIMARY_SOLID_HOVER_CLASS } from '@/lib/storefrontHomeTheme';
 
 interface PaginationProps {
   currentPage: number;
@@ -48,12 +49,14 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
       {pages.map((page) => (
         <button
           key={page}
+          type="button"
           onClick={() => onPageChange(page)}
           className={`w-10 h-10 rounded-lg font-medium transition-colors ${
             page === currentPage
-              ? 'bg-mint text-white'
+              ? `text-white ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`
               : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
           }`}
+          style={page === currentPage ? STOREFRONT_PRIMARY_BUTTON_STYLE : undefined}
         >
           {page}
         </button>

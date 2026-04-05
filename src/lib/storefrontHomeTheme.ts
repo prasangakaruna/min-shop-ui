@@ -713,6 +713,30 @@ export const STOREFRONT_PRIMARY_PRICE_CLASS =
 export const STOREFRONT_PRIMARY_HOVER_HEADING_CLASS =
   'hover:text-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]';
 
+/** Nav / text hovers (replaces `hover:text-mint`). */
+export const STOREFRONT_PRIMARY_HOVER_TEXT_CLASS =
+  'hover:text-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]';
+
+/** Thin underline accent (replaces `bg-mint` on nav underlines). */
+export const STOREFRONT_PRIMARY_ACCENT_BG_CLASS =
+  'bg-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]';
+
+/** Light wash (replaces `hover:bg-mint/10`). */
+export const STOREFRONT_PRIMARY_SUBTLE_HOVER_BG_CLASS =
+  'hover:bg-[color-mix(in_srgb,var(--sf-color-primary,var(--sf-color-button,#4FD1C7))_12%,transparent)]';
+
+/** Search / control focus ring (replaces `focus:ring-mint focus:border-mint`). */
+export const STOREFRONT_PRIMARY_FOCUS_RING_CLASS =
+  'focus:ring-2 focus:ring-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))] focus:border-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]';
+
+/** Solid fill hover for icon buttons (replaces `hover:bg-mint`). */
+export const STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS =
+  'hover:bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))]';
+
+/** Badge / pill fill (replaces `bg-mint`). */
+export const STOREFRONT_PRIMARY_BADGE_BG_CLASS =
+  'bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))]';
+
 export function themeToCssVars(t: StorefrontHomeThemeSettings): CSSProperties {
   const r = Math.min(48, (t.buttonCornerRoundness / 100) * 48);
   return {

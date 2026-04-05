@@ -6,6 +6,12 @@ import { useSearchParams } from 'next/navigation';
 import { storefrontRequest } from '@/lib/storefrontApi';
 import { getImageDisplayUrl } from '@/lib/api';
 import { storeSlugFromHostname } from '@/lib/storeSlug';
+import {
+  STOREFRONT_PRIMARY_BUTTON_STYLE,
+  STOREFRONT_PRIMARY_HOVER_TEXT_CLASS,
+  STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS,
+  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 type SocialLinks = {
   facebook?: string | null;
@@ -86,7 +92,7 @@ function FooterInner({ storeSlug }: { storeSlug: string | null }) {
               {visibleSocial.length === 0 ? (
                 <a
                   href="#"
-                  className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-mint hover:text-white hover:border-mint transition-all duration-200"
+                  className={`w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center ${STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS} hover:text-white hover:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] transition-all duration-200`}
                   aria-label="Social links not configured"
                 >
                   <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,7 +107,7 @@ function FooterInner({ storeSlug }: { storeSlug: string | null }) {
                     href={item.href ?? '#'}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center hover:bg-mint hover:text-white hover:border-mint transition-all duration-200"
+                    className={`w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center ${STOREFRONT_PRIMARY_SOLID_HOVER_BG_CLASS} hover:text-white hover:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] transition-all duration-200`}
                     aria-label={item.label}
                   >
                     {item.key === 'facebook' && (
@@ -155,10 +161,26 @@ function FooterInner({ storeSlug }: { storeSlug: string | null }) {
           <div>
             <h3 className="font-bold text-gray-800 mb-4 text-sm uppercase tracking-wider">Marketplace</h3>
             <ul className="space-y-3">
-              <li><Link href="/products" className="text-gray-600 hover:text-mint transition-colors text-sm">Browse Vehicles</Link></li>
-              <li><Link href="/products" className="text-gray-600 hover:text-mint transition-colors text-sm">Real Estate Listings</Link></li>
-              <li><Link href="/products" className="text-gray-600 hover:text-mint transition-colors text-sm">Home Electronics</Link></li>
-              <li><Link href="/groceries" className="text-gray-600 hover:text-mint transition-colors text-sm">Groceries</Link></li>
+              <li>
+                <Link href="/products" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Browse Vehicles
+                </Link>
+              </li>
+              <li>
+                <Link href="/products" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Real Estate Listings
+                </Link>
+              </li>
+              <li>
+                <Link href="/products" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Home Electronics
+                </Link>
+              </li>
+              <li>
+                <Link href="/groceries" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Groceries
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -166,10 +188,26 @@ function FooterInner({ storeSlug }: { storeSlug: string | null }) {
           <div>
             <h3 className="font-bold text-gray-800 mb-4 text-sm uppercase tracking-wider">Resources</h3>
             <ul className="space-y-3">
-              <li><Link href="/dashboard" className="text-gray-600 hover:text-mint transition-colors text-sm">My Account</Link></li>
-              <li><Link href="/profile/orders" className="text-gray-600 hover:text-mint transition-colors text-sm">Order History</Link></li>
-              <li><Link href="/profile/settings" className="text-gray-600 hover:text-mint transition-colors text-sm">Settings</Link></li>
-              <li><Link href="#" className="text-gray-600 hover:text-mint transition-colors text-sm">Help Center</Link></li>
+              <li>
+                <Link href="/dashboard" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  My Account
+                </Link>
+              </li>
+              <li>
+                <Link href="/profile/orders" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Order History
+                </Link>
+              </li>
+              <li>
+                <Link href="/profile/settings" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Settings
+                </Link>
+              </li>
+              <li>
+                <Link href="#" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} transition-colors text-sm`}>
+                  Help Center
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -184,12 +222,13 @@ function FooterInner({ storeSlug }: { storeSlug: string | null }) {
                 type="email"
                 placeholder="Your email"
                 required
-                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-mint focus:border-transparent text-sm"
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-l-lg focus:ring-2 focus:border-transparent focus:ring-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))] text-sm"
                 suppressHydrationWarning
               />
               <button
                 type="submit"
-                className="bg-mint text-white px-4 py-2.5 rounded-r-lg hover:bg-mint-dark transition-colors flex items-center justify-center"
+                className={`text-white px-4 py-2.5 rounded-r-lg flex items-center justify-center ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+                style={STOREFRONT_PRIMARY_BUTTON_STYLE}
                 aria-label="Subscribe to newsletter"
                 suppressHydrationWarning
               >
@@ -208,10 +247,18 @@ function FooterInner({ storeSlug }: { storeSlug: string | null }) {
               © {new Date().getFullYear()} MINT HUB Marketplace. All rights reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-6">
-              <Link href="#" className="text-gray-600 hover:text-mint text-sm transition-colors">Privacy Policy</Link>
-              <Link href="#" className="text-gray-600 hover:text-mint text-sm transition-colors">Terms of Service</Link>
-              <Link href="#" className="text-gray-600 hover:text-mint text-sm transition-colors">Cookie Policy</Link>
-              <Link href="#" className="text-gray-600 hover:text-mint text-sm transition-colors">Accessibility</Link>
+              <Link href="#" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} text-sm transition-colors`}>
+                Privacy Policy
+              </Link>
+              <Link href="#" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} text-sm transition-colors`}>
+                Terms of Service
+              </Link>
+              <Link href="#" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} text-sm transition-colors`}>
+                Cookie Policy
+              </Link>
+              <Link href="#" className={`text-gray-600 ${STOREFRONT_PRIMARY_HOVER_TEXT_CLASS} text-sm transition-colors`}>
+                Accessibility
+              </Link>
             </div>
           </div>
         </div>

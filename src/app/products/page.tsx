@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, type CSSProperties } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -17,6 +17,13 @@ import {
   setCartCount,
   type StorefrontProduct,
 } from '@/lib/api';
+import { storefrontRequest } from '@/lib/storefrontApi';
+import {
+  mergeStorefrontHomeTheme,
+  themeToCssVars,
+  type StorefrontHomeTheme,
+  STOREFRONT_PRIMARY_BODY_LINK_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 const PER_PAGE = 24;
 const LAST_CART_STORE_KEY = 'mint_cart_store_id';
@@ -59,6 +66,29 @@ function ProductsPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addingVariantId, setAddingVariantId] = useState<number | null>(null);
+  const [themeShellStyle, setThemeShellStyle] = useState<CSSProperties | undefined>(undefined);
+
+  useEffect(() => {
+    if (!scopedStore) {
+      setThemeShellStyle(undefined);
+      return;
+    }
+    let cancelled = false;
+    storefrontRequest<{ data?: { storefront_home?: StorefrontHomeTheme | null } }>('/storefront/store-branding', {
+      store_slug: scopedStore,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const merged = mergeStorefrontHomeTheme(res.data?.storefront_home ?? null);
+        setThemeShellStyle(themeToCssVars(merged.theme));
+      })
+      .catch(() => {
+        if (!cancelled) setThemeShellStyle(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [scopedStore]);
 
   const handleAddToCart = useCallback(
     async (storeId: number, productVariantId: number) => {
@@ -129,24 +159,27 @@ function ProductsPageInner() {
   const endIndex = Math.min(currentPage * PER_PAGE, total);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={themeShellStyle}>
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <nav className="mb-6">
           <ol className="flex items-center space-x-2 text-sm text-gray-600">
             <li>
-              <Link href={scopedStore ? `/?store=${encodeURIComponent(scopedStore)}` : '/'} className="hover:text-mint">
+              <Link
+                href={scopedStore ? `/?store=${encodeURIComponent(scopedStore)}` : '/'}
+                className={STOREFRONT_PRIMARY_BODY_LINK_CLASS}
+              >
                 Home
               </Link>
             </li>
             <li>/</li>
-            <li className="text-gray-800">Products</li>
+            <li className="text-[color:var(--sf-color-heading,#1f2937)]">Products</li>
           </ol>
         </nav>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Products</h1>
+          <h1 className="text-4xl font-bold mb-2 text-[color:var(--sf-color-heading,#1f2937)]">Products</h1>
           {loading ? (
             <p className="text-gray-600">Loading…</p>
           ) : error ? (
@@ -158,7 +191,11 @@ function ProductsPageInner() {
 
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="lg:w-64 flex-shrink-0">
-            <FilterSidebar category={categoryParam} />
+            <FilterSidebar
+              category={categoryParam}
+              storeSlug={scopedStore || undefined}
+              search={searchParam || undefined}
+            />
           </div>
 
           <div className="flex-1">
@@ -169,7 +206,7 @@ function ProductsPageInner() {
                 </p>
                 <div className="flex items-center space-x-4">
                   <select
-                    className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-mint focus:border-transparent"
+                    className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:border-transparent focus:ring-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]"
                     defaultValue="newest"
                     aria-label="Sort"
                   >
@@ -198,18 +235,17 @@ function ProductsPageInner() {
             ) : error ? (
               <div className="py-12 text-center text-gray-600">
                 <p className="mb-4">{error}</p>
-                <button
-                  type="button"
-                  onClick={() => window.location.reload()}
-                  className="text-mint font-medium hover:underline"
-                >
+                <button type="button" onClick={() => window.location.reload()} className={STOREFRONT_PRIMARY_BODY_LINK_CLASS}>
                   Try again
                 </button>
               </div>
             ) : products.length === 0 ? (
               <div className="py-12 text-center text-gray-600">
                 <p className="mb-4">No products found.</p>
-                <Link href="/products" className="text-mint font-medium hover:underline">
+                <Link
+                  href={scopedStore ? `/products?store=${encodeURIComponent(scopedStore)}` : '/products'}
+                  className={STOREFRONT_PRIMARY_BODY_LINK_CLASS}
+                >
                   View all products
                 </Link>
               </div>
