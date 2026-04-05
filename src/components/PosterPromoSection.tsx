@@ -48,6 +48,9 @@ function PosterTile({
   const href = item.linkUrl?.trim() ?? '';
   const hasLink = href !== '';
 
+  const overlayText =
+    [item.title, item.subtitle, item.ctaLabel].filter(Boolean).join(' — ') || 'Promotional highlight';
+
   const inner = (
     <div
       className={`relative h-full min-h-[140px] overflow-hidden rounded-2xl bg-gray-100 shadow-sm ring-1 ring-black/5 transition hover:shadow-md ${
@@ -55,21 +58,36 @@ function PosterTile({
       } ${className ?? ''}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- URLs from admin uploads / arbitrary CDNs */}
-      <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+      <img
+        src={img}
+        alt={overlayText}
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+      />
+      {/* Stronger bottom scrim + vignette so type stays readable on bright product photos */}
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+        aria-hidden
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,transparent_40%,rgba(0,0,0,0.12)_100%)]" aria-hidden />
       {item.badge ? (
         <span
-          className={`absolute right-3 top-3 rounded-full bg-[var(--sf-color-primary,#0f766e)] px-2.5 py-1 font-semibold text-white shadow ${
+          className={`absolute right-3 top-3 rounded-full bg-[var(--sf-color-primary,#0f766e)] px-2.5 py-1 font-semibold text-white shadow-md ring-1 ring-white/15 ${
             compact ? 'text-[8px]' : 'text-[10px] sm:text-xs'
           }`}
         >
           {item.badge}
         </span>
       ) : null}
-      <div className={`absolute bottom-0 left-0 right-0 p-3 sm:p-4 ${compact ? 'p-2' : ''}`}>
+      <div
+        className={`absolute bottom-0 left-0 right-0 p-3 sm:p-4 ${compact ? 'p-2' : ''}`}
+        style={{
+          textShadow: '0 1px 2px rgba(0,0,0,0.55), 0 2px 16px rgba(0,0,0,0.35)',
+        }}
+      >
         {item.title ? (
           <p
-            className={`font-semibold leading-snug text-white drop-shadow-sm ${
+            className={`font-semibold leading-snug text-white ${
               compact ? 'text-[9px]' : 'text-xs sm:text-base'
             }`}
             style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
@@ -78,11 +96,11 @@ function PosterTile({
           </p>
         ) : null}
         {item.subtitle ? (
-          <p className={`mt-0.5 text-white/90 ${compact ? 'text-[8px]' : 'text-[10px] sm:text-sm'}`}>{item.subtitle}</p>
+          <p className={`mt-0.5 text-white/95 ${compact ? 'text-[8px]' : 'text-[10px] sm:text-sm'}`}>{item.subtitle}</p>
         ) : null}
         {item.ctaLabel ? (
           <span
-            className={`mt-1.5 inline-block font-semibold text-white underline decoration-white/70 underline-offset-2 ${
+            className={`mt-1.5 inline-block font-semibold text-white underline decoration-white/80 underline-offset-2 ${
               compact ? 'text-[8px]' : 'text-[10px] sm:text-sm'
             }`}
           >
@@ -150,7 +168,7 @@ export default function PosterPromoSection({
               ) : null}
               {title ? (
                 <h2
-                  className={`mt-1 font-bold text-gray-900 ${compact ? 'text-sm' : 'text-xl sm:text-3xl'}`}
+                  className={`mt-1 font-bold tracking-tight text-gray-900 ${compact ? 'text-sm' : 'text-xl sm:text-3xl lg:text-[2.125rem]'}`}
                   style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
                 >
                   {title}
@@ -189,41 +207,51 @@ export default function PosterPromoSection({
 
         {n === 3 && (
           <div
-            className={`grid grid-cols-1 gap-3 sm:grid-cols-2 sm:grid-rows-2 sm:gap-4 ${compact ? 'gap-2 sm:gap-2' : ''}`}
+            className={`grid grid-cols-1 gap-3 sm:grid-cols-2 sm:grid-rows-2 sm:gap-4 sm:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)] ${
+              compact ? 'gap-2 sm:min-h-[200px] sm:gap-3' : 'sm:min-h-[min(26rem,56vh)]'
+            }`}
           >
-            <div className={`sm:row-span-2 ${compact ? 'min-h-[100px] sm:min-h-0' : 'min-h-[260px] sm:min-h-0'}`}>
-              <PosterTile item={items[0]!} className="h-full min-h-[inherit] sm:min-h-[420px]" compact={compact} />
+            <div className="min-h-0 sm:row-span-2">
+              <div className={compact ? 'min-h-[100px] sm:h-full sm:min-h-0' : 'min-h-[260px] sm:h-full sm:min-h-0'}>
+                <PosterTile item={items[0]!} className="h-full min-h-[inherit]" compact={compact} />
+              </div>
             </div>
-            <div className={compact ? 'min-h-[80px]' : 'min-h-[175px] sm:min-h-[205px]'}>
-              <PosterTile item={items[1]!} className="h-full min-h-[inherit]" compact={compact} />
+            <div className="min-h-0">
+              <div className={compact ? 'min-h-[80px] sm:h-full sm:min-h-0' : 'min-h-[175px] sm:h-full sm:min-h-0'}>
+                <PosterTile item={items[1]!} className="h-full min-h-[inherit]" compact={compact} />
+              </div>
             </div>
-            <div className={compact ? 'min-h-[80px]' : 'min-h-[175px] sm:min-h-[205px]'}>
-              <PosterTile item={items[2]!} className="h-full min-h-[inherit]" compact={compact} />
+            <div className="min-h-0">
+              <div className={compact ? 'min-h-[80px] sm:h-full sm:min-h-0' : 'min-h-[175px] sm:h-full sm:min-h-0'}>
+                <PosterTile item={items[2]!} className="h-full min-h-[inherit]" compact={compact} />
+              </div>
             </div>
           </div>
         )}
 
         {n >= 4 && (
           <div
-            className={`grid grid-cols-1 gap-3 sm:grid-cols-12 sm:grid-rows-2 sm:gap-4 ${compact ? 'gap-2 sm:gap-2' : ''}`}
+            className={`grid grid-cols-1 gap-3 sm:grid-cols-12 sm:grid-rows-2 sm:gap-4 sm:[grid-template-rows:minmax(0,1fr)_minmax(0,1fr)] ${
+              compact ? 'gap-2 sm:min-h-[220px] sm:gap-3' : 'sm:min-h-[min(28rem,58vh)]'
+            }`}
           >
-            <div className="sm:col-span-6 sm:row-span-2">
-              <div className={compact ? 'min-h-[100px] sm:min-h-[260px]' : 'min-h-[260px] sm:min-h-[400px]'}>
+            <div className="min-h-0 sm:col-span-6 sm:row-span-2">
+              <div className={compact ? 'min-h-[100px] sm:h-full sm:min-h-0' : 'min-h-[260px] sm:h-full sm:min-h-0'}>
                 <PosterTile item={items[0]!} className="h-full min-h-[inherit]" compact={compact} />
               </div>
             </div>
-            <div className="sm:col-span-3 sm:col-start-7 sm:row-start-1">
-              <div className={compact ? 'min-h-[80px]' : 'min-h-[175px] sm:min-h-[200px]'}>
+            <div className="min-h-0 sm:col-span-3 sm:col-start-7 sm:row-start-1">
+              <div className={compact ? 'min-h-[80px] sm:h-full sm:min-h-0' : 'min-h-[175px] sm:h-full sm:min-h-0'}>
                 <PosterTile item={items[1]!} className="h-full min-h-[inherit]" compact={compact} />
               </div>
             </div>
-            <div className="sm:col-span-3 sm:col-start-7 sm:row-start-2">
-              <div className={compact ? 'min-h-[80px]' : 'min-h-[175px] sm:min-h-[200px]'}>
+            <div className="min-h-0 sm:col-span-3 sm:col-start-7 sm:row-start-2">
+              <div className={compact ? 'min-h-[80px] sm:h-full sm:min-h-0' : 'min-h-[175px] sm:h-full sm:min-h-0'}>
                 <PosterTile item={items[2]!} className="h-full min-h-[inherit]" compact={compact} />
               </div>
             </div>
-            <div className="sm:col-span-3 sm:col-start-10 sm:row-span-2 sm:row-start-1">
-              <div className={compact ? 'min-h-[100px] sm:min-h-[260px]' : 'min-h-[260px] sm:min-h-[400px]'}>
+            <div className="min-h-0 sm:col-span-3 sm:col-start-10 sm:row-span-2 sm:row-start-1">
+              <div className={compact ? 'min-h-[100px] sm:h-full sm:min-h-0' : 'min-h-[260px] sm:h-full sm:min-h-0'}>
                 <PosterTile item={items[3]!} className="h-full min-h-[inherit]" compact={compact} />
               </div>
             </div>
