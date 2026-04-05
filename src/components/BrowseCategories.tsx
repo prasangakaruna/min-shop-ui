@@ -6,6 +6,11 @@ import { useStorefront } from '@/context/StorefrontContext';
 import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
 import { getImageDisplayUrl } from '@/lib/api';
 import { storefrontRequest, type StorefrontBrowseCategoriesResponse } from '@/lib/storefrontApi';
+import {
+  STOREFRONT_PRIMARY_BODY_LINK_CLASS,
+  STOREFRONT_PRIMARY_BUTTON_STYLE,
+  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 const CATEGORY_IMAGES: Record<string, string> = {
   vehicles: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
@@ -209,7 +214,7 @@ export default function BrowseCategories({ categories: propCategories, loading: 
               <div className="flex-1 h-px bg-gradient-to-r from-mint/30 to-transparent"></div>
             </div>
             <div className="space-y-1.5">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold sf-heading-color leading-tight">
                 Browse{' '}
                 <span className="relative inline-block">
                   <span className="relative z-10 bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">
@@ -224,9 +229,14 @@ export default function BrowseCategories({ categories: propCategories, loading: 
             </div>
           </div>
           <div className="flex-shrink-0">
-            <Link 
+            <Link
               href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-              className="inline-flex items-center space-x-2 group bg-white border-2 border-mint/30 text-mint-dark px-5 py-2.5 rounded-xl font-semibold hover:bg-mint hover:text-white hover:border-mint transition-all duration-300 shadow-md hover:shadow-xl"
+              className={`group inline-flex items-center space-x-2 rounded-xl border-2 bg-white px-5 py-2.5 font-semibold shadow-md transition-all duration-300 hover:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] hover:bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] hover:text-white hover:shadow-xl`}
+              style={{
+                borderColor:
+                  'color-mix(in srgb, var(--sf-color-button, var(--sf-color-primary, #4FD1C7)) 32%, #e5e7eb)',
+                color: 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))',
+              }}
             >
               <span>View All</span>
               <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,7 +259,7 @@ export default function BrowseCategories({ categories: propCategories, loading: 
               <p className="text-gray-600">No categories yet. Products will appear here once stores add them.</p>
               <Link
                 href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-                className="mt-4 inline-block text-mint font-medium hover:underline"
+                className={`mt-4 inline-block ${STOREFRONT_PRIMARY_BODY_LINK_CLASS}`}
               >
                 View all products
               </Link>
@@ -259,8 +269,9 @@ export default function BrowseCategories({ categories: propCategories, loading: 
           {/* Navigation Arrows */}
           {canScrollLeft && (
             <button
+              type="button"
               onClick={scrollPrev}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-14 h-14 bg-white rounded-full shadow-xl flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-300 group border border-gray-100 hover:border-mint hover:scale-110"
+              className="group absolute left-0 top-1/2 z-10 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:scale-110 hover:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] hover:bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] hover:text-white"
               aria-label="Previous categories"
             >
               <svg
@@ -276,8 +287,9 @@ export default function BrowseCategories({ categories: propCategories, loading: 
 
           {canScrollRight && (
             <button
+              type="button"
               onClick={scrollNext}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-14 h-14 bg-white rounded-full shadow-xl flex items-center justify-center hover:bg-mint hover:text-white transition-all duration-300 group border border-gray-100 hover:border-mint hover:scale-110"
+              className="group absolute right-0 top-1/2 z-10 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:scale-110 hover:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] hover:bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] hover:text-white"
               aria-label="Next categories"
             >
               <svg
@@ -309,7 +321,7 @@ export default function BrowseCategories({ categories: propCategories, loading: 
                       <Link
                         key={category.slug}
                         href={category.link}
-                        className="relative h-56 rounded-2xl overflow-hidden group cursor-pointer block bg-white shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30"
+                        className="group relative block h-56 cursor-pointer overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg transition-all duration-300 hover:border-[color:color-mix(in_srgb,var(--sf-color-primary,#4FD1C7)_22%,transparent)] hover:shadow-2xl"
                       >
                         <div
                           className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
@@ -325,11 +337,11 @@ export default function BrowseCategories({ categories: propCategories, loading: 
                           </div>
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 p-5 text-white z-10">
-                          <h3 className="text-xl font-bold mb-1.5 group-hover:text-mint-light transition-colors duration-300">
+                          <h3 className="mb-1.5 text-xl font-bold transition-colors duration-300 group-hover:text-[color:var(--sf-color-accent,var(--sf-color-primary,#4FD1C7))]">
                             {category.title}
                           </h3>
                           <p className="text-white/90 text-sm font-medium mb-3">{category.listings}</p>
-                          <div className="flex items-center text-white group-hover:text-mint-light transition-colors duration-300">
+                          <div className="flex items-center text-white transition-colors duration-300 group-hover:text-[color:var(--sf-color-accent,var(--sf-color-primary,#4FD1C7))]">
                             <span className="text-sm font-semibold mr-2">Explore Now</span>
                             <svg
                               className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300"
@@ -358,10 +370,9 @@ export default function BrowseCategories({ categories: propCategories, loading: 
                   type="button"
                   onClick={() => goToPage(index)}
                   className={`h-2.5 rounded-full transition-all duration-300 ${
-                    currentPage === index
-                      ? 'w-10 bg-mint shadow-md'
-                      : 'w-2.5 bg-gray-300 hover:bg-gray-400 hover:w-6'
+                    currentPage === index ? 'w-10 shadow-md' : 'w-2.5 bg-gray-300 hover:w-6 hover:bg-gray-400'
                   }`}
+                  style={currentPage === index ? STOREFRONT_PRIMARY_BUTTON_STYLE : undefined}
                   aria-label={`Go to page ${index + 1}`}
                 />
               ))}
@@ -370,9 +381,10 @@ export default function BrowseCategories({ categories: propCategories, loading: 
           
           {/* View All Link */}
           <div className="text-center mt-10">
-            <Link 
+            <Link
               href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-              className="inline-flex items-center space-x-2 bg-mint text-white px-8 py-3 rounded-xl font-semibold hover:bg-mint-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+              className={`inline-flex items-center space-x-2 rounded-xl px-8 py-3 font-semibold shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+              style={STOREFRONT_PRIMARY_BUTTON_STYLE}
             >
               <span>View All Categories</span>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

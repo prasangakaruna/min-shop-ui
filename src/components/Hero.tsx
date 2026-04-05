@@ -147,8 +147,8 @@ export default function Hero({
   };
 
   if (variant === 'video') {
-    const primary = 'var(--sf-color-primary, #0f766e)';
-    const accent = 'var(--sf-color-accent, #99f6e4)';
+    const primary = 'var(--sf-color-primary, #4FD1C7)';
+    const accent = 'var(--sf-color-accent, #81E6D9)';
     return (
       <section
         className="relative h-[480px] md:h-[520px] overflow-hidden flex items-center"
@@ -198,8 +198,9 @@ export default function Hero({
     );
   }
 
-  const primary = 'var(--sf-color-primary, #0f766e)';
-  const accent = 'var(--sf-color-accent, #99f6e4)';
+  const primary = 'var(--sf-color-primary, #4FD1C7)';
+  const accent = 'var(--sf-color-accent, #81E6D9)';
+  const buttonFill = 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))';
 
   const badgeBg =
     hero.heroBadgeBackgroundColor ?? `color-mix(in srgb, ${accent} 22%, transparent)`;
@@ -404,7 +405,7 @@ export default function Hero({
 
             <h1
               className={`text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 animate-slide-up leading-tight ${
-                headlineLineColor ? '' : 'text-gray-900'
+                headlineLineColor ? '' : 'sf-heading-color'
               }`}
               style={headlineLineColor ? { color: headlineLineColor } : undefined}
             >
@@ -436,7 +437,7 @@ export default function Hero({
               <HeroSlideCta
                 label={activeSlide.ctaLabel}
                 url={activeSlide.ctaUrl}
-                primary={primary}
+                ctaSurface={buttonFill}
                 accent={accent}
                 className="mb-6 animate-slide-up delay-100"
               />
@@ -459,14 +460,14 @@ export default function Hero({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={hero.searchPlaceholder}
-                  className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
+                  className="block w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] focus:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] transition-all text-sm text-gray-800 bg-white placeholder:text-gray-400"
                 />
               </div>
               <div className="relative sm:w-[min(100%,11rem)] md:w-[min(100%,13rem)]">
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-[color:var(--sf-color-primary,#0f766e)] focus:border-[color:var(--sf-color-primary,#0f766e)] transition-all text-sm font-medium text-gray-800"
+                  className="appearance-none bg-white border-2 w-full border-gray-200 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] focus:border-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] transition-all text-sm font-medium text-gray-800"
                 >
                   {searchCategories.map((c) => (
                     <option key={`${c.value}-${c.label}`} value={c.value}>
@@ -484,7 +485,7 @@ export default function Hero({
                 type="submit"
                 className="text-white px-8 py-3 font-semibold transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 whitespace-nowrap hover:opacity-95"
                 style={{
-                  backgroundColor: primary,
+                  backgroundColor: buttonFill,
                   borderRadius: 'var(--sf-button-radius, 9999px)',
                 }}
               >
@@ -520,13 +521,13 @@ export default function Hero({
 function HeroSlideCta({
   label,
   url,
-  primary,
+  ctaSurface,
   accent,
   className,
 }: {
   label: string;
   url: string;
-  primary: string;
+  ctaSurface: string;
   accent: string;
   className?: string;
 }) {
@@ -535,7 +536,7 @@ function HeroSlideCta({
     /^https?:\/\//i.test(url) || url.startsWith('mailto:') || url.startsWith('tel:');
 
   const style: React.CSSProperties = {
-    backgroundColor: `color-mix(in srgb, ${primary} 92%, #0f172a)`,
+    backgroundColor: `color-mix(in srgb, ${ctaSurface} 92%, #0f172a)`,
     color: '#fff',
     borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`,
   };

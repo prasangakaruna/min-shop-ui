@@ -483,6 +483,10 @@ export type StorefrontHomeThemeSettings = {
   colorSecondary: string;
   colorBackground: string;
   colorAccent: string;
+  /** Section titles and hero headline default (when not overridden per slide). */
+  colorHeading: string;
+  /** Solid primary CTAs (search, hero buttons, coupon strip, etc.). */
+  colorButton: string;
   /** 0–100, maps to border-radius on buttons */
   buttonCornerRoundness: number;
   /** px */
@@ -558,15 +562,56 @@ export const SECTION_CATALOG: { type: HomeSectionType; label: string }[] = [
 export const DEFAULT_THEME_SETTINGS: StorefrontHomeThemeSettings = {
   fontHeading: 'Inter, system-ui, sans-serif',
   fontBody: 'Inter, system-ui, sans-serif',
-  colorPrimary: '#0f766e',
+  /** Aligned with Tailwind `mint` so hero CTAs match section buttons (Featured, Offers, etc.). */
+  colorPrimary: '#4FD1C7',
   colorSecondary: '#334155',
   colorBackground: '#ffffff',
-  colorAccent: '#99f6e4',
+  colorAccent: '#81E6D9',
+  colorHeading: '#111827',
+  colorButton: '#4FD1C7',
   buttonCornerRoundness: 100,
   buttonBorderWeight: 2,
   wideLayout: true,
   sectionSpacing: 64,
 };
+
+/** Former built-in defaults (pre–mint alignment). Saved `storefront_home.theme` still contains these. */
+const LEGACY_THEME_PRIMARY = '#0f766e';
+const LEGACY_THEME_ACCENT = '#99f6e4';
+
+function normalizeStorefrontHex(value: string): string {
+  let s = value.trim().toLowerCase();
+  if (s === '') return '';
+  if (!s.startsWith('#')) s = `#${s}`;
+  if (/^#[0-9a-f]{3}$/.test(s)) {
+    const x = s.slice(1);
+    s = `#${x[0]}${x[0]}${x[1]}${x[1]}${x[2]}${x[2]}`;
+  }
+  return s;
+}
+
+/**
+ * Upgrades themes that still use the old teal defaults so CSS variables match section `mint` buttons
+ * without merchants re-publishing Theme.
+ */
+export function migrateLegacyStorefrontThemeColors(theme: StorefrontHomeThemeSettings): StorefrontHomeThemeSettings {
+  const lp = normalizeStorefrontHex(LEGACY_THEME_PRIMARY);
+  const la = normalizeStorefrontHex(LEGACY_THEME_ACCENT);
+  const p = normalizeStorefrontHex(theme.colorPrimary);
+  const b = normalizeStorefrontHex(theme.colorButton);
+  const a = normalizeStorefrontHex(theme.colorAccent);
+  let next = theme;
+  if (p === lp) {
+    next = { ...next, colorPrimary: DEFAULT_THEME_SETTINGS.colorPrimary };
+  }
+  if (b === lp) {
+    next = { ...next, colorButton: DEFAULT_THEME_SETTINGS.colorButton };
+  }
+  if (a === la) {
+    next = { ...next, colorAccent: DEFAULT_THEME_SETTINGS.colorAccent };
+  }
+  return next;
+}
 
 function newId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -632,7 +677,7 @@ export function isMintMarketplaceSectionOrder(sections: HomeSection[]): boolean 
 }
 
 export function mergeStorefrontHomeTheme(raw: StorefrontHomeTheme | null | undefined): StorefrontHomeTheme {
-  const theme = { ...DEFAULT_THEME_SETTINGS, ...(raw?.theme ?? {}) };
+  const theme = migrateLegacyStorefrontThemeColors({ ...DEFAULT_THEME_SETTINGS, ...(raw?.theme ?? {}) });
   const hasSavedSections = Boolean(raw?.sections && raw.sections.length > 0);
   const sections = ensureMemberDealsRailSection(
     hasSavedSections
@@ -645,6 +690,29 @@ export function mergeStorefrontHomeTheme(raw: StorefrontHomeTheme | null | undef
   return { theme, sections, preset, poster_promo };
 }
 
+/** Solid fill for storefront CTAs (reads Theme → button / primary, same as Hero). */
+export const STOREFRONT_PRIMARY_BUTTON_BG = 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))';
+
+export const STOREFRONT_PRIMARY_BUTTON_STYLE: CSSProperties = {
+  backgroundColor: STOREFRONT_PRIMARY_BUTTON_BG,
+};
+
+/** Combine with {@link STOREFRONT_PRIMARY_BUTTON_STYLE} on `Link` / `button`. */
+export const STOREFRONT_PRIMARY_SOLID_HOVER_CLASS =
+  'text-white transition-all hover:brightness-105 active:brightness-95';
+
+export const STOREFRONT_PRIMARY_LINK_CLASS =
+  'font-semibold text-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))] hover:underline';
+
+export const STOREFRONT_PRIMARY_BODY_LINK_CLASS =
+  'font-medium text-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))] hover:underline';
+
+export const STOREFRONT_PRIMARY_PRICE_CLASS =
+  'font-bold text-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]';
+
+export const STOREFRONT_PRIMARY_HOVER_HEADING_CLASS =
+  'hover:text-[color:var(--sf-color-primary,var(--sf-color-button,#4FD1C7))]';
+
 export function themeToCssVars(t: StorefrontHomeThemeSettings): CSSProperties {
   const r = Math.min(48, (t.buttonCornerRoundness / 100) * 48);
   return {
@@ -654,6 +722,8 @@ export function themeToCssVars(t: StorefrontHomeThemeSettings): CSSProperties {
     ['--sf-color-secondary' as string]: t.colorSecondary,
     ['--sf-color-background' as string]: t.colorBackground,
     ['--sf-color-accent' as string]: t.colorAccent,
+    ['--sf-color-heading' as string]: t.colorHeading,
+    ['--sf-color-button' as string]: t.colorButton,
     ['--sf-button-radius' as string]: `${r}px`,
     ['--sf-button-border' as string]: `${t.buttonBorderWeight}px`,
     ['--sf-section-gap' as string]: `${t.sectionSpacing}px`,

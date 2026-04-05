@@ -72,7 +72,7 @@ function PosterTile({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_0%,transparent_40%,rgba(0,0,0,0.12)_100%)]" aria-hidden />
       {item.badge ? (
         <span
-          className={`absolute right-3 top-3 rounded-full bg-[var(--sf-color-primary,#0f766e)] px-2.5 py-1 font-semibold text-white shadow-md ring-1 ring-white/15 ${
+          className={`absolute right-3 top-3 rounded-full bg-[var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] px-2.5 py-1 font-semibold text-white shadow-md ring-1 ring-white/15 ${
             compact ? 'text-[8px]' : 'text-[10px] sm:text-xs'
           }`}
         >
@@ -159,7 +159,7 @@ export default function PosterPromoSection({
             <div>
               {eyebrow ? (
                 <p
-                  className={`font-semibold uppercase tracking-[0.2em] text-[var(--sf-color-primary,#0f766e)] ${
+                  className={`font-semibold uppercase tracking-[0.2em] text-[var(--sf-color-primary,#4FD1C7)] ${
                     compact ? 'text-[8px]' : 'text-[10px] sm:text-xs'
                   }`}
                 >
@@ -168,7 +168,7 @@ export default function PosterPromoSection({
               ) : null}
               {title ? (
                 <h2
-                  className={`mt-1 font-bold tracking-tight text-gray-900 ${compact ? 'text-sm' : 'text-xl sm:text-3xl lg:text-[2.125rem]'}`}
+                  className={`mt-1 font-bold tracking-tight sf-heading-color ${compact ? 'text-sm' : 'text-xl sm:text-3xl lg:text-[2.125rem]'}`}
                   style={{ fontFamily: 'var(--sf-font-heading, inherit)' }}
                 >
                   {title}
@@ -178,7 +178,7 @@ export default function PosterPromoSection({
             {viewLabel && viewUrl ? (
               <PromoLink
                 href={viewUrl}
-                className={`shrink-0 font-semibold text-[var(--sf-color-primary,#0f766e)] hover:underline ${
+                className={`shrink-0 font-semibold text-[var(--sf-color-primary,#4FD1C7)] hover:underline ${
                   compact ? 'text-[10px]' : 'text-sm'
                 }`}
               >

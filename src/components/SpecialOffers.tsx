@@ -3,6 +3,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { storefrontRequest } from '@/lib/storefrontApi';
+import {
+  STOREFRONT_PRIMARY_BUTTON_STYLE,
+  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 const DEFAULT_OFFERS = [
   {
@@ -12,7 +16,7 @@ const DEFAULT_OFFERS = [
     description: 'Limited time offers on premium electronics',
     image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80',
     link: '/products?category=electronics',
-    accent: 'red' as const,
+    accent: 'mint' as const,
     icon: '⚡',
   },
   {
@@ -22,7 +26,7 @@ const DEFAULT_OFFERS = [
     description: 'Check out our latest additions',
     image: 'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800&q=80',
     link: '/products',
-    accent: 'blue' as const,
+    accent: 'mint' as const,
     icon: '🆕',
   },
   {
@@ -42,7 +46,11 @@ type Accent = 'red' | 'blue' | 'mint' | 'teal';
 const ACCENT_STYLES: Record<Accent, { gradient: string; badgeColor: string }> = {
   red: { gradient: 'from-red-500/20 to-red-600/20', badgeColor: 'bg-red-500' },
   blue: { gradient: 'from-blue-500/20 to-blue-600/20', badgeColor: 'bg-blue-500' },
-  mint: { gradient: 'from-mint/20 to-mint-dark/20', badgeColor: 'bg-mint' },
+  mint: {
+    gradient:
+      'from-[color:color-mix(in_srgb,var(--sf-color-primary,#4FD1C7)_18%,transparent)] to-[color:color-mix(in_srgb,var(--sf-color-primary,#4FD1C7)_32%,transparent)]',
+    badgeColor: 'bg-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))]',
+  },
   teal: { gradient: 'from-teal-500/20 to-teal-700/20', badgeColor: 'bg-teal-500' },
 };
 
@@ -185,13 +193,22 @@ export default function SpecialOffers({ storeSlug }: { storeSlug?: string | null
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-red-400/30 to-transparent" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold sf-heading-color leading-tight">
               Special{' '}
               <span className="relative inline-block">
-                <span className="relative z-10 bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">
+                <span
+                  className="relative z-10 bg-clip-text text-transparent"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(to right, var(--sf-color-primary, #4FD1C7), color-mix(in srgb, var(--sf-color-primary, #4FD1C7) 62%, #0f172a))',
+                  }}
+                >
                   Offers
                 </span>
-                <span className="absolute bottom-1.5 left-0 right-0 h-2.5 bg-mint/20 -z-0 transform -skew-x-12" />
+                <span
+                  className="absolute bottom-1.5 left-0 right-0 -z-0 h-2.5 -skew-x-12 transform opacity-30"
+                  style={{ backgroundColor: 'var(--sf-color-primary, #4FD1C7)' }}
+                />
               </span>
             </h2>
             <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
@@ -215,7 +232,7 @@ export default function SpecialOffers({ storeSlug }: { storeSlug?: string | null
                   key={offer.id}
                   href={withStore(offer.link)}
                   prefetch={false}
-                  className="relative group overflow-hidden rounded-2xl bg-white shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30 hover:-translate-y-1"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-[color:color-mix(in_srgb,var(--sf-color-primary,#4FD1C7)_22%,transparent)] hover:shadow-2xl"
                 >
                   <div
                     className="relative h-64 bg-cover bg-center group-hover:scale-110 transition-transform duration-700"
@@ -239,11 +256,11 @@ export default function SpecialOffers({ storeSlug }: { storeSlug?: string | null
                     </div>
 
                     <div className="absolute bottom-0 left-0 right-0 p-6 text-white z-10">
-                      <h3 className="text-2xl font-bold mb-2 group-hover:text-mint-light transition-colors duration-300">
+                      <h3 className="mb-2 text-2xl font-bold transition-colors duration-300 group-hover:text-[color:var(--sf-color-accent,var(--sf-color-primary,#4FD1C7))]">
                         {offer.title}
                       </h3>
                       <p className="text-white/90 text-sm mb-4 leading-relaxed">{offer.description}</p>
-                      <div className="flex items-center text-white group-hover:text-mint-light transition-colors duration-300">
+                      <div className="flex items-center text-white transition-colors duration-300 group-hover:text-[color:var(--sf-color-accent,var(--sf-color-primary,#4FD1C7))]">
                         <span className="text-base font-semibold mr-2">Shop Now</span>
                         <svg
                           className="w-5 h-5 group-hover:translate-x-2 transition-transform duration-300"
@@ -263,7 +280,8 @@ export default function SpecialOffers({ storeSlug }: { storeSlug?: string | null
         <div className="text-center mt-10">
           <Link
             href={withStore('/products')}
-            className="inline-flex items-center space-x-2 bg-mint text-white px-8 py-3 rounded-xl font-semibold hover:bg-mint-dark transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+            className={`inline-flex items-center space-x-2 rounded-xl px-8 py-3 font-semibold shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+            style={STOREFRONT_PRIMARY_BUTTON_STYLE}
           >
             <span>View All Offers</span>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

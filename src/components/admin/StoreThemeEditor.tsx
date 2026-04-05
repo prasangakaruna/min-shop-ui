@@ -706,6 +706,8 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                       ['colorSecondary', 'Secondary'],
                       ['colorBackground', 'Background'],
                       ['colorAccent', 'Accent'],
+                      ['colorHeading', 'Heading text'],
+                      ['colorButton', 'Button fill'],
                     ] as const
                   ).map(([key, label]) => (
                     <div key={key}>
@@ -2026,6 +2028,7 @@ function PreviewBlock({
 }) {
   const primary = theme.colorPrimary;
   const accent = theme.colorAccent;
+  const buttonFill = theme.colorButton;
   const r = Math.min(48, (theme.buttonCornerRoundness / 100) * 48);
   const pad = device === 'desktop' ? 'px-8 py-6' : 'px-3 py-6';
 
@@ -2078,7 +2081,7 @@ function PreviewBlock({
           </p>
           <p
             className={`font-extrabold leading-tight mb-1 ${device === 'desktop' ? 'text-sm' : 'text-xs'} ${
-              hl ? '' : 'text-gray-900'
+              hl ? '' : 'sf-heading-color'
             }`}
             style={{ fontFamily: 'var(--sf-font-heading, inherit)', ...(hl ? { color: hl } : {}) }}
           >
@@ -2107,7 +2110,7 @@ function PreviewBlock({
               <div className="flex-1 h-7 rounded-md bg-white border border-gray-200 text-[8px] flex items-center px-2 text-gray-400 truncate">
                 {hero.searchPlaceholder}
               </div>
-              <div className="h-7 px-2 rounded-md text-[8px] font-semibold text-white flex items-center shrink-0" style={{ backgroundColor: primary }}>
+              <div className="h-7 px-2 rounded-md text-[8px] font-semibold text-white flex items-center shrink-0" style={{ backgroundColor: buttonFill }}>
                 Go
               </div>
             </div>

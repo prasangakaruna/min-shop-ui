@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
 import ProductImage from '@/components/ProductImage';
 import type { StorefrontProduct } from '@/lib/storefrontApi';
+import {
+  STOREFRONT_PRIMARY_BUTTON_STYLE,
+  STOREFRONT_PRIMARY_HOVER_HEADING_CLASS,
+  STOREFRONT_PRIMARY_LINK_CLASS,
+  STOREFRONT_PRIMARY_PRICE_CLASS,
+  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
+} from '@/lib/storefrontHomeTheme';
 
 interface FeaturedListingsProps {
   products?: StorefrontProduct[];
@@ -38,12 +45,12 @@ export default function FeaturedListings({ products: propProducts, loading: prop
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-12 gap-6">
           <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900">Featured Listings</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold sf-heading-color">Featured Listings</h2>
             <p className="mt-2 text-gray-600">Premium products from verified sellers</p>
           </div>
           <Link
             href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-            className="inline-flex items-center gap-2 text-mint font-semibold hover:underline"
+            className={`inline-flex items-center gap-2 ${STOREFRONT_PRIMARY_LINK_CLASS}`}
           >
             View All <span className="text-lg">→</span>
           </Link>
@@ -53,7 +60,7 @@ export default function FeaturedListings({ products: propProducts, loading: prop
           {products.map((product) => (
             <div
               key={`${product.store_id}-${product.id}`}
-              className="rounded-xl border border-gray-100 bg-white overflow-hidden hover:shadow-lg hover:border-mint/20 transition"
+              className="rounded-xl border border-gray-100 bg-white overflow-hidden transition hover:border-[color:color-mix(in_srgb,var(--sf-color-primary,#4FD1C7)_22%,transparent)] hover:shadow-lg"
             >
               <Link
                 href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
@@ -64,14 +71,17 @@ export default function FeaturedListings({ products: propProducts, loading: prop
               </Link>
               <div className="p-4">
                 <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`} prefetch={false}>
-                  <h3 className="font-bold text-gray-900 line-clamp-2 hover:text-mint">{product.title}</h3>
+                  <h3 className={`font-bold text-gray-900 line-clamp-2 ${STOREFRONT_PRIMARY_HOVER_HEADING_CLASS}`}>
+                    {product.title}
+                  </h3>
                 </Link>
-                <p className="text-xl font-bold text-mint mt-1">${product.price}</p>
+                <p className={`mt-1 text-xl ${STOREFRONT_PRIMARY_PRICE_CLASS}`}>${product.price}</p>
                 <p className="text-xs text-gray-500 mt-1">{product.store?.name ?? `Store #${product.store_id}`}</p>
                 <Link
                   href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
                   prefetch={false}
-                  className="mt-3 block w-full bg-mint text-white py-2 rounded-lg font-semibold text-center text-sm hover:bg-mint-dark"
+                  className={`mt-3 block w-full rounded-lg py-2 text-center text-sm font-semibold ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+                  style={STOREFRONT_PRIMARY_BUTTON_STYLE}
                 >
                   View Details
                 </Link>
@@ -84,7 +94,8 @@ export default function FeaturedListings({ products: propProducts, loading: prop
           <div className="mt-12 text-center">
             <Link
               href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-              className="inline-block bg-mint text-white px-8 py-3 rounded-lg font-semibold hover:bg-mint-dark"
+              className={`inline-block rounded-lg px-8 py-3 font-semibold ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
+              style={STOREFRONT_PRIMARY_BUTTON_STYLE}
             >
               View All Listings
             </Link>

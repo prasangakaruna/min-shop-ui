@@ -48,7 +48,7 @@ export default function Newsletter() {
             />
             <button
               type="submit"
-              className="px-6 py-3 bg-white text-mint rounded-lg font-bold hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl whitespace-nowrap text-sm"
+              className="px-6 py-3 rounded-lg font-bold text-white transition-all shadow-lg hover:shadow-xl whitespace-nowrap text-sm bg-mint hover:bg-mint-dark ring-2 ring-white/30"
             >
               {submitted ? 'Subscribed!' : 'Subscribe'}
             </button>

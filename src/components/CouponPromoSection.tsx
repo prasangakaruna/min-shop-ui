@@ -67,7 +67,7 @@ function usePromoCountdown(endIso: string | null | undefined): CountdownParts | 
 }
 
 const promoCtaClassName =
-  'group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-b from-slate-800 to-slate-950 px-5 py-2.5 text-xs font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_8px_24px_-6px_rgba(15,23,42,0.45)] transition duration-200 hover:-translate-y-0.5 hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_1px_0_rgba(255,255,255,0.15)_inset,0_12px_28px_-8px_rgba(20,184,166,0.25)] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 active:translate-y-0 sm:text-sm';
+  'group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full px-5 py-2.5 text-xs font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_10px_28px_-8px_rgba(79,209,199,0.45)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] focus-visible:ring-offset-2 active:translate-y-0 sm:text-sm';
 
 function CtaArrow() {
   return (
@@ -237,8 +237,8 @@ export function VolumePromoCard({ volume, productsHref }: { volume: VolumePromo;
       <div className="relative mt-auto border-t border-slate-100/80 bg-gradient-to-b from-slate-50/30 to-white px-5 py-4 sm:px-6 sm:py-5">
         <Link
           href={productsHref}
-          className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full px-5 py-2.5 text-xs font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_10px_28px_-8px_rgba(15,118,110,0.35)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--sf-color-primary,#0f766e)] focus-visible:ring-offset-2 active:translate-y-0 sm:text-sm"
-          style={{ backgroundColor: 'var(--sf-color-primary, #0f766e)' }}
+          className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full px-5 py-2.5 text-xs font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_10px_28px_-8px_rgba(79,209,199,0.35)] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--sf-color-button,var(--sf-color-primary,#4FD1C7))] focus-visible:ring-offset-2 active:translate-y-0 sm:text-sm"
+          style={{ backgroundColor: 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))' }}
         >
           <span className="relative">Shop the sale</span>
           <CtaArrow />
@@ -499,7 +499,13 @@ export default function CouponPromoSection({
 
               {storeSlug && loaded ? (
                 <div className="relative mt-6 overflow-hidden rounded-xl border border-slate-200/60 bg-gradient-to-b from-slate-50/90 to-slate-100/30 p-4 shadow-inner sm:mt-7 sm:rounded-2xl sm:p-5">
-                  <Link href={cartHref} className={promoCtaClassName}>
+                  <Link
+                    href={cartHref}
+                    className={promoCtaClassName}
+                    style={{
+                      backgroundColor: 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))',
+                    }}
+                  >
                     <span className="relative">Apply code in cart</span>
                     <CtaArrow />
                   </Link>

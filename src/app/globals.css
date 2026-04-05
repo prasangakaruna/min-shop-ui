@@ -27,6 +27,11 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+
+  /** Storefront section titles + hero default headline (Theme → Colors & fonts → Heading text). */
+  .sf-heading-color {
+    color: var(--sf-color-heading, #111827);
+  }
 }
 
 /* Professional Animations */

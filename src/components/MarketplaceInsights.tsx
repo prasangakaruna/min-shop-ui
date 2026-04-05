@@ -38,7 +38,7 @@ export default function MarketplaceInsights() {
           <div className="bg-white rounded-xl p-5 shadow-lg border border-gray-100">
             <div className="mb-5">
               <div className="text-xs text-gray-500 mb-1">This Month</div>
-              <h3 className="text-xl font-bold text-gray-900">Trending Assets</h3>
+              <h3 className="text-xl font-bold sf-heading-color">Trending Assets</h3>
             </div>
 
             <div className="space-y-3 mb-5">

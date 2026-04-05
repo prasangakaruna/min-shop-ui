@@ -55,7 +55,7 @@ export default function UserLevels() {
             <span className="w-1.5 h-1.5 bg-mint rounded-full animate-pulse" />
             USER LEVELS
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-[2.7rem] font-extrabold text-gray-900 mb-3">
+          <h2 className="text-3xl md:text-4xl lg:text-[2.7rem] font-extrabold sf-heading-color mb-3">
             Built for every kind&nbsp;of user
           </h2>
           <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
@@ -82,7 +82,7 @@ export default function UserLevels() {
                 </div>
               </div>
 
-              <h3 className="relative text-xl font-semibold text-gray-900 mb-2">{level.title}</h3>
+              <h3 className="relative text-xl font-semibold sf-heading-color mb-2">{level.title}</h3>
               <p className="relative text-sm text-gray-600 mb-4 leading-relaxed">{level.description}</p>
 
               <ul className="relative space-y-1.5 text-sm text-gray-700 mb-5">

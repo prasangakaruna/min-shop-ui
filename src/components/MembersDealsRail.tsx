@@ -32,7 +32,6 @@ export type MembersDealsRailSettings = {
 
 const PANEL = '#8FB07E';
 const DEEP = '#1B4D2E';
-const DEAL_ACCENT = '#77C043';
 
 function parseSettings(raw: Record<string, unknown> | null | undefined): Required<
   Omit<MembersDealsRailSettings, 'ctaUrl' | 'pricePrefix' | 'promoPanelImageUrl'>
@@ -119,7 +118,9 @@ function MemberDealBadges({ brandMark, pct }: { brandMark: string; pct: number |
     <div className="pointer-events-none absolute left-2 top-2 z-20 flex flex-col items-start gap-1" aria-hidden>
       <div
         className="max-w-[calc(100%-0.5rem)] rounded-sm px-2 py-1.5 shadow-[0_4px_14px_rgba(0,0,0,0.15)] ring-1 ring-white/25"
-        style={{ backgroundColor: DEEP }}
+        style={{
+          backgroundColor: 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))',
+        }}
       >
         <p className="text-[6px] font-extrabold uppercase leading-tight tracking-wide text-white">
           <span className="tracking-tight">{titled}</span>
@@ -129,7 +130,7 @@ function MemberDealBadges({ brandMark, pct }: { brandMark: string; pct: number |
       <div
         className="min-w-[3.25rem] px-2.5 py-1 text-center text-[9px] font-black uppercase tracking-wide text-white shadow-[0_3px_10px_rgba(0,0,0,0.12)]"
         style={{
-          backgroundColor: DEAL_ACCENT,
+          backgroundColor: 'color-mix(in srgb, var(--sf-color-button, var(--sf-color-primary, #4FD1C7)) 88%, #0f172a)',
           clipPath: 'polygon(8% 12%, 50% 0%, 92% 12%, 100% 45%, 88% 100%, 12% 100%, 0% 45%)',
         }}
       >
@@ -269,7 +270,9 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                 <Link
                   href={productsHref}
                   className="inline-flex w-full max-w-[17.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition hover:brightness-110 sm:w-auto"
-                  style={{ backgroundColor: DEEP }}
+                  style={{
+                    backgroundColor: 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))',
+                  }}
                 >
                   <span>{cfg.ctaLabel}</span>
                   <span className="text-white/55" aria-hidden>
@@ -337,7 +340,9 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                 <Link
                   href={productsHref}
                   className="inline-flex w-full max-w-[17.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition hover:brightness-110 sm:w-auto"
-                  style={{ backgroundColor: DEEP }}
+                  style={{
+                    backgroundColor: 'var(--sf-color-button, var(--sf-color-primary, #4FD1C7))',
+                  }}
                 >
                   <span>{cfg.ctaLabel}</span>
                   <span className="text-white/55" aria-hidden>
@@ -415,7 +420,11 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                 <p className="max-w-sm text-xs text-slate-500">
                   Publish products with variants for this store, or confirm the storefront API is reachable from this site.
                 </p>
-                <Link href={productsHref} className="mt-2 text-sm font-semibold underline" style={{ color: DEAL_ACCENT }}>
+                <Link
+                  href={productsHref}
+                  className="mt-2 text-sm font-semibold underline"
+                  style={{ color: 'var(--sf-color-primary, #4FD1C7)' }}
+                >
                   View catalog
                 </Link>
               </div>
@@ -466,7 +475,10 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                         </div>
                         <div className="flex flex-1 flex-col px-3 pb-4 pt-2">
                           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-sm font-bold tabular-nums" style={{ color: DEAL_ACCENT }}>
+                            <span
+                              className="text-sm font-bold tabular-nums"
+                              style={{ color: 'var(--sf-color-primary, #4FD1C7)' }}
+                            >
                               {priceDisplayLine(p, v, cfg.pricePrefix)}
                             </span>
                             {compare ? (

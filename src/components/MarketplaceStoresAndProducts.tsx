@@ -92,7 +92,7 @@ export default function MarketplaceStoresAndProducts(props: MarketplaceStoresAnd
 
         {/* Stores */}
         <div className="mb-14">
-          <h2 className="text-2xl font-bold text-gray-900">Stores</h2>
+          <h2 className="text-2xl font-bold sf-heading-color">Stores</h2>
           <p className="mt-1 text-sm text-gray-500">Shop from these stores on the marketplace.</p>
           {storesLoading ? (
             <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -123,7 +123,7 @@ export default function MarketplaceStoresAndProducts(props: MarketplaceStoresAnd
 
         {/* Products by category: under one category, similar products from different stores with different prices */}
         <div id="products-by-category">
-          <h2 className="text-2xl font-bold text-gray-900">Products by category</h2>
+          <h2 className="text-2xl font-bold sf-heading-color">Products by category</h2>
           <p className="mt-1 text-sm text-gray-500">
             In each category you may see similar products from different stores with different prices.
           </p>
@@ -146,7 +146,7 @@ export default function MarketplaceStoresAndProducts(props: MarketplaceStoresAnd
             <div className="mt-6 space-y-10">
               {byCategory.map(([category, items]) => (
                 <div key={category}>
-                  <h3 className="text-lg font-semibold text-gray-900">{category}</h3>
+                  <h3 className="text-lg font-semibold sf-heading-color">{category}</h3>
                   <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                     {items.map((product) => (
                       <Link

@@ -108,7 +108,7 @@ export default function WhyChooseUs({ storeSlug }: { storeSlug?: string | null }
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-mint/30 to-transparent" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold sf-heading-color leading-tight">
               {data.title_before}{' '}
               <span className="relative inline-block">
                 <span className="relative z-10 bg-gradient-to-r from-mint to-mint-dark bg-clip-text text-transparent">
@@ -144,7 +144,7 @@ export default function WhyChooseUs({ storeSlug }: { storeSlug?: string | null }
                   <div className="w-12 h-12 bg-gradient-to-br from-mint/20 to-mint/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                     <span className="text-2xl">{feature.icon}</span>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{feature.title}</h3>
+                  <h3 className="text-lg font-bold sf-heading-color mb-2">{feature.title}</h3>
                   <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
                 </div>
               ))}
