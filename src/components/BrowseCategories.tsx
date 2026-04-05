@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
 import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
@@ -126,50 +126,67 @@ export default function BrowseCategories({ categories: propCategories, loading: 
       color: CATEGORY_COLORS[c.title.toLowerCase()] ?? CATEGORY_COLORS.default,
     }));
   }, [baseRows]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [cardsPerView, setCardsPerView] = useState(4);
+  const ROWS_PER_PAGE = 2;
+  const [currentPage, setCurrentPage] = useState(0);
+  /** Cards per row; each viewport shows two rows (see ROWS_PER_PAGE). */
+  const [cardsPerRow, setCardsPerRow] = useState(4);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const cardsPerPage = cardsPerRow * ROWS_PER_PAGE;
+
+  const pages = useMemo(() => {
+    const chunks: typeof categories[] = [];
+    for (let i = 0; i < categories.length; i += cardsPerPage) {
+      chunks.push(categories.slice(i, i + cardsPerPage));
+    }
+    return chunks;
+  }, [categories, cardsPerPage]);
 
   useEffect(() => {
-    const updateCardsPerView = () => {
+    const updateCardsPerRow = () => {
       const width = window.innerWidth;
       if (width < 640) {
-        setCardsPerView(1);
+        setCardsPerRow(1);
       } else if (width < 1024) {
-        setCardsPerView(2);
+        setCardsPerRow(2);
       } else {
-        setCardsPerView(4);
+        setCardsPerRow(4);
       }
     };
 
-    updateCardsPerView();
-    window.addEventListener('resize', updateCardsPerView);
-    return () => window.removeEventListener('resize', updateCardsPerView);
+    updateCardsPerRow();
+    window.addEventListener('resize', updateCardsPerRow);
+    return () => window.removeEventListener('resize', updateCardsPerRow);
   }, []);
 
   useEffect(() => {
-    const maxIndex = Math.max(0, categories.length - cardsPerView);
-    setCanScrollLeft(currentIndex > 0);
-    setCanScrollRight(currentIndex < maxIndex);
-  }, [currentIndex, cardsPerView, categories.length]);
+    const last = Math.max(0, pages.length - 1);
+    setCurrentPage((p) => Math.min(p, last));
+  }, [pages.length]);
 
-  const scrollToIndex = (index: number) => {
-    const maxIndex = Math.max(0, categories.length - cardsPerView);
-    const newIndex = Math.max(0, Math.min(index, maxIndex));
-    setCurrentIndex(newIndex);
+  useEffect(() => {
+    setCanScrollLeft(currentPage > 0);
+    setCanScrollRight(currentPage < Math.max(0, pages.length - 1));
+  }, [currentPage, pages.length]);
+
+  const goToPage = (page: number) => {
+    const last = Math.max(0, pages.length - 1);
+    setCurrentPage(Math.max(0, Math.min(page, last)));
   };
 
   const scrollPrev = () => {
-    scrollToIndex(currentIndex - 1);
+    goToPage(currentPage - 1);
   };
 
   const scrollNext = () => {
-    scrollToIndex(currentIndex + 1);
+    goToPage(currentPage + 1);
   };
 
-  const translateX = -(currentIndex * (100 / cardsPerView));
+  const translateX = -(currentPage * 100);
+
+  const gridColsClass =
+    cardsPerRow === 1 ? 'grid-cols-1' : cardsPerRow === 2 ? 'grid-cols-2' : 'grid-cols-4';
 
   return (
     <section className="py-16 bg-gray-50 relative overflow-hidden border-t border-gray-100">
@@ -222,8 +239,8 @@ export default function BrowseCategories({ categories: propCategories, loading: 
         {/* Category Slider */}
         <div className="relative">
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="h-56 rounded-2xl bg-gray-100 animate-pulse" />
               ))}
             </div>
@@ -274,72 +291,78 @@ export default function BrowseCategories({ categories: propCategories, loading: 
             </button>
           )}
 
-          {/* Slider Container */}
+          {/* Two-row paged grid */}
           <div className="overflow-hidden">
             <div
-              ref={scrollContainerRef}
               className="flex transition-transform duration-500 ease-in-out"
               style={{
                 transform: `translateX(${translateX}%)`,
               }}
             >
-              {categories.map((category) => (
+              {pages.map((page, pageIndex) => (
                 <div
-                  key={category.slug}
-                  className="flex-shrink-0 px-3"
-                  style={{ width: `${100 / cardsPerView}%` }}
+                  key={pageIndex}
+                  className="min-w-full shrink-0 px-0 sm:px-1"
                 >
-                  <Link
-                    href={category.link}
-                    className="relative h-56 rounded-2xl overflow-hidden group cursor-pointer block bg-white shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30"
-                  >
-                    {/* Image Background */}
-                    <div
-                      className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
-                      style={{ backgroundImage: `url(${category.image})` }}
-                    ></div>
-                    
-                    {/* Gradient Overlays */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 via-gray-900/20 to-transparent"></div>
-                    
-                    {/* Icon Badge */}
-                    <div className="absolute top-4 left-4 z-10">
-                      <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl shadow-lg group-hover:scale-110 group-hover:bg-white transition-all duration-300">
-                        {category.icon}
-                      </div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="absolute bottom-0 left-0 right-0 p-5 text-white z-10">
-                      <h3 className="text-xl font-bold mb-1.5 group-hover:text-mint-light transition-colors duration-300">{category.title}</h3>
-                      <p className="text-white/90 text-sm font-medium mb-3">{category.listings}</p>
-                      <div className="flex items-center text-white group-hover:text-mint-light transition-colors duration-300">
-                        <span className="text-sm font-semibold mr-2">Explore Now</span>
-                        <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
+                  <div className={`grid ${gridColsClass} gap-4 md:gap-6`}>
+                    {page.map((category) => (
+                      <Link
+                        key={category.slug}
+                        href={category.link}
+                        className="relative h-56 rounded-2xl overflow-hidden group cursor-pointer block bg-white shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 hover:border-mint/30"
+                      >
+                        <div
+                          className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                          style={{ backgroundImage: `url(${category.image})` }}
+                        />
+                        <div
+                          className={`absolute inset-0 bg-gradient-to-br ${category.color} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/70 via-gray-900/20 to-transparent" />
+                        <div className="absolute top-4 left-4 z-10">
+                          <div className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center text-2xl shadow-lg group-hover:scale-110 group-hover:bg-white transition-all duration-300">
+                            {category.icon}
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 p-5 text-white z-10">
+                          <h3 className="text-xl font-bold mb-1.5 group-hover:text-mint-light transition-colors duration-300">
+                            {category.title}
+                          </h3>
+                          <p className="text-white/90 text-sm font-medium mb-3">{category.listings}</p>
+                          <div className="flex items-center text-white group-hover:text-mint-light transition-colors duration-300">
+                            <span className="text-sm font-semibold mr-2">Explore Now</span>
+                            <svg
+                              className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Dots Indicator */}
-          {categories.length > cardsPerView && (
+          {pages.length > 1 && (
             <div className="flex justify-center items-center space-x-3 mt-8">
-              {Array.from({ length: Math.ceil(categories.length / cardsPerView) }).map((_, index) => (
+              {pages.map((_, index) => (
                 <button
                   key={index}
-                  onClick={() => scrollToIndex(index * cardsPerView)}
+                  type="button"
+                  onClick={() => goToPage(index)}
                   className={`h-2.5 rounded-full transition-all duration-300 ${
-                    Math.floor(currentIndex / cardsPerView) === index
+                    currentPage === index
                       ? 'w-10 bg-mint shadow-md'
                       : 'w-2.5 bg-gray-300 hover:bg-gray-400 hover:w-6'
                   }`}
-                  aria-label={`Go to slide ${index + 1}`}
+                  aria-label={`Go to page ${index + 1}`}
                 />
               ))}
             </div>
