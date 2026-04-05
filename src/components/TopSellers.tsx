@@ -3,15 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
-import ProductImage from '@/components/ProductImage';
+import StorefrontProductTeaserCard from '@/components/StorefrontProductTeaserCard';
 import type { StorefrontProduct } from '@/lib/storefrontApi';
-import {
-  STOREFRONT_PRIMARY_BUTTON_STYLE,
-  STOREFRONT_PRIMARY_HOVER_HEADING_CLASS,
-  STOREFRONT_PRIMARY_LINK_CLASS,
-  STOREFRONT_PRIMARY_PRICE_CLASS,
-  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
-} from '@/lib/storefrontHomeTheme';
+import { STOREFRONT_PRIMARY_LINK_CLASS } from '@/lib/storefrontHomeTheme';
 
 interface TopSellersProps {
   products?: StorefrontProduct[];
@@ -23,14 +17,15 @@ export default function TopSellers({ products: propProducts, loading: propLoadin
   const products = propProducts ?? (storefront ? storefront.products.slice(0, 4) : []);
   const loading = propLoading ?? storefront?.loading ?? false;
   const storeSlug = storefront?.storeSlug ?? null;
+
   if (loading) {
     return (
-      <section className="py-16 bg-gray-50 border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-10 w-40 mb-8 animate-pulse rounded bg-gray-200" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="border-t border-gray-100 bg-gradient-to-b from-gray-50/80 to-gray-50 py-16 md:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 h-10 w-40 animate-pulse rounded-lg bg-gray-200 md:mb-12" />
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-64 animate-pulse rounded-xl bg-gray-200" />
+              <div key={i} className="h-[18.5rem] animate-pulse rounded-xl bg-gray-200/80 ring-1 ring-gray-100" />
             ))}
           </div>
         </div>
@@ -41,56 +36,34 @@ export default function TopSellers({ products: propProducts, loading: propLoadin
   if (products.length === 0) return null;
 
   return (
-    <section className="py-16 bg-gray-50 border-t border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-12 gap-6">
+    <section className="border-t border-gray-100 bg-gradient-to-b from-gray-50/80 to-gray-50 py-16 md:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-10 flex flex-col gap-6 md:mb-12 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold sf-heading-color">Top Sellers</h2>
-            <p className="mt-2 text-gray-600">Best performing products</p>
+            <h2 className="text-3xl font-extrabold sf-heading-color md:text-4xl">Top Sellers</h2>
+            <p className="mt-2 text-base text-gray-600 md:text-lg">Customer favorites right now</p>
           </div>
           <Link
             href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-            className={`inline-flex items-center gap-2 ${STOREFRONT_PRIMARY_LINK_CLASS}`}
+            className={`inline-flex shrink-0 items-center gap-2 self-start md:self-auto ${STOREFRONT_PRIMARY_LINK_CLASS}`}
           >
-            View All <span className="text-lg">→</span>
+            View all
+            <span className="text-lg leading-none" aria-hidden>
+              →
+            </span>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6">
           {products.map((product, index) => (
-            <div
+            <StorefrontProductTeaserCard
               key={`${product.store_id}-${product.id}`}
-              className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-lg transition relative"
-            >
-              <div className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-yellow-400 text-gray-800 flex items-center justify-center font-bold text-sm">
-                #{index + 1}
-              </div>
-              <Link
-                href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
-                prefetch={false}
-                className="block relative h-40"
-              >
-                <ProductImage imageUrl={product.image_url} alt={product.title} productId={product.id} containerClassName="h-40 w-full" />
-              </Link>
-              <div className="p-4">
-                <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`} prefetch={false}>
-                  <h3
-                    className={`line-clamp-2 text-sm font-bold text-gray-900 ${STOREFRONT_PRIMARY_HOVER_HEADING_CLASS}`}
-                  >
-                    {product.title}
-                  </h3>
-                </Link>
-                <p className={`mt-2 text-lg ${STOREFRONT_PRIMARY_PRICE_CLASS}`}>${product.price}</p>
-                <Link
-                  href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
-                  prefetch={false}
-                  className={`mt-2 block w-full rounded-lg py-2 text-center text-xs font-semibold ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
-                  style={STOREFRONT_PRIMARY_BUTTON_STYLE}
-                >
-                  View Details
-                </Link>
-              </div>
-            </div>
+              product={product}
+              rank={index + 1}
+              showCategory
+              compact
+              ctaLabel="View details"
+            />
           ))}
         </div>
       </div>

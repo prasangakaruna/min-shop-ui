@@ -3,15 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { useStorefront } from '@/context/StorefrontContext';
-import ProductImage from '@/components/ProductImage';
+import StorefrontProductTeaserCard from '@/components/StorefrontProductTeaserCard';
 import type { StorefrontProduct } from '@/lib/storefrontApi';
-import {
-  STOREFRONT_PRIMARY_BUTTON_STYLE,
-  STOREFRONT_PRIMARY_HOVER_HEADING_CLASS,
-  STOREFRONT_PRIMARY_LINK_CLASS,
-  STOREFRONT_PRIMARY_PRICE_CLASS,
-  STOREFRONT_PRIMARY_SOLID_HOVER_CLASS,
-} from '@/lib/storefrontHomeTheme';
+import { STOREFRONT_PRIMARY_LINK_CLASS } from '@/lib/storefrontHomeTheme';
 
 interface NewArrivalsProps {
   products?: StorefrontProduct[];
@@ -23,14 +17,15 @@ export default function NewArrivals({ products: propProducts, loading: propLoadi
   const products = propProducts ?? (storefront ? storefront.products.slice(0, 6) : []);
   const loading = propLoading ?? storefront?.loading ?? false;
   const storeSlug = storefront?.storeSlug ?? null;
+
   if (loading) {
     return (
-      <section className="py-16 bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="h-10 w-44 mb-8 animate-pulse rounded bg-gray-100" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <section className="border-t border-gray-100 bg-white py-16 md:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 h-10 w-44 animate-pulse rounded-lg bg-gray-100 md:mb-12" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-72 animate-pulse rounded-xl bg-gray-100" />
+              <div key={i} className="h-[18.5rem] animate-pulse rounded-xl bg-gray-100 ring-1 ring-gray-100" />
             ))}
           </div>
         </div>
@@ -41,52 +36,33 @@ export default function NewArrivals({ products: propProducts, loading: propLoadi
   if (products.length === 0) return null;
 
   return (
-    <section className="py-16 bg-white border-t border-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-12 gap-6">
+    <section className="border-t border-gray-100 bg-white py-16 md:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-10 flex flex-col gap-6 md:mb-12 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-3xl md:text-4xl font-extrabold sf-heading-color">New Arrivals</h2>
-            <p className="mt-2 text-gray-600">Latest additions to the marketplace</p>
+            <h2 className="text-3xl font-extrabold sf-heading-color md:text-4xl">New Arrivals</h2>
+            <p className="mt-2 text-base text-gray-600 md:text-lg">Latest additions to the storefront</p>
           </div>
           <Link
             href={storeSlug ? `/products?store=${encodeURIComponent(storeSlug)}` : '/products'}
-            className={`inline-flex items-center gap-2 ${STOREFRONT_PRIMARY_LINK_CLASS}`}
+            className={`inline-flex shrink-0 items-center gap-2 self-start md:self-auto ${STOREFRONT_PRIMARY_LINK_CLASS}`}
           >
-            View All <span className="text-lg">→</span>
+            View all
+            <span className="text-lg leading-none" aria-hidden>
+              →
+            </span>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
           {products.map((product) => (
-            <div
+            <StorefrontProductTeaserCard
               key={`${product.store_id}-${product.id}`}
-              className="rounded-xl border border-gray-100 bg-white overflow-hidden hover:shadow-lg transition"
-            >
-              <Link
-                href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
-                prefetch={false}
-                className="block relative h-40"
-              >
-                <ProductImage imageUrl={product.image_url} alt={product.title} productId={product.id} containerClassName="h-40 w-full" />
-              </Link>
-              <div className="p-4">
-                <Link href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}>
-                  <h3 className={`font-bold text-gray-900 line-clamp-2 ${STOREFRONT_PRIMARY_HOVER_HEADING_CLASS}`}>
-                    {product.title}
-                  </h3>
-                </Link>
-                <p className={`mt-1 text-xl ${STOREFRONT_PRIMARY_PRICE_CLASS}`}>${product.price}</p>
-                <p className="text-xs text-gray-500 mt-1">{product.store?.name ?? `Store #${product.store_id}`}</p>
-                <Link
-                  href={`/product/${product.id}${product.store?.slug ? `?store=${product.store.slug}` : ''}`}
-                  prefetch={false}
-                  className={`mt-3 block w-full rounded-lg py-2 text-center text-sm font-semibold ${STOREFRONT_PRIMARY_SOLID_HOVER_CLASS}`}
-                  style={STOREFRONT_PRIMARY_BUTTON_STYLE}
-                >
-                  View Details
-                </Link>
-              </div>
-            </div>
+              product={product}
+              showCategory
+              showStoreName
+              ctaLabel="View details"
+            />
           ))}
         </div>
       </div>
