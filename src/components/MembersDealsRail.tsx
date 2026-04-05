@@ -26,6 +26,8 @@ export type MembersDealsRailSettings = {
   brandMark?: string;
   /** Prepended to variant price when the API returns a bare number (e.g. "Rs "). */
   pricePrefix?: string;
+  /** Optional image in the sage promo panel (replaces the default produce collage when set). */
+  promoPanelImageUrl?: string;
 };
 
 const PANEL = '#8FB07E';
@@ -33,12 +35,16 @@ const DEEP = '#1B4D2E';
 const DEAL_ACCENT = '#77C043';
 
 function parseSettings(raw: Record<string, unknown> | null | undefined): Required<
-  Omit<MembersDealsRailSettings, 'ctaUrl' | 'pricePrefix'>
-> & { ctaUrl: string | undefined; pricePrefix: string } {
+  Omit<MembersDealsRailSettings, 'ctaUrl' | 'pricePrefix' | 'promoPanelImageUrl'>
+> & { ctaUrl: string | undefined; pricePrefix: string; promoPanelImageUrl: string | undefined } {
   const s = raw ?? {};
   const lim = s.productLimit;
   const n = typeof lim === 'number' && Number.isFinite(lim) ? Math.floor(lim) : 14;
   const pp = s.pricePrefix;
+  const promo =
+    typeof s.promoPanelImageUrl === 'string' && s.promoPanelImageUrl.trim() !== ''
+      ? s.promoPanelImageUrl.trim()
+      : undefined;
   return {
     headline: typeof s.headline === 'string' && s.headline.trim() !== '' ? s.headline.trim() : 'Members Save',
     subline: typeof s.subline === 'string' ? s.subline.trim() : '',
@@ -47,6 +53,7 @@ function parseSettings(raw: Record<string, unknown> | null | undefined): Require
     productLimit: Math.min(24, Math.max(4, n)),
     brandMark: typeof s.brandMark === 'string' && s.brandMark.trim() !== '' ? s.brandMark.trim() : 'nexus',
     pricePrefix: typeof pp === 'string' ? pp : 'Rs ',
+    promoPanelImageUrl: promo,
   };
 }
 
@@ -305,54 +312,82 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
               </Link>
             </div>
 
-            {/* Produce cluster — right side of sage panel */}
-            <div className="pointer-events-none absolute bottom-0 right-0 hidden h-[min(100%,14rem)] w-[58%] lg:block">
-              <div className="relative h-full min-h-[11rem] w-full">
-                <Image
-                  src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=75"
-                  alt=""
-                  width={200}
-                  height={160}
-                  className="absolute bottom-1 right-[4%] w-[42%] rotate-[-6deg] rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
-                />
-                <Image
-                  src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&q=75"
-                  alt=""
-                  width={180}
-                  height={140}
-                  className="absolute bottom-3 right-[32%] w-[38%] rotate-[4deg] rounded-2xl object-cover shadow-lg ring-4 ring-white/25"
-                />
-                <Image
-                  src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=75"
-                  alt=""
-                  width={170}
-                  height={130}
-                  className="absolute bottom-10 right-[55%] w-[34%] rotate-[-10deg] rounded-2xl object-cover shadow-md ring-4 ring-white/22"
-                />
+            {/* Produce cluster — right side of sage panel (custom image or default collage) */}
+            {cfg.promoPanelImageUrl ? (
+              <div className="pointer-events-none absolute bottom-0 right-0 hidden h-[min(100%,14rem)] w-[58%] lg:block">
+                <div className="relative flex h-full min-h-[11rem] w-full items-end justify-end pb-2 pr-[4%]">
+                  <Image
+                    src={getImageDisplayUrl(cfg.promoPanelImageUrl)}
+                    alt=""
+                    width={280}
+                    height={220}
+                    className="max-h-[13rem] w-auto max-w-[92%] rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="pointer-events-none absolute bottom-0 right-0 hidden h-[min(100%,14rem)] w-[58%] lg:block">
+                <div className="relative h-full min-h-[11rem] w-full">
+                  <Image
+                    src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=75"
+                    alt=""
+                    width={200}
+                    height={160}
+                    className="absolute bottom-1 right-[4%] w-[42%] rotate-[-6deg] rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
+                  />
+                  <Image
+                    src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&q=75"
+                    alt=""
+                    width={180}
+                    height={140}
+                    className="absolute bottom-3 right-[32%] w-[38%] rotate-[4deg] rounded-2xl object-cover shadow-lg ring-4 ring-white/25"
+                  />
+                  <Image
+                    src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=75"
+                    alt=""
+                    width={170}
+                    height={130}
+                    className="absolute bottom-10 right-[55%] w-[34%] rotate-[-10deg] rounded-2xl object-cover shadow-md ring-4 ring-white/22"
+                  />
+                </div>
+              </div>
+            )}
 
-            {/* Mobile produce strip */}
-            <div className="mt-6 flex justify-end gap-2 lg:hidden" aria-hidden>
-              <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
-                <Image
-                  src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=96&q=70"
-                  alt=""
-                  width={56}
-                  height={56}
-                  className="h-full w-full object-cover"
-                />
-              </span>
-              <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
-                <Image
-                  src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=96&q=70"
-                  alt=""
-                  width={56}
-                  height={56}
-                  className="h-full w-full object-cover"
-                />
-              </span>
-            </div>
+            {/* Mobile produce strip or single custom image */}
+            {cfg.promoPanelImageUrl ? (
+              <div className="mt-6 flex justify-end lg:hidden" aria-hidden>
+                <span className="h-24 w-[min(100%,7.5rem)] overflow-hidden rounded-xl ring-2 ring-white/35">
+                  <Image
+                    src={getImageDisplayUrl(cfg.promoPanelImageUrl)}
+                    alt=""
+                    width={120}
+                    height={96}
+                    className="h-full w-full object-cover"
+                  />
+                </span>
+              </div>
+            ) : (
+              <div className="mt-6 flex justify-end gap-2 lg:hidden" aria-hidden>
+                <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
+                  <Image
+                    src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=96&q=70"
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-cover"
+                  />
+                </span>
+                <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
+                  <Image
+                    src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=96&q=70"
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-cover"
+                  />
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Product rail — white panel, overlaps sage (reference) */}

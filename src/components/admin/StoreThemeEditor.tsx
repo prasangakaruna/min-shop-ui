@@ -633,110 +633,12 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                     />
                   )}
                   {selected.type === 'member_deals_rail' && (
-                    <div className="space-y-3 text-xs">
-                      <p className="text-gray-600">
-                        <span className="font-medium text-gray-800">Members deals rail</span> — left promo panel and a scrollable product strip (sale items first). Uses your storefront product list.
-                      </p>
-                      <label className="block font-medium text-gray-700">Headline</label>
-                      <input
-                        type="text"
-                        value={typeof selected.settings?.headline === 'string' ? selected.settings.headline : ''}
-                        onChange={(e) =>
-                          updateSection(selected.id, {
-                            settings: { ...(selected.settings ?? {}), headline: e.target.value },
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="Members Save"
-                      />
-                      <label className="block font-medium text-gray-700">Subline</label>
-                      <textarea
-                        value={typeof selected.settings?.subline === 'string' ? selected.settings.subline : ''}
-                        onChange={(e) =>
-                          updateSection(selected.id, {
-                            settings: { ...(selected.settings ?? {}), subline: e.target.value },
-                          })
-                        }
-                        rows={2}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="Short supporting copy…"
-                      />
-                      <label className="block font-medium text-gray-700">CTA label</label>
-                      <input
-                        type="text"
-                        value={typeof selected.settings?.ctaLabel === 'string' ? selected.settings.ctaLabel : ''}
-                        onChange={(e) =>
-                          updateSection(selected.id, {
-                            settings: { ...(selected.settings ?? {}), ctaLabel: e.target.value },
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="View More Deals"
-                      />
-                      <label className="block font-medium text-gray-700">CTA URL (optional)</label>
-                      <input
-                        type="text"
-                        value={typeof selected.settings?.ctaUrl === 'string' ? selected.settings.ctaUrl : ''}
-                        onChange={(e) =>
-                          updateSection(selected.id, {
-                            settings: { ...(selected.settings ?? {}), ctaUrl: e.target.value },
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="Leave empty for /products?store=…"
-                      />
-                      <label className="block font-medium text-gray-700">Max products</label>
-                      <input
-                        type="number"
-                        min={4}
-                        max={24}
-                        value={
-                          typeof selected.settings?.productLimit === 'number'
-                            ? selected.settings.productLimit
-                            : 14
-                        }
-                        onChange={(e) => {
-                          const n = parseInt(e.target.value, 10);
-                          updateSection(selected.id, {
-                            settings: {
-                              ...(selected.settings ?? {}),
-                              productLimit: Number.isFinite(n) ? n : 14,
-                            },
-                          });
-                        }}
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                      />
-                      <label className="block font-medium text-gray-700">Brand mark (leaf + badges)</label>
-                      <input
-                        type="text"
-                        value={typeof selected.settings?.brandMark === 'string' ? selected.settings.brandMark : ''}
-                        onChange={(e) =>
-                          updateSection(selected.id, {
-                            settings: { ...(selected.settings ?? {}), brandMark: e.target.value },
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="nexus"
-                      />
-                      <label className="block font-medium text-gray-700">Price prefix (optional)</label>
-                      <input
-                        type="text"
-                        value={
-                          typeof selected.settings?.pricePrefix === 'string' ? selected.settings.pricePrefix : ''
-                        }
-                        onChange={(e) =>
-                          updateSection(selected.id, {
-                            settings: { ...(selected.settings ?? {}), pricePrefix: e.target.value },
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-                        placeholder="Rs (leave empty for none)"
-                      />
-                      <p className="text-[11px] text-gray-500">
-                        Empty prefix uses the raw API price. Use <span className="font-mono">Rs </span> for LKR-style
-                        labels like the demo storefront.
-                      </p>
-                    </div>
+                    <MemberDealsRailSectionEditor
+                      selected={selected}
+                      updateSection={updateSection}
+                      token={token}
+                      storeId={store.id}
+                    />
                   )}
                   {selected.type !== 'announcement_bar' &&
                     selected.type !== 'video_hero' &&
@@ -1035,6 +937,172 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
 }
 
 const POSTER_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const MEMBER_DEALS_IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/svg+xml';
+
+function MemberDealsRailSectionEditor({
+  selected,
+  updateSection,
+  token,
+  storeId,
+}: {
+  selected: HomeSection;
+  updateSection: (id: string, patch: Partial<HomeSection>) => void;
+  token: string;
+  storeId: number;
+}) {
+  const raw = selected.settings ?? {};
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  const patchSettings = (patch: Record<string, unknown>) =>
+    updateSection(selected.id, { settings: { ...raw, ...patch } });
+
+  const promoUrl = typeof raw.promoPanelImageUrl === 'string' ? raw.promoPanelImageUrl : '';
+
+  const openPicker = () => {
+    setUploadErr(null);
+    fileRef.current?.click();
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadErr('Choose an image file.');
+      return;
+    }
+    if (file.size > POSTER_IMAGE_MAX_BYTES) {
+      setUploadErr(`Image must be under ${POSTER_IMAGE_MAX_BYTES / 1024 / 1024}MB.`);
+      return;
+    }
+    setUploadErr(null);
+    setUploadBusy(true);
+    try {
+      const { url } = await uploadProductImage(file, { token, storeId });
+      patchSettings({ promoPanelImageUrl: url });
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 text-xs">
+      <input
+        ref={fileRef}
+        type="file"
+        accept={MEMBER_DEALS_IMAGE_ACCEPT}
+        className="hidden"
+        onChange={onFile}
+      />
+      <p className="text-gray-600">
+        <span className="font-medium text-gray-800">Members deals rail</span> — left promo panel and a scrollable product
+        strip (sale items first). Uses your storefront product list.
+      </p>
+      <div>
+        <label className="block font-medium text-gray-700">Promo panel image (optional)</label>
+        <p className="mb-1.5 text-[11px] text-gray-500">
+          Replaces the default produce collage on the sage panel. Paste a URL or upload — same storage as product images.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={openPicker}
+            disabled={uploadBusy}
+            className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-mint hover:bg-mint/5 disabled:opacity-50"
+          >
+            {uploadBusy ? 'Uploading…' : 'Upload image'}
+          </button>
+          <input
+            type="text"
+            value={promoUrl}
+            onChange={(e) => patchSettings({ promoPanelImageUrl: e.target.value })}
+            className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono"
+            placeholder="Image URL (leave empty for default art)"
+          />
+        </div>
+        {promoUrl.trim() ? (
+          <div className="mt-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin preview */}
+            <img
+              src={getImageDisplayUrl(promoUrl.trim())}
+              alt=""
+              className="max-h-28 max-w-full rounded-lg border border-gray-200 object-contain"
+            />
+          </div>
+        ) : null}
+        {uploadErr ? <p className="mt-1 text-[11px] text-red-600">{uploadErr}</p> : null}
+      </div>
+      <label className="block font-medium text-gray-700">Headline</label>
+      <input
+        type="text"
+        value={typeof raw.headline === 'string' ? raw.headline : ''}
+        onChange={(e) => patchSettings({ headline: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder="Members Save"
+      />
+      <label className="block font-medium text-gray-700">Subline</label>
+      <textarea
+        value={typeof raw.subline === 'string' ? raw.subline : ''}
+        onChange={(e) => patchSettings({ subline: e.target.value })}
+        rows={2}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder="Short supporting copy…"
+      />
+      <label className="block font-medium text-gray-700">CTA label</label>
+      <input
+        type="text"
+        value={typeof raw.ctaLabel === 'string' ? raw.ctaLabel : ''}
+        onChange={(e) => patchSettings({ ctaLabel: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder="View More Deals"
+      />
+      <label className="block font-medium text-gray-700">CTA URL (optional)</label>
+      <input
+        type="text"
+        value={typeof raw.ctaUrl === 'string' ? raw.ctaUrl : ''}
+        onChange={(e) => patchSettings({ ctaUrl: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder="Leave empty for /products?store=…"
+      />
+      <label className="block font-medium text-gray-700">Max products</label>
+      <input
+        type="number"
+        min={4}
+        max={24}
+        value={typeof raw.productLimit === 'number' ? raw.productLimit : 14}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          patchSettings({ productLimit: Number.isFinite(n) ? n : 14 });
+        }}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+      />
+      <label className="block font-medium text-gray-700">Brand mark (leaf + badges)</label>
+      <input
+        type="text"
+        value={typeof raw.brandMark === 'string' ? raw.brandMark : ''}
+        onChange={(e) => patchSettings({ brandMark: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder="nexus"
+      />
+      <label className="block font-medium text-gray-700">Price prefix (optional)</label>
+      <input
+        type="text"
+        value={typeof raw.pricePrefix === 'string' ? raw.pricePrefix : ''}
+        onChange={(e) => patchSettings({ pricePrefix: e.target.value })}
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+        placeholder="Rs (leave empty for none)"
+      />
+      <p className="text-[11px] text-gray-500">
+        Empty prefix uses the raw API price. Use <span className="font-mono">Rs </span> for LKR-style labels like the demo
+        storefront.
+      </p>
+    </div>
+  );
+}
 
 function posterRowsPadded(draft: StorefrontHomeTheme): PosterPromoItem[] {
   const cur = { ...DEFAULT_POSTER_PROMO, ...(draft.poster_promo ?? {}) };
@@ -2097,13 +2165,15 @@ function PreviewBlock({
     );
   }
   if (section.type === 'member_deals_rail') {
+    const promo =
+      typeof section.settings?.promoPanelImageUrl === 'string' ? section.settings.promoPanelImageUrl.trim() : '';
     return (
       <div
         className={`mx-2 flex gap-0 overflow-hidden rounded-2xl border border-slate-200/80 ${device === 'desktop' ? 'min-h-[120px]' : 'min-h-[100px]'}`}
         style={{ marginTop: theme.sectionSpacing / 5 }}
       >
         <div
-          className="flex w-[40%] shrink-0 flex-col justify-between border-r-2 border-white p-3 text-white"
+          className="relative flex w-[40%] shrink-0 flex-col justify-between overflow-hidden border-r-2 border-white p-3 text-white"
           style={{ backgroundColor: '#8FB07E' }}
         >
           <div className="text-[7px] font-medium lowercase opacity-95">nexus</div>
@@ -2111,6 +2181,14 @@ function PreviewBlock({
           <div className="mt-1 h-5 max-w-[4.5rem] rounded-lg text-[6px] font-semibold leading-5 text-center text-white/95" style={{ backgroundColor: '#1B4D2E' }}>
             View deals |
           </div>
+          {promo ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={getImageDisplayUrl(promo)}
+              alt=""
+              className="pointer-events-none absolute -bottom-1 -right-1 h-14 w-14 rounded-md object-cover opacity-95 ring-1 ring-white/40"
+            />
+          ) : null}
         </div>
         <div className="flex flex-1 gap-1.5 overflow-hidden bg-white p-2">
           {[0, 1, 2, 3].map((i) => (
