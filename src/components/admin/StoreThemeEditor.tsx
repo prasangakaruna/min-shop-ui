@@ -706,6 +706,36 @@ export default function StoreThemeEditor({ token, store, onSaved }: Props) {
                         }}
                         className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                       />
+                      <label className="block font-medium text-gray-700">Brand mark (leaf + badges)</label>
+                      <input
+                        type="text"
+                        value={typeof selected.settings?.brandMark === 'string' ? selected.settings.brandMark : ''}
+                        onChange={(e) =>
+                          updateSection(selected.id, {
+                            settings: { ...(selected.settings ?? {}), brandMark: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="nexus"
+                      />
+                      <label className="block font-medium text-gray-700">Price prefix (optional)</label>
+                      <input
+                        type="text"
+                        value={
+                          typeof selected.settings?.pricePrefix === 'string' ? selected.settings.pricePrefix : ''
+                        }
+                        onChange={(e) =>
+                          updateSection(selected.id, {
+                            settings: { ...(selected.settings ?? {}), pricePrefix: e.target.value },
+                          })
+                        }
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Rs (leave empty for none)"
+                      />
+                      <p className="text-[11px] text-gray-500">
+                        Empty prefix uses the raw API price. Use <span className="font-mono">Rs </span> for LKR-style
+                        labels like the demo storefront.
+                      </p>
                     </div>
                   )}
                   {selected.type !== 'announcement_bar' &&
@@ -2069,18 +2099,18 @@ function PreviewBlock({
   if (section.type === 'member_deals_rail') {
     return (
       <div
-        className={`mx-2 flex gap-2 overflow-hidden rounded-2xl border border-slate-200/80 ${device === 'desktop' ? 'min-h-[120px]' : 'min-h-[100px]'}`}
+        className={`mx-2 flex gap-0 overflow-hidden rounded-2xl border border-slate-200/80 ${device === 'desktop' ? 'min-h-[120px]' : 'min-h-[100px]'}`}
         style={{ marginTop: theme.sectionSpacing / 5 }}
       >
         <div
-          className="flex w-[38%] shrink-0 flex-col justify-between p-3 text-white"
-          style={{
-            background: `linear-gradient(135deg, color-mix(in srgb, ${primary} 55%, #3d5c38), color-mix(in srgb, ${primary} 40%, #2a4030))`,
-          }}
+          className="flex w-[40%] shrink-0 flex-col justify-between border-r-2 border-white p-3 text-white"
+          style={{ backgroundColor: '#8FB07E' }}
         >
-          <div className="text-[8px] font-bold uppercase tracking-wide opacity-90">Members</div>
-          <div className="text-[11px] font-extrabold leading-tight">Members Save</div>
-          <div className="mt-1 h-5 w-16 rounded-full bg-black/25 text-[7px] font-semibold leading-5 text-center">Deals →</div>
+          <div className="text-[7px] font-medium lowercase opacity-95">nexus</div>
+          <div className="text-[10px] font-extrabold leading-tight">Members Save</div>
+          <div className="mt-1 h-5 max-w-[4.5rem] rounded-lg text-[6px] font-semibold leading-5 text-center text-white/95" style={{ backgroundColor: '#1B4D2E' }}>
+            View deals |
+          </div>
         </div>
         <div className="flex flex-1 gap-1.5 overflow-hidden bg-white p-2">
           {[0, 1, 2, 3].map((i) => (

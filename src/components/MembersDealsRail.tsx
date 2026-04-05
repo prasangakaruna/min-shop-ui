@@ -22,24 +22,39 @@ export type MembersDealsRailSettings = {
   /** Relative or absolute URL; empty = `/products?store=…` */
   ctaUrl?: string;
   productLimit?: number;
+  /** Logo word inside the leaf + on the dark badge (e.g. nexus). */
+  brandMark?: string;
+  /** Prepended to variant price when the API returns a bare number (e.g. "Rs "). */
+  pricePrefix?: string;
 };
 
+const PANEL = '#8FB07E';
+const DEEP = '#1B4D2E';
+const DEAL_ACCENT = '#77C043';
+
 function parseSettings(raw: Record<string, unknown> | null | undefined): Required<
-  Omit<MembersDealsRailSettings, 'ctaUrl'>
-> & { ctaUrl: string | undefined } {
+  Omit<MembersDealsRailSettings, 'ctaUrl' | 'pricePrefix'>
+> & { ctaUrl: string | undefined; pricePrefix: string } {
   const s = raw ?? {};
   const lim = s.productLimit;
   const n = typeof lim === 'number' && Number.isFinite(lim) ? Math.floor(lim) : 14;
+  const pp = s.pricePrefix;
   return {
     headline: typeof s.headline === 'string' && s.headline.trim() !== '' ? s.headline.trim() : 'Members Save',
-    subline:
-      typeof s.subline === 'string' && s.subline.trim() !== ''
-        ? s.subline.trim()
-        : 'Member pricing on fresh picks — stack with your usual deals at checkout.',
+    subline: typeof s.subline === 'string' ? s.subline.trim() : '',
     ctaLabel: typeof s.ctaLabel === 'string' && s.ctaLabel.trim() !== '' ? s.ctaLabel.trim() : 'View More Deals',
     ctaUrl: typeof s.ctaUrl === 'string' && s.ctaUrl.trim() !== '' ? s.ctaUrl.trim() : undefined,
     productLimit: Math.min(24, Math.max(4, n)),
+    brandMark: typeof s.brandMark === 'string' && s.brandMark.trim() !== '' ? s.brandMark.trim() : 'nexus',
+    pricePrefix: typeof pp === 'string' ? pp : 'Rs ',
   };
+}
+
+function headlineTwoLines(headline: string): [string, string] {
+  const h = headline.trim() || 'Members Save';
+  const i = h.indexOf(' ');
+  if (i <= 0) return [h, ''];
+  return [h.slice(0, i), h.slice(i + 1).trim()];
 }
 
 function pickVariantForCard(p: StorefrontProduct): ProductVariant | null {
@@ -73,44 +88,45 @@ function cardImageUrl(p: StorefrontProduct): string {
 }
 
 /** Price line like "Rs 392.00 / KG" when package_size exists */
-function priceDisplayLine(p: StorefrontProduct, v: ProductVariant): string {
+function priceDisplayLine(p: StorefrontProduct, v: ProductVariant, pricePrefix: string): string {
+  const pre = pricePrefix.trim();
+  const cur = pre ? `${pre} ${v.price}`.replace(/\s+/g, ' ').trim() : v.price;
   const unit = p.package_size?.trim();
-  if (unit) return `${v.price} ${unit}`;
-  return v.price;
+  if (unit) {
+    const join = unit.startsWith('/') ? `${cur}${unit}` : `${cur} ${unit}`;
+    return join.replace(/\s+/g, ' ').trim();
+  }
+  return cur;
 }
 
-function MemberDealRibbon({
-  storeLabel,
-  pct,
-  primary,
-}: {
-  storeLabel: string;
-  pct: number | null;
-  primary: string;
-}) {
+function formatComparePrice(compare: string, pricePrefix: string): string {
+  const pre = pricePrefix.trim();
+  if (!pre) return compare;
+  return `${pre} ${compare}`.replace(/\s+/g, ' ').trim();
+}
+
+function MemberDealBadges({ brandMark, pct }: { brandMark: string; pct: number | null }) {
+  const raw = brandMark.trim() || 'nexus';
+  const titled = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   return (
-    <div
-      className="pointer-events-none absolute right-2 top-2 z-20 flex max-w-[calc(100%-1rem)] overflow-hidden rounded-lg shadow-[0_4px_14px_rgba(0,0,0,0.18)] ring-1 ring-white/40"
-      aria-hidden
-    >
-      <div className="flex w-[46%] min-w-[3.25rem] flex-col justify-center bg-[#1b4332] px-1.5 py-1.5">
-        <span className="text-[6px] font-bold uppercase leading-tight tracking-wider text-white/95">{storeLabel}</span>
-        <span className="mt-0.5 text-[6px] font-extrabold uppercase tracking-wide text-white">Members save</span>
+    <div className="pointer-events-none absolute left-2 top-2 z-20 flex flex-col items-start gap-1" aria-hidden>
+      <div
+        className="max-w-[calc(100%-0.5rem)] rounded-sm px-2 py-1.5 shadow-[0_4px_14px_rgba(0,0,0,0.15)] ring-1 ring-white/25"
+        style={{ backgroundColor: DEEP }}
+      >
+        <p className="text-[6px] font-extrabold uppercase leading-tight tracking-wide text-white">
+          <span className="tracking-tight">{titled}</span>
+          <span> MEMBERS SAVE</span>
+        </p>
       </div>
       <div
-        className="flex flex-1 items-center justify-center gap-0.5 px-2 py-1.5"
+        className="min-w-[3.25rem] px-2.5 py-1 text-center text-[9px] font-black uppercase tracking-wide text-white shadow-[0_3px_10px_rgba(0,0,0,0.12)]"
         style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${primary} 55%, #4ade80), color-mix(in srgb, ${primary} 35%, #15803d))`,
+          backgroundColor: DEAL_ACCENT,
+          clipPath: 'polygon(8% 12%, 50% 0%, 92% 12%, 100% 45%, 88% 100%, 12% 100%, 0% 45%)',
         }}
       >
-        <svg className="h-3.5 w-3.5 shrink-0 text-white drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-          <path d="M17 8C8 10 5.9 16.17 3.82 21.34L5.71 22l1-2.3A4.49 4.49 0 008 22c5 0 9-4 9-9 0-1.63-.44-3.16-1.2-4.5L17 8z" />
-        </svg>
-        {pct != null ? (
-          <span className="text-[10px] font-black uppercase tracking-tight text-white">{pct}% off</span>
-        ) : (
-          <span className="text-[9px] font-black uppercase tracking-tight text-white">Save</span>
-        )}
+        {pct != null ? `${pct}% OFF` : 'SAVE'}
       </div>
     </div>
   );
@@ -167,8 +183,6 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
     };
   }, [storeSlug, cfg.productLimit]);
 
-  const storeLabel = products[0]?.store?.name?.trim() || 'Members';
-
   const updateScrollState = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -218,120 +232,133 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
 
   if (!loading && products.length === 0) return null;
 
-  const primary = 'var(--sf-color-primary, #0f766e)';
+  const [line1, line2] = headlineTwoLines(cfg.headline);
+  const brandLower = cfg.brandMark.toLowerCase();
 
   return (
-    <section
-      className="relative w-full overflow-x-hidden bg-[#e8efe6] py-10 sm:py-12"
-      aria-labelledby="members-deals-heading"
-    >
+    <section className="relative w-full overflow-x-hidden bg-white py-10 sm:py-12" aria-labelledby="members-deals-heading">
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="relative flex min-h-[min(24rem,72vw)] flex-col overflow-visible rounded-3xl shadow-[0_28px_64px_-24px_rgba(20,50,30,0.4)] ring-1 ring-black/[0.04] lg:min-h-[21rem] lg:flex-row">
-          {/* Left promo panel */}
-          <div className="relative z-0 flex w-full shrink-0 flex-col justify-between bg-[#9eb89a] bg-gradient-to-br from-[#a8c4a3] via-[#8faa8c] to-[#6d8a68] px-6 py-8 text-white lg:w-[min(100%,24rem)] lg:rounded-l-3xl lg:py-10 xl:w-[27rem]">
-            <div
-              className="pointer-events-none absolute inset-0 opacity-[0.12]"
-              style={{
-                backgroundImage: `url("https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=800&q=60")`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-              aria-hidden
-            />
-            <div className="relative z-[1]">
-              <div className="relative inline-block">
+        <div className="relative flex min-h-[min(22rem,78vw)] flex-col overflow-visible rounded-3xl shadow-[0_24px_56px_-28px_rgba(27,77,46,0.35)] ring-1 ring-black/[0.06] lg:min-h-[20rem] lg:flex-row">
+          {/* Left promo panel — Istanbul-style sage block + leaf lockup */}
+          <div
+            className="relative z-0 flex w-full shrink-0 flex-col justify-between overflow-hidden px-6 py-8 text-white lg:w-[min(100%,26rem)] lg:rounded-l-3xl lg:py-10 xl:w-[28rem]"
+            style={{ backgroundColor: PANEL }}
+          >
+            <div className="relative z-[1] flex flex-col gap-6 lg:min-h-[12rem]">
+              <div className="relative mx-auto w-[min(100%,17.5rem)] sm:mx-0">
                 <svg
-                  className="h-28 w-28 text-[#1a3d2e] drop-shadow-md sm:h-32 sm:w-32"
-                  viewBox="0 0 120 120"
-                  fill="currentColor"
+                  className="h-44 w-44 drop-shadow-lg sm:h-48 sm:w-48"
+                  viewBox="0 0 200 220"
                   aria-hidden
                 >
                   <path
-                    opacity="0.95"
-                    d="M60 8c-8 18-32 38-38 58-4 12 2 28 14 34 10 5 24 2 32-8 8-10 10-24 4-36C68 44 60 28 60 8z"
-                  />
-                  <path
-                    className="text-[#2d5a45]"
-                    d="M72 22c6 14 20 26 24 42 3 14-4 30-18 36-8 4-18 3-26-2 14-8 24-22 28-38 2-12 0-24-8-38z"
+                    d="M100 18c-18 8-42 38-52 72-6 20-4 44 12 58 14 12 36 14 54 4 22-12 34-36 30-58-4-22-22-42-44-76z"
+                    fill={DEEP}
+                    stroke="#fff"
+                    strokeWidth="7"
+                    strokeLinejoin="round"
+                    transform="rotate(8 100 110)"
                   />
                 </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pb-2 text-center">
-                  <span className="max-w-[5.5rem] text-[10px] font-bold uppercase leading-tight tracking-wide text-white drop-shadow-sm">
-                    {storeLabel}
-                  </span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center px-7 pb-5 pt-3 text-center">
+                  <div className="flex flex-col items-center">
+                    <span
+                      className="text-[1.35rem] font-medium lowercase tracking-wide text-white drop-shadow-sm"
+                      style={{ fontFamily: 'ui-rounded, "Nunito", system-ui, sans-serif' }}
+                    >
+                      {brandLower}
+                    </span>
+                    <svg className="-mt-0.5 h-2 w-[3.25rem] text-white/95" viewBox="0 0 52 8" fill="none" aria-hidden>
+                      <path
+                        d="M1 5.5c4-3 8 3 12 0s8-3 12 0 8 3 12 0 8-3 12 0"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <h2
+                    id="members-deals-heading"
+                    className="mt-3 max-w-[9.5rem] text-[1.65rem] font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-sm sm:max-w-[11rem] sm:text-[1.85rem]"
+                  >
+                    <span className="block">{line1}</span>
+                    {line2 ? <span className="block">{line2}</span> : null}
+                  </h2>
                 </div>
               </div>
-              <h2 id="members-deals-heading" className="mt-4 max-w-[16rem] text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
-                {cfg.headline}
-              </h2>
-              <p className="mt-2 max-w-[18rem] text-sm leading-relaxed text-white/90">{cfg.subline}</p>
+              {cfg.subline ? (
+                <p className="max-w-[20rem] text-sm leading-relaxed text-white/90">{cfg.subline}</p>
+              ) : null}
             </div>
 
-            <div className="relative z-[1] mt-8 flex flex-wrap items-end gap-4 lg:mt-0">
+            <div className="relative z-[1] mt-8 lg:mt-4">
               <Link
                 href={productsHref}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1b4332] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.2)] ring-1 ring-white/10 transition hover:bg-[#142f24]"
+                className="inline-flex w-full max-w-[17.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition hover:brightness-110 sm:w-auto"
+                style={{ backgroundColor: DEEP }}
               >
                 <span>{cfg.ctaLabel}</span>
-                <span className="text-white/50" aria-hidden>
+                <span className="text-white/55" aria-hidden>
                   |
                 </span>
-                <span className="text-lg leading-none" aria-hidden>
-                  ›
+                <span className="text-base font-semibold leading-none" aria-hidden>
+                  &gt;
                 </span>
               </Link>
-              <div className="hidden gap-1 sm:flex lg:hidden" aria-hidden>
-                <span className="h-12 w-12 overflow-hidden rounded-lg ring-2 ring-white/40">
-                  <Image
-                    src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=96&q=70"
-                    alt=""
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                  />
-                </span>
-                <span className="h-12 w-12 overflow-hidden rounded-lg ring-2 ring-white/40">
-                  <Image
-                    src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=96&q=70"
-                    alt=""
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                  />
-                </span>
-              </div>
             </div>
 
-            {/* Decorative produce cluster — desktop */}
-            <div className="pointer-events-none absolute bottom-0 right-0 hidden w-[55%] translate-x-[8%] translate-y-[12%] lg:block">
-              <div className="relative h-44 w-full">
+            {/* Produce cluster — right side of sage panel */}
+            <div className="pointer-events-none absolute bottom-0 right-0 hidden h-[min(100%,14rem)] w-[58%] lg:block">
+              <div className="relative h-full min-h-[11rem] w-full">
                 <Image
-                  src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=75"
+                  src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=75"
                   alt=""
                   width={200}
                   height={160}
-                  className="absolute bottom-0 right-0 w-[45%] rotate-6 rounded-2xl object-cover shadow-xl ring-4 ring-white/25"
+                  className="absolute bottom-1 right-[4%] w-[42%] rotate-[-6deg] rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
                 />
                 <Image
                   src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=400&q=75"
                   alt=""
                   width={180}
                   height={140}
-                  className="absolute bottom-2 right-[28%] w-[40%] -rotate-3 rounded-2xl object-cover shadow-lg ring-4 ring-white/20"
+                  className="absolute bottom-3 right-[32%] w-[38%] rotate-[4deg] rounded-2xl object-cover shadow-lg ring-4 ring-white/25"
                 />
                 <Image
-                  src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&q=75"
+                  src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&q=75"
                   alt=""
-                  width={160}
+                  width={170}
                   height={130}
-                  className="absolute bottom-8 right-[52%] w-[35%] rotate-[-8deg] rounded-2xl object-cover shadow-md ring-4 ring-white/20"
+                  className="absolute bottom-10 right-[55%] w-[34%] rotate-[-10deg] rounded-2xl object-cover shadow-md ring-4 ring-white/22"
                 />
               </div>
             </div>
+
+            {/* Mobile produce strip */}
+            <div className="mt-6 flex justify-end gap-2 lg:hidden" aria-hidden>
+              <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
+                <Image
+                  src="https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=96&q=70"
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-cover"
+                />
+              </span>
+              <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
+                <Image
+                  src="https://images.unsplash.com/photo-1582722872445-44dc5f7e3c8f?w=96&q=70"
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-cover"
+                />
+              </span>
+            </div>
           </div>
 
-          {/* Product rail — overlaps green panel (reference layout) */}
-          <div className="relative z-[1] -mt-4 flex min-h-0 flex-1 flex-col rounded-2xl bg-white shadow-[inset_0_1px_0_rgba(255,255,255,1)] sm:-mt-0 lg:-ml-10 lg:mt-0 lg:rounded-l-3xl lg:rounded-r-3xl lg:pl-2 xl:-ml-12">
+          {/* Product rail — white panel, overlaps sage (reference) */}
+          <div className="relative z-[1] -mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border-l-4 border-white bg-white shadow-[inset_0_1px_0_rgba(255,255,255,1)] sm:-mt-0 lg:-ml-10 lg:mt-0 lg:rounded-l-3xl lg:rounded-r-3xl lg:border-l-[6px] lg:pl-1 xl:-ml-12">
             {loading ? (
               <div className="flex flex-1 items-center gap-4 overflow-hidden px-4 py-8 sm:px-6">
                 {[0, 1, 2, 3].map((i) => (
@@ -361,11 +388,11 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                           cardIndex === 0 ? 'lg:-translate-x-1 lg:shadow-[0_16px_48px_-12px_rgba(15,23,42,0.3)]' : ''
                         }`}
                       >
-                        <div className="relative px-2.5 pt-2.5 sm:px-3 sm:pt-3">
-                          <MemberDealRibbon storeLabel={storeLabel} pct={pct} primary={primary} />
+                        <div className="relative px-2.5 pb-1 pt-12 sm:px-3 sm:pt-14">
+                          <MemberDealBadges brandMark={cfg.brandMark} pct={pct} />
                           <Link
                             href={href}
-                            className="relative mt-1 block h-[7.5rem] w-full overflow-hidden rounded-xl bg-white sm:h-36"
+                            className="relative block h-[7.5rem] w-full overflow-hidden rounded-xl bg-white sm:h-36"
                           >
                             <Image
                               src={cardImageUrl(p)}
@@ -387,16 +414,18 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                         </div>
                         <div className="flex flex-1 flex-col px-3 pb-4 pt-2">
                           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                            <span className="text-sm font-bold tabular-nums" style={{ color: primary }}>
-                              {priceDisplayLine(p, v)}
+                            <span className="text-sm font-bold tabular-nums" style={{ color: DEAL_ACCENT }}>
+                              {priceDisplayLine(p, v, cfg.pricePrefix)}
                             </span>
                             {compare ? (
-                              <span className="text-xs text-neutral-400 line-through tabular-nums">{compare}</span>
+                              <span className="text-xs text-[#666666]/80 line-through tabular-nums">
+                                {formatComparePrice(compare, cfg.pricePrefix)}
+                              </span>
                             ) : null}
                           </div>
                           <Link
                             href={href}
-                            className="mt-2 line-clamp-2 text-left text-sm font-normal leading-snug text-neutral-900 hover:underline"
+                            className="mt-2 line-clamp-2 text-left text-sm font-normal leading-snug text-[#666666] hover:underline"
                           >
                             {p.title}
                           </Link>
