@@ -230,8 +230,6 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
 
   if (!storeSlug) return null;
 
-  if (!loading && products.length === 0) return null;
-
   const [line1, line2] = headlineTwoLines(cfg.headline);
   const brandLower = cfg.brandMark.toLowerCase();
 
@@ -367,6 +365,16 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                     className="h-64 w-[11.5rem] shrink-0 animate-pulse rounded-2xl bg-slate-100"
                   />
                 ))}
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-16 text-center">
+                <p className="text-sm font-medium text-slate-600">No products in this strip yet</p>
+                <p className="max-w-sm text-xs text-slate-500">
+                  Publish products with variants for this store, or confirm the storefront API is reachable from this site.
+                </p>
+                <Link href={productsHref} className="mt-2 text-sm font-semibold underline" style={{ color: DEAL_ACCENT }}>
+                  View catalog
+                </Link>
               </div>
             ) : (
               <>

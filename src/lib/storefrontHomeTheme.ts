@@ -586,11 +586,24 @@ export function createDefaultSections(): HomeSection[] {
 }
 
 /**
+ * Inserts Members deals rail after the marketplace hero when missing (older saved themes never had this block).
+ */
+function ensureMemberDealsRailSection(sections: HomeSection[]): HomeSection[] {
+  if (sections.some((s) => s.type === 'member_deals_rail')) return sections;
+  const heroIdx = sections.findIndex((s) => s.type === 'default_hero');
+  if (heroIdx < 0) return sections;
+  const next = [...sections];
+  next.splice(heroIdx + 1, 0, { id: newId(), type: 'member_deals_rail', enabled: true });
+  return next;
+}
+
+/**
  * Same section order as the global marketplace home (`/`) and store classic layout (`/?store=` with no saved theme).
  */
 export function createClassicStoreSections(): HomeSection[] {
   return [
     { id: newId(), type: 'default_hero', enabled: true },
+    { id: newId(), type: 'member_deals_rail', enabled: true },
     { id: newId(), type: 'browse_categories', enabled: true },
     { id: newId(), type: 'category_products', enabled: true },
     { id: newId(), type: 'special_offers', enabled: true },
@@ -621,9 +634,11 @@ export function isMintMarketplaceSectionOrder(sections: HomeSection[]): boolean 
 export function mergeStorefrontHomeTheme(raw: StorefrontHomeTheme | null | undefined): StorefrontHomeTheme {
   const theme = { ...DEFAULT_THEME_SETTINGS, ...(raw?.theme ?? {}) };
   const hasSavedSections = Boolean(raw?.sections && raw.sections.length > 0);
-  const sections = hasSavedSections
-    ? raw!.sections!.map((s) => ({ ...s, enabled: s.enabled !== false }))
-    : createClassicStoreSections();
+  const sections = ensureMemberDealsRailSection(
+    hasSavedSections
+      ? raw!.sections!.map((s) => ({ ...s, enabled: s.enabled !== false }))
+      : createClassicStoreSections(),
+  );
   const preset: StorefrontHomeThemePresetId | null =
     raw?.preset ?? (!hasSavedSections ? MINT_MARKETPLACE_PRESET : null);
   const poster_promo = mergePosterPromoSettings(raw?.poster_promo);
