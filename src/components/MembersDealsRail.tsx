@@ -26,7 +26,7 @@ export type MembersDealsRailSettings = {
   brandMark?: string;
   /** Prepended to variant price when the API returns a bare number (e.g. "Rs "). */
   pricePrefix?: string;
-  /** Optional image in the sage promo panel (replaces the default produce collage when set). */
+  /** Full-bleed image for the left promo panel (replaces leaf, headline block, and produce art when set). */
   promoPanelImageUrl?: string;
 };
 
@@ -237,95 +237,118 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
 
   if (!storeSlug) return null;
 
-  const [line1, line2] = headlineTwoLines(cfg.headline);
-  const brandLower = cfg.brandMark.toLowerCase();
+  const useDefaultPromoArt = !cfg.promoPanelImageUrl;
+  const [line1, line2] = useDefaultPromoArt ? headlineTwoLines(cfg.headline) : (['', ''] as [string, string]);
+  const brandLower = useDefaultPromoArt ? cfg.brandMark.toLowerCase() : '';
 
   return (
     <section className="relative w-full overflow-x-hidden bg-white py-10 sm:py-12" aria-labelledby="members-deals-heading">
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative flex min-h-[min(22rem,78vw)] flex-col overflow-visible rounded-3xl shadow-[0_24px_56px_-28px_rgba(27,77,46,0.35)] ring-1 ring-black/[0.06] lg:min-h-[20rem] lg:flex-row">
-          {/* Left promo panel — Istanbul-style sage block + leaf lockup */}
-          <div
-            className="relative z-0 flex w-full shrink-0 flex-col justify-between overflow-hidden px-6 py-8 text-white lg:w-[min(100%,26rem)] lg:rounded-l-3xl lg:py-10 xl:w-[28rem]"
-            style={{ backgroundColor: PANEL }}
-          >
-            <div className="relative z-[1] flex flex-col gap-6 lg:min-h-[12rem]">
-              <div className="relative mx-auto w-[min(100%,17.5rem)] sm:mx-0">
-                <svg
-                  className="h-44 w-44 drop-shadow-lg sm:h-48 sm:w-48"
-                  viewBox="0 0 200 220"
-                  aria-hidden
+          {/* Left promo panel — custom full banner image, or default sage + leaf + collage */}
+          {cfg.promoPanelImageUrl ? (
+            <div
+              className="relative z-0 flex min-h-[min(22rem,78vw)] w-full shrink-0 flex-col justify-end overflow-hidden text-white lg:min-h-0 lg:h-full lg:w-[min(100%,26rem)] lg:rounded-l-3xl xl:w-[28rem]"
+              style={{ backgroundColor: PANEL }}
+            >
+              <h2 id="members-deals-heading" className="sr-only">
+                {cfg.headline}
+                {cfg.subline ? ` ${cfg.subline}` : ''}
+              </h2>
+              <div className="absolute inset-0">
+                <Image
+                  src={getImageDisplayUrl(cfg.promoPanelImageUrl)}
+                  alt=""
+                  fill
+                  className="object-cover object-center"
+                  sizes="(max-width: 1024px) 100vw, 28rem"
+                  priority={false}
+                />
+              </div>
+              <div className="relative z-[1] w-full bg-gradient-to-t from-black/55 via-black/20 to-transparent px-6 pb-8 pt-16 lg:pb-10 lg:pt-24">
+                <Link
+                  href={productsHref}
+                  className="inline-flex w-full max-w-[17.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition hover:brightness-110 sm:w-auto"
+                  style={{ backgroundColor: DEEP }}
                 >
-                  <path
-                    d="M100 18c-18 8-42 38-52 72-6 20-4 44 12 58 14 12 36 14 54 4 22-12 34-36 30-58-4-22-22-42-44-76z"
-                    fill={DEEP}
-                    stroke="#fff"
-                    strokeWidth="7"
-                    strokeLinejoin="round"
-                    transform="rotate(8 100 110)"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center px-7 pb-5 pt-3 text-center">
-                  <div className="flex flex-col items-center">
-                    <span
-                      className="text-[1.35rem] font-medium lowercase tracking-wide text-white drop-shadow-sm"
-                      style={{ fontFamily: 'ui-rounded, "Nunito", system-ui, sans-serif' }}
-                    >
-                      {brandLower}
-                    </span>
-                    <svg className="-mt-0.5 h-2 w-[3.25rem] text-white/95" viewBox="0 0 52 8" fill="none" aria-hidden>
-                      <path
-                        d="M1 5.5c4-3 8 3 12 0s8-3 12 0 8 3 12 0 8-3 12 0"
-                        stroke="currentColor"
-                        strokeWidth="1.4"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <h2
-                    id="members-deals-heading"
-                    className="mt-3 max-w-[9.5rem] text-[1.65rem] font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-sm sm:max-w-[11rem] sm:text-[1.85rem]"
+                  <span>{cfg.ctaLabel}</span>
+                  <span className="text-white/55" aria-hidden>
+                    |
+                  </span>
+                  <span className="text-base font-semibold leading-none" aria-hidden>
+                    &gt;
+                  </span>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div
+              className="relative z-0 flex w-full shrink-0 flex-col justify-between overflow-hidden px-6 py-8 text-white lg:w-[min(100%,26rem)] lg:rounded-l-3xl lg:py-10 xl:w-[28rem]"
+              style={{ backgroundColor: PANEL }}
+            >
+              <div className="relative z-[1] flex flex-col gap-6 lg:min-h-[12rem]">
+                <div className="relative mx-auto w-[min(100%,17.5rem)] sm:mx-0">
+                  <svg
+                    className="h-44 w-44 drop-shadow-lg sm:h-48 sm:w-48"
+                    viewBox="0 0 200 220"
+                    aria-hidden
                   >
-                    <span className="block">{line1}</span>
-                    {line2 ? <span className="block">{line2}</span> : null}
-                  </h2>
+                    <path
+                      d="M100 18c-18 8-42 38-52 72-6 20-4 44 12 58 14 12 36 14 54 4 22-12 34-36 30-58-4-22-22-42-44-76z"
+                      fill={DEEP}
+                      stroke="#fff"
+                      strokeWidth="7"
+                      strokeLinejoin="round"
+                      transform="rotate(8 100 110)"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center px-7 pb-5 pt-3 text-center">
+                    <div className="flex flex-col items-center">
+                      <span
+                        className="text-[1.35rem] font-medium lowercase tracking-wide text-white drop-shadow-sm"
+                        style={{ fontFamily: 'ui-rounded, "Nunito", system-ui, sans-serif' }}
+                      >
+                        {brandLower}
+                      </span>
+                      <svg className="-mt-0.5 h-2 w-[3.25rem] text-white/95" viewBox="0 0 52 8" fill="none" aria-hidden>
+                        <path
+                          d="M1 5.5c4-3 8 3 12 0s8-3 12 0 8 3 12 0 8-3 12 0"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </div>
+                    <h2
+                      id="members-deals-heading"
+                      className="mt-3 max-w-[9.5rem] text-[1.65rem] font-extrabold leading-[1.05] tracking-tight text-white drop-shadow-sm sm:max-w-[11rem] sm:text-[1.85rem]"
+                    >
+                      <span className="block">{line1}</span>
+                      {line2 ? <span className="block">{line2}</span> : null}
+                    </h2>
+                  </div>
                 </div>
+                {cfg.subline ? (
+                  <p className="max-w-[20rem] text-sm leading-relaxed text-white/90">{cfg.subline}</p>
+                ) : null}
               </div>
-              {cfg.subline ? (
-                <p className="max-w-[20rem] text-sm leading-relaxed text-white/90">{cfg.subline}</p>
-              ) : null}
-            </div>
 
-            <div className="relative z-[1] mt-8 lg:mt-4">
-              <Link
-                href={productsHref}
-                className="inline-flex w-full max-w-[17.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition hover:brightness-110 sm:w-auto"
-                style={{ backgroundColor: DEEP }}
-              >
-                <span>{cfg.ctaLabel}</span>
-                <span className="text-white/55" aria-hidden>
-                  |
-                </span>
-                <span className="text-base font-semibold leading-none" aria-hidden>
-                  &gt;
-                </span>
-              </Link>
-            </div>
-
-            {/* Produce cluster — right side of sage panel (custom image or default collage) */}
-            {cfg.promoPanelImageUrl ? (
-              <div className="pointer-events-none absolute bottom-0 right-0 hidden h-[min(100%,14rem)] w-[58%] lg:block">
-                <div className="relative flex h-full min-h-[11rem] w-full items-end justify-end pb-2 pr-[4%]">
-                  <Image
-                    src={getImageDisplayUrl(cfg.promoPanelImageUrl)}
-                    alt=""
-                    width={280}
-                    height={220}
-                    className="max-h-[13rem] w-auto max-w-[92%] rounded-2xl object-cover shadow-xl ring-4 ring-white/30"
-                  />
-                </div>
+              <div className="relative z-[1] mt-8 lg:mt-4">
+                <Link
+                  href={productsHref}
+                  className="inline-flex w-full max-w-[17.5rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition hover:brightness-110 sm:w-auto"
+                  style={{ backgroundColor: DEEP }}
+                >
+                  <span>{cfg.ctaLabel}</span>
+                  <span className="text-white/55" aria-hidden>
+                    |
+                  </span>
+                  <span className="text-base font-semibold leading-none" aria-hidden>
+                    &gt;
+                  </span>
+                </Link>
               </div>
-            ) : (
+
               <div className="pointer-events-none absolute bottom-0 right-0 hidden h-[min(100%,14rem)] w-[58%] lg:block">
                 <div className="relative h-full min-h-[11rem] w-full">
                   <Image
@@ -351,22 +374,7 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                   />
                 </div>
               </div>
-            )}
 
-            {/* Mobile produce strip or single custom image */}
-            {cfg.promoPanelImageUrl ? (
-              <div className="mt-6 flex justify-end lg:hidden" aria-hidden>
-                <span className="h-24 w-[min(100%,7.5rem)] overflow-hidden rounded-xl ring-2 ring-white/35">
-                  <Image
-                    src={getImageDisplayUrl(cfg.promoPanelImageUrl)}
-                    alt=""
-                    width={120}
-                    height={96}
-                    className="h-full w-full object-cover"
-                  />
-                </span>
-              </div>
-            ) : (
               <div className="mt-6 flex justify-end gap-2 lg:hidden" aria-hidden>
                 <span className="h-14 w-14 overflow-hidden rounded-xl ring-2 ring-white/35">
                   <Image
@@ -387,8 +395,8 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                   />
                 </span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Product rail — white panel, overlaps sage (reference) */}
           <div className="relative z-[1] -mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border-l-4 border-white bg-white shadow-[inset_0_1px_0_rgba(255,255,255,1)] sm:-mt-0 lg:-ml-10 lg:mt-0 lg:rounded-l-3xl lg:rounded-r-3xl lg:border-l-[6px] lg:pl-1 xl:-ml-12">
@@ -415,7 +423,7 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
               <>
                 <div
                   ref={scrollRef}
-                  className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-3 py-8 pb-14 sm:gap-4 sm:px-5 lg:gap-5 lg:py-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                  className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden px-3 py-8 sm:gap-4 sm:px-5 lg:gap-5 lg:py-10 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                 >
                   {products.map((p, cardIndex) => {
                     const v = pickVariantForCard(p)!;
@@ -478,13 +486,17 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                   })}
                 </div>
 
-                <div className="absolute bottom-4 right-4 z-[3] flex gap-1.5 sm:right-6">
+                <div
+                  className="flex shrink-0 justify-end gap-1.5 border-t border-slate-200/70 bg-white px-3 py-3 sm:px-5"
+                  role="toolbar"
+                  aria-label="Scroll product deals"
+                >
                   <button
                     type="button"
                     aria-label="Scroll deals left"
                     disabled={!canPrev}
                     onClick={() => scrollByDir(-1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200/90 bg-slate-100/90 text-slate-500 shadow-sm transition enabled:hover:bg-slate-200/90 disabled:cursor-not-allowed disabled:opacity-35"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -495,7 +507,7 @@ export default function MembersDealsRail({ storeSlug, settings: rawSettings }: P
                     aria-label="Scroll deals right"
                     disabled={!canNext}
                     onClick={() => scrollByDir(1)}
-                    className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-200/90 bg-slate-100/90 text-slate-500 shadow-sm transition enabled:hover:bg-slate-200/90 disabled:cursor-not-allowed disabled:opacity-35"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-300"
                   >
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -1005,7 +1005,8 @@ function MemberDealsRailSectionEditor({
       <div>
         <label className="block font-medium text-gray-700">Promo panel image (optional)</label>
         <p className="mb-1.5 text-[11px] text-gray-500">
-          Replaces the default produce collage on the sage panel. Paste a URL or upload — same storage as product images.
+          Replaces the entire left banner (leaf, headline, subline, and produce art) with your image. The CTA button stays
+          at the bottom. Paste a URL or upload — same storage as product images.
         </p>
         <div className="flex flex-wrap gap-2">
           <button
