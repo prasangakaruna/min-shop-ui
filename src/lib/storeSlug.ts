@@ -46,6 +46,32 @@ export function storeSlugFromHostname(): string | null {
   return storeSlugFromHost(window.location.hostname);
 }
 
+/**
+ * Host to use for tenant slug detection behind reverse proxies.
+ * Prefer `Host` when it already encodes `*.root` — some setups send the apex only in
+ * `X-Forwarded-Host` while `Host` still has the store subdomain, which would wrongly show
+ * the global marketplace on SSR/hard refresh.
+ */
+export function publicHostnameForStorefrontSlug(
+  hostHeader: string | null,
+  forwardedHostHeader: string | null
+): string {
+  const normalize = (v: string | null) =>
+    (v ?? '')
+      .split(',')[0]
+      .trim()
+      .split(':')[0]
+      .toLowerCase();
+
+  const host = normalize(hostHeader);
+  const forwarded = normalize(forwardedHostHeader);
+  const slugFromHost = host ? storeSlugFromHost(host) : null;
+  const slugFromForwarded = forwarded ? storeSlugFromHost(forwarded) : null;
+  if (slugFromHost) return host;
+  if (slugFromForwarded) return forwarded;
+  return forwarded || host;
+}
+
 /** `?store=` on apex (e.g. mint-shop.pro/...?store=slug), else subdomain slug. */
 export function resolveStorefrontStoreSlug(): string | null {
   if (typeof window === 'undefined') return null;

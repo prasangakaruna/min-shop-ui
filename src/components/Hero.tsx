@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getImageDisplayUrl } from '@/lib/api';
 import { formatCategoryLabel } from '@/lib/categories';
 import { storefrontRequest, type StorefrontBrowseCategoriesResponse } from '@/lib/storefrontApi';
+import { useStorefrontHomePrefetch } from '@/context/StorefrontHomePrefetchContext';
 import {
   mergeDefaultHeroSettings,
   resolveHeroSlidesForRender,
@@ -35,14 +36,24 @@ export default function Hero({
   volumePromoLoaded = false,
 }: HeroProps) {
   const router = useRouter();
+  const homePrefetch = useStorefrontHomePrefetch();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   /** null = fetch not finished yet (use theme defaults); array after fetch (may be empty → theme) */
-  const [catalogCategories, setCatalogCategories] = useState<{ id: string; count: number }[] | null>(null);
+  const [catalogCategories, setCatalogCategories] = useState<{ id: string; count: number }[] | null>(() => {
+    if (storeSlug && homePrefetch) {
+      return homePrefetch.browseCategoryRows.map((r) => ({ id: r.id, count: r.count }));
+    }
+    return null;
+  });
 
   const hero = useMemo(() => mergeDefaultHeroSettings(settings ?? undefined), [settings]);
 
   useEffect(() => {
+    if (storeSlug && homePrefetch) {
+      setCatalogCategories(homePrefetch.browseCategoryRows.map((r) => ({ id: r.id, count: r.count })));
+      return;
+    }
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- clear stale categories before refetch
     setCatalogCategories(null);
@@ -60,7 +71,7 @@ export default function Hero({
     return () => {
       cancelled = true;
     };
-  }, [storeSlug]);
+  }, [storeSlug, homePrefetch]);
 
   const searchCategories: HeroSearchCategory[] = useMemo(() => {
     if (catalogCategories !== null && catalogCategories.length > 0) {

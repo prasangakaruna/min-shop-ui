@@ -6,6 +6,7 @@ import { useStorefront } from '@/context/StorefrontContext';
 import { formatCategoryLabel, isCategoryHiddenFromStorefrontBrowse } from '@/lib/categories';
 import { getImageDisplayUrl } from '@/lib/api';
 import { storefrontRequest, type StorefrontBrowseCategoriesResponse } from '@/lib/storefrontApi';
+import { useStorefrontHomePrefetch } from '@/context/StorefrontHomePrefetchContext';
 import {
   STOREFRONT_PRIMARY_BODY_LINK_CLASS,
   STOREFRONT_PRIMARY_BUTTON_STYLE,
@@ -68,11 +69,19 @@ function resolveCategoryCardImage(title: string, imageUrl: string | null | undef
 
 export default function BrowseCategories({ categories: propCategories, loading: propLoading }: BrowseCategoriesProps = {}) {
   const storefront = useStorefront();
+  const homePrefetch = useStorefrontHomePrefetch();
   const storeSlug = storefront?.storeSlug ?? null;
-  const [browseRows, setBrowseRows] = useState<StorefrontBrowseCategoriesResponse['data']['categories'] | null>(null);
-  const [browseLoading, setBrowseLoading] = useState(true);
+  const [browseRows, setBrowseRows] = useState<StorefrontBrowseCategoriesResponse['data']['categories'] | null>(() =>
+    storeSlug && homePrefetch ? homePrefetch.browseCategoryRows : null
+  );
+  const [browseLoading, setBrowseLoading] = useState(() => !(storeSlug && homePrefetch));
 
   useEffect(() => {
+    if (storeSlug && homePrefetch) {
+      setBrowseRows(homePrefetch.browseCategoryRows);
+      setBrowseLoading(false);
+      return;
+    }
     let cancelled = false;
     setBrowseLoading(true);
     storefrontRequest<StorefrontBrowseCategoriesResponse>('/storefront/browse-categories', {
@@ -92,7 +101,7 @@ export default function BrowseCategories({ categories: propCategories, loading: 
     return () => {
       cancelled = true;
     };
-  }, [storeSlug]);
+  }, [storeSlug, homePrefetch]);
 
   const derived = useMemo(
     () => (storefront ? deriveCategoriesFromProducts(storefront.products, storefront.storeSlug) : []),

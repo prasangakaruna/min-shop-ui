@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { StorefrontProvider } from '@/context/StorefrontContext';
 import StorefrontHomeBody from '@/components/StorefrontHomeBody';
-import { storeSlugFromHost } from '@/lib/storeSlug';
+import { publicHostnameForStorefrontSlug, storeSlugFromHost } from '@/lib/storeSlug';
 
 async function resolveSearchParams(
   searchParams: Promise<{ store?: string | string[] }> | undefined,
@@ -14,13 +14,7 @@ async function resolveSearchParams(
 
 async function storeSlugFromRequestHost(): Promise<string | null> {
   const h = await headers();
-  const forwarded = h.get('x-forwarded-host');
-  const hostHeader = h.get('host');
-  const host = (forwarded ?? hostHeader ?? '')
-    .split(',')[0]
-    .trim()
-    .split(':')[0]
-    .toLowerCase();
+  const host = publicHostnameForStorefrontSlug(h.get('host'), h.get('x-forwarded-host'));
   if (!host) return null;
   return storeSlugFromHost(host);
 }

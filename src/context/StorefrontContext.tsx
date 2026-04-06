@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react';
 import {
   storefrontRequest,
   type StorefrontStore,
@@ -28,7 +28,7 @@ export function StorefrontProvider({ children, storeSlug }: { children: React.Re
   const [error, setError] = useState<string | null>(null);
   const [hostSlug, setHostSlug] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (storeSlug) {
       setHostSlug(null);
       return;

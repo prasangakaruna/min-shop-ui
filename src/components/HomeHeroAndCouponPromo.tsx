@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Hero from '@/components/Hero';
 import { storefrontRequest } from '@/lib/storefrontApi';
+import { useStorefrontHomePrefetch } from '@/context/StorefrontHomePrefetchContext';
 
 type StorefrontCouponsResponse = {
   data?: unknown;
@@ -24,10 +25,18 @@ type Props = {
  * Fetches `/storefront/coupons` for volume promo only; the large “Smart checkout” strip is not rendered on the home page.
  */
 export default function HomeHeroAndCouponPromo({ storeSlug, heroSettings }: Props) {
-  const [volumePromo, setVolumePromo] = useState<StorefrontCouponsResponse['volume_promo']>(null);
-  const [loaded, setLoaded] = useState(false);
+  const homePrefetch = useStorefrontHomePrefetch();
+  const [volumePromo, setVolumePromo] = useState<StorefrontCouponsResponse['volume_promo']>(() =>
+    storeSlug && homePrefetch ? homePrefetch.volumePromo ?? null : null
+  );
+  const [loaded, setLoaded] = useState(() => Boolean(!storeSlug || homePrefetch));
 
   useEffect(() => {
+    if (storeSlug && homePrefetch) {
+      setVolumePromo(homePrefetch.volumePromo ?? null);
+      setLoaded(true);
+      return;
+    }
     if (!storeSlug) {
       setVolumePromo(null);
       setLoaded(true);
@@ -51,7 +60,7 @@ export default function HomeHeroAndCouponPromo({ storeSlug, heroSettings }: Prop
     return () => {
       cancelled = true;
     };
-  }, [storeSlug]);
+  }, [storeSlug, homePrefetch]);
 
   return (
     <Hero

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useStorefront } from '@/context/StorefrontContext';
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
@@ -21,7 +21,15 @@ import HomeHeroAndCouponPromo from '@/components/HomeHeroAndCouponPromo';
 import MembersDealsRail from '@/components/MembersDealsRail';
 import PosterPromoSection from '@/components/PosterPromoSection';
 import StorefrontAppEmbedScripts from '@/components/StorefrontAppEmbedScripts';
-import { storefrontRequest, type StorefrontHeaderMenuItem } from '@/lib/storefrontApi';
+import {
+  storefrontRequest,
+  type StorefrontBrowseCategoriesResponse,
+  type StorefrontHeaderMenuItem,
+} from '@/lib/storefrontApi';
+import {
+  StorefrontHomePrefetchProvider,
+  type StorefrontHomePrefetchValue,
+} from '@/context/StorefrontHomePrefetchContext';
 import { storeSlugFromHostname } from '@/lib/storeSlug';
 import type { StorefrontAppEmbed } from '@/lib/api';
 import {
@@ -36,6 +44,10 @@ import {
   isMintMarketplaceSectionOrder,
   shouldDisplayPosterPromo,
 } from '@/lib/storefrontHomeTheme';
+
+type CouponsBootstrapResponse = {
+  volume_promo?: StorefrontHomePrefetchValue['volumePromo'];
+};
 
 type BrandingResponse = {
   data?: {
@@ -206,8 +218,10 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   /** Admin Content → Main menu; 'loading' until branding request finishes */
   const [adminNav, setAdminNav] = useState<'loading' | StorefrontHeaderMenuItem[] | undefined>(undefined);
   const [proHeroImageUrl, setProHeroImageUrl] = useState<string | null>(null);
+  /** Batched with branding on store home so Hero / BrowseCategories / coupons do not refetch or show extra skeletons. */
+  const [homePrefetch, setHomePrefetch] = useState<StorefrontHomePrefetchValue | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (storeSlug) {
       setEffectiveSlug(storeSlug);
       return;
@@ -220,6 +234,7 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       setLayoutKind('loading');
       setAppEmbeds([]);
       setAdminNav(undefined);
+      setHomePrefetch(null);
       return;
     }
     let cancelled = false;
@@ -228,39 +243,62 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     setCompanyLogoUrl(null);
     setProHeroImageUrl(null);
     setAdminNav('loading');
-    storefrontRequest<BrandingResponse>('/storefront/store-branding', { store_slug: effectiveSlug })
-      .then((res) => {
-        if (cancelled) return;
-        const raw = res.data?.storefront_home;
-        const embeds = Array.isArray(res.data?.storefront_app_embeds) ? res.data!.storefront_app_embeds! : [];
-        const menuRaw = res.data?.header_menu_items;
-        setAdminNav(Array.isArray(menuRaw) ? menuRaw : []);
-        setCompanyLogoUrl(
-          typeof res.data?.company_logo_url === 'string' && res.data.company_logo_url.trim() !== ''
-            ? res.data.company_logo_url
-            : null
-        );
-        const proHero = res.data?.pro_dashboard_hero_image_url;
-        setProHeroImageUrl(typeof proHero === 'string' && proHero.trim() !== '' ? proHero.trim() : null);
-        setAppEmbeds(embeds);
-        if (raw == null) {
-          setCustomTheme(null);
-          setLayoutKind('classic');
-        } else {
-          setCustomTheme(mergeStorefrontHomeTheme(raw));
-          setLayoutKind('custom');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCustomTheme(null);
-          setAppEmbeds([]);
-          setCompanyLogoUrl(null);
-          setProHeroImageUrl(null);
-          setAdminNav([]);
-          setLayoutKind('classic');
-        }
+    setHomePrefetch(null);
+
+    const applyBrandingFailure = () => {
+      setCustomTheme(null);
+      setAppEmbeds([]);
+      setCompanyLogoUrl(null);
+      setProHeroImageUrl(null);
+      setAdminNav([]);
+      setLayoutKind('classic');
+    };
+
+    Promise.allSettled([
+      storefrontRequest<BrandingResponse>('/storefront/store-branding', { store_slug: effectiveSlug }),
+      storefrontRequest<CouponsBootstrapResponse>('/storefront/coupons', { store: effectiveSlug }),
+      storefrontRequest<StorefrontBrowseCategoriesResponse>('/storefront/browse-categories', {
+        store: effectiveSlug,
+      }),
+    ]).then((results) => {
+      if (cancelled) return;
+      const brandOutcome = results[0];
+      const couponOutcome = results[1];
+      const browseOutcome = results[2];
+
+      const couponRes = couponOutcome.status === 'fulfilled' ? couponOutcome.value : null;
+      const browseRes = browseOutcome.status === 'fulfilled' ? browseOutcome.value : null;
+      const rows = Array.isArray(browseRes?.data?.categories) ? browseRes.data!.categories : [];
+      setHomePrefetch({
+        browseCategoryRows: rows,
+        volumePromo: couponRes?.volume_promo ?? null,
       });
+
+      if (brandOutcome.status !== 'fulfilled') {
+        applyBrandingFailure();
+        return;
+      }
+      const res = brandOutcome.value;
+      const raw = res.data?.storefront_home;
+      const embeds = Array.isArray(res.data?.storefront_app_embeds) ? res.data!.storefront_app_embeds! : [];
+      const menuRaw = res.data?.header_menu_items;
+      setAdminNav(Array.isArray(menuRaw) ? menuRaw : []);
+      setCompanyLogoUrl(
+        typeof res.data?.company_logo_url === 'string' && res.data.company_logo_url.trim() !== ''
+          ? res.data.company_logo_url
+          : null
+      );
+      const proHero = res.data?.pro_dashboard_hero_image_url;
+      setProHeroImageUrl(typeof proHero === 'string' && proHero.trim() !== '' ? proHero.trim() : null);
+      setAppEmbeds(embeds);
+      if (raw == null) {
+        setCustomTheme(null);
+        setLayoutKind('classic');
+      } else {
+        setCustomTheme(mergeStorefrontHomeTheme(raw));
+        setLayoutKind('custom');
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -286,35 +324,28 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
     );
   }
 
-  /** One full-page loader until theme + shared catalog (stores/products) are ready — avoids stacked section skeletons. */
+  /** One full-page loader until theme, hero/browse/coupon APIs, and shared catalog (stores/products) finish. */
   const catalogStillLoading = Boolean(storefront?.loading);
   const showPrimaryLoader = layoutKind === 'loading' || catalogStillLoading;
+
+  const prefetchPayload: StorefrontHomePrefetchValue =
+    homePrefetch ?? { browseCategoryRows: [], volumePromo: null };
 
   if (showPrimaryLoader) {
     return (
       <main className="min-h-screen bg-gray-50">
-        <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
         <div
           role="status"
           aria-live="polite"
           aria-busy="true"
-          className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-4 border-t border-gray-100 bg-white px-4 py-16"
+          className="flex min-h-screen flex-col items-center justify-center gap-4 px-4"
         >
           <div
             className="h-11 w-11 shrink-0 animate-spin rounded-full border-[3px] border-gray-200 border-t-mint"
             aria-hidden
           />
-          <div className="text-center">
-            <p className="text-sm font-medium text-gray-700">Loading storefront…</p>
-            <p className="mt-1 text-xs text-gray-500">
-              {layoutKind === 'loading'
-                ? 'Fetching your theme and navigation'
-                : 'Loading catalog and categories'}
-            </p>
-          </div>
+          <p className="text-sm font-medium text-gray-700">Loading storefront…</p>
         </div>
-        <Footer />
       </main>
     );
   }
@@ -322,10 +353,12 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (layoutKind === 'classic') {
     return (
       <main className="min-h-screen bg-white">
-        <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
-        <Footer />
+        <StorefrontHomePrefetchProvider value={prefetchPayload}>
+          <StorefrontAppEmbedScripts embeds={appEmbeds} />
+          <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+          <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
+          <Footer />
+        </StorefrontHomePrefetchProvider>
       </main>
     );
   }
@@ -333,10 +366,12 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (!customTheme) {
     return (
       <main className="min-h-screen bg-white">
-        <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
-        <Footer />
+        <StorefrontHomePrefetchProvider value={prefetchPayload}>
+          <StorefrontAppEmbedScripts embeds={appEmbeds} />
+          <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+          <DefaultMarketplaceHome storeSlug={effectiveSlug} heroSettings={heroSettingsResolved} />
+          <Footer />
+        </StorefrontHomePrefetchProvider>
       </main>
     );
   }
@@ -351,15 +386,17 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
   if (isMintMarketplaceSectionOrder(customTheme.sections)) {
     return (
       <main className="min-h-screen" style={themeToCssVars(customTheme.theme)}>
-        <StorefrontAppEmbedScripts embeds={appEmbeds} />
-        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-        <DefaultMarketplaceHome
-          storeSlug={effectiveSlug}
-          heroSettings={heroSettingsResolved}
-          posterPromo={posterConfig}
-          posterWideLayout={customTheme.theme.wideLayout}
-        />
-        <Footer />
+        <StorefrontHomePrefetchProvider value={prefetchPayload}>
+          <StorefrontAppEmbedScripts embeds={appEmbeds} />
+          <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+          <DefaultMarketplaceHome
+            storeSlug={effectiveSlug}
+            heroSettings={heroSettingsResolved}
+            posterPromo={posterConfig}
+            posterWideLayout={customTheme.theme.wideLayout}
+          />
+          <Footer />
+        </StorefrontHomePrefetchProvider>
       </main>
     );
   }
@@ -369,19 +406,21 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
 
   return (
     <main className="min-h-screen" style={outerStyle}>
-      <StorefrontAppEmbedScripts embeds={appEmbeds} />
-      <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
-      <div className={innerClass}>
-        {renderSectionsWithPosterSlot(
-          customTheme.sections,
-          effectiveSlug,
-          spacing,
-          proHeroImageUrl,
-          posterConfig,
-          customTheme.theme.wideLayout
-        )}
-      </div>
-      <Footer />
+      <StorefrontHomePrefetchProvider value={prefetchPayload}>
+        <StorefrontAppEmbedScripts embeds={appEmbeds} />
+        <Header companyLogoUrl={companyLogoUrl} adminNav={adminNav} />
+        <div className={innerClass}>
+          {renderSectionsWithPosterSlot(
+            customTheme.sections,
+            effectiveSlug,
+            spacing,
+            proHeroImageUrl,
+            posterConfig,
+            customTheme.theme.wideLayout
+          )}
+        </div>
+        <Footer />
+      </StorefrontHomePrefetchProvider>
     </main>
   );
 }
