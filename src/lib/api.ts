@@ -513,6 +513,8 @@ export interface StoreSettings {
   storefront_home?: StorefrontHomeTheme | null;
   /** Third-party script embeds (analytics, chat, etc.); see Theme editor App Embeds. */
   storefront_app_embeds?: StorefrontAppEmbed[] | null;
+  /** When set, storefront header uses this menu handle instead of default `main-menu`. */
+  storefront_header_menu_handle?: string | null;
   /** Bulk-order auto discount; omit to use server env defaults (see /admin/pro/promotions). */
   storefront_volume_promo?: {
     enabled?: boolean;

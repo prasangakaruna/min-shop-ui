@@ -44,7 +44,7 @@ export interface StorefrontProductsResponse {
   total: number;
 }
 
-/** Items from GET /storefront/store-branding → data.header_menu_items (admin Content → Main menu) */
+/** Items from GET /storefront/store-branding → data.header_menu_items (Content → Menus; handle from settings or main-menu) */
 export type StorefrontHeaderMenuItem = { label: string; url: string };
 
 /** GET /storefront/browse-categories — distinct category ids from active catalog (optional `store` slug) */

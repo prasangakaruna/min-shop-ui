@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
-import { apiRequest } from '@/lib/api';
+import { apiRequest, type StoreSummary } from '@/lib/api';
 import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
 
 type MenuItem = { id: string; label: string; url: string };
@@ -52,6 +52,9 @@ export default function AdminContentMenusPage() {
   const [menuName, setMenuName] = useState('');
   const [menuHandle, setMenuHandle] = useState('');
   const [menuItemsRaw, setMenuItemsRaw] = useState('');
+  const [headerMenuHandle, setHeaderMenuHandle] = useState('');
+  const [headerPrefBusy, setHeaderPrefBusy] = useState(false);
+  const [headerPrefSaved, setHeaderPrefSaved] = useState(false);
 
   const loadMenus = useCallback(async () => {
     if (!token || !currentStore) return;
@@ -70,6 +73,43 @@ export default function AdminContentMenusPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load menus'))
       .finally(() => setLoading(false));
   }, [token, currentStore, loadMenus]);
+
+  const loadHeaderMenuPreference = useCallback(async () => {
+    if (!token || !currentStore) return;
+    try {
+      const s = await apiRequest<StoreSummary>('/store', { token, storeId: currentStore.id });
+      const h = s.settings?.storefront_header_menu_handle;
+      setHeaderMenuHandle(typeof h === 'string' && h.trim() !== '' ? h.trim() : '');
+    } catch {
+      setHeaderMenuHandle('');
+    }
+  }, [token, currentStore]);
+
+  useEffect(() => {
+    void loadHeaderMenuPreference();
+  }, [loadHeaderMenuPreference]);
+
+  const saveHeaderMenuPreference = async () => {
+    if (!token || !currentStore) return;
+    setHeaderPrefBusy(true);
+    setHeaderPrefSaved(false);
+    setError(null);
+    try {
+      const trimmed = headerMenuHandle.trim();
+      await apiRequest<StoreSummary>('/store', {
+        method: 'PATCH',
+        token,
+        storeId: currentStore.id,
+        body: { settings: { storefront_header_menu_handle: trimmed === '' ? null : trimmed } },
+      });
+      setHeaderPrefSaved(true);
+      window.setTimeout(() => setHeaderPrefSaved(false), 2500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save header menu');
+    } finally {
+      setHeaderPrefBusy(false);
+    }
+  };
 
   const addMenu = async () => {
     const name = menuName.trim();
@@ -126,6 +166,17 @@ export default function AdminContentMenusPage() {
     }
   };
 
+  const storefrontPreviewHost = useMemo(() => {
+    if (!currentStore) return '';
+    const d = currentStore.domain?.trim();
+    if (d) {
+      return d.includes('://') ? d : `https://${d}`;
+    }
+    const root = process.env.NEXT_PUBLIC_MINT_ROOT_DOMAIN?.trim();
+    if (root) return `https://${currentStore.slug}.${root}`;
+    return '';
+  }, [currentStore]);
+
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredMenus = useMemo(() => {
     if (!normalizedSearch) return menus;
@@ -134,6 +185,11 @@ export default function AdminContentMenusPage() {
       return `${menu.name} ${menu.handle} ${allItems}`.toLowerCase().includes(normalizedSearch);
     });
   }, [menus, normalizedSearch]);
+
+  const headerMenuHandleMissing = useMemo(
+    () => Boolean(headerMenuHandle && !menus.some((m) => m.handle === headerMenuHandle)),
+    [headerMenuHandle, menus]
+  );
 
   if (!storesLoading && !currentStore) {
     return (
@@ -167,6 +223,68 @@ export default function AdminContentMenusPage() {
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
         )}
+
+        {currentStore ? (
+          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-gray-900">Storefront header menu</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Applies to the store selected in the admin header (<span className="font-medium">{currentStore.name}</span>
+              ). Choose which menu drives the public site header links.
+            </p>
+            {storefrontPreviewHost ? (
+              <p className="mt-2 text-xs text-gray-500">
+                Example URL:{' '}
+                <a href={storefrontPreviewHost} className="font-medium text-mint hover:underline" target="_blank" rel="noreferrer">
+                  {storefrontPreviewHost}
+                </a>
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-gray-500">
+                Slug <span className="font-mono font-medium text-gray-700">{currentStore.slug}</span> — set{' '}
+                <code className="rounded bg-gray-100 px-1">NEXT_PUBLIC_MINT_ROOT_DOMAIN</code> or a store domain to show
+                a preview link.
+              </p>
+            )}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="header-menu-handle" className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Menu for header
+                </label>
+                <select
+                  id="header-menu-handle"
+                  value={headerMenuHandle}
+                  onChange={(e) => setHeaderMenuHandle(e.target.value)}
+                  className="mt-1.5 w-full max-w-md rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-mint focus:outline-none focus:ring-2 focus:ring-mint/25"
+                >
+                  <option value="">Default — use “main-menu” (or first menu with items)</option>
+                  {menus.map((m) => (
+                    <option key={m.id} value={m.handle}>
+                      {m.name} ({m.handle})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => void saveHeaderMenuPreference()}
+                disabled={headerPrefBusy}
+                className="shrink-0 rounded-lg bg-mint px-4 py-2.5 text-sm font-semibold text-white hover:bg-mint-dark disabled:opacity-60"
+              >
+                {headerPrefBusy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            {headerPrefSaved ? (
+              <p className="mt-2 text-xs font-medium text-emerald-700">Saved. Refresh the storefront to see changes.</p>
+            ) : null}
+            {headerMenuHandleMissing ? (
+              <p className="mt-2 text-xs text-amber-800">
+                The saved handle <span className="font-mono font-semibold">{headerMenuHandle}</span> does not match any
+                menu. The storefront will fall back to <span className="font-mono">main-menu</span> or the first menu
+                with items.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
 
         {showCreate && (
           <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
