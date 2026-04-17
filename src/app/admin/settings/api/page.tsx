@@ -2,7 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import {
+  ADMIN_SETTINGS_NAV_INTEGRATIONS,
+  ADMIN_SETTINGS_NAV_PRIMARY,
+  isAdminSettingsPrimaryNavActive,
+} from '@/lib/adminSettingsNav';
+import { useLocationHash } from '@/hooks/useLocationHash';
 import { useStore } from '@/context/StoreContext';
 import {
   apiRequest,
@@ -42,9 +49,19 @@ function formatRequests(n: number): string {
   return String(n);
 }
 
+function isIntegrationNavActive(itemHref: string, pathname: string, hash: string): boolean {
+  if (pathname !== '/admin/settings/api') return false;
+  if (itemHref.includes('#store-webhooks')) {
+    return hash === '#store-webhooks';
+  }
+  return hash !== '#store-webhooks';
+}
+
 export default function AdminSettingsApiPage() {
   const { data: session } = useSession();
   const { currentStore } = useStore();
+  const pathname = usePathname();
+  const hash = useLocationHash();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
 
   const [stats, setStats] = useState<ApiKeysStats | null>(null);
@@ -185,22 +202,32 @@ export default function AdminSettingsApiPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Settings</p>
             </div>
             <nav className="mt-1 space-y-0.5 text-sm">
-              <Link
-                href="/admin/settings"
-                className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50"
-              >
-                General
-              </Link>
+              {ADMIN_SETTINGS_NAV_PRIMARY.map((item) => {
+                const active = isAdminSettingsPrimaryNavActive(item.href, pathname, null);
+                const className = `flex w-full items-center rounded-lg px-2.5 py-2 text-left transition ${
+                  active ? 'bg-mint/10 font-semibold text-mint' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`;
+                return (
+                  <Link key={item.href} href={item.href} className={className}>
+                    {item.label}
+                  </Link>
+                );
+              })}
             </nav>
             <div className="mt-4 border-t border-gray-100 pt-3">
               <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Integrations</p>
               <nav className="mt-1 space-y-0.5 text-sm">
-                <span className="flex w-full items-center rounded-lg bg-mint/10 px-2.5 py-2 font-medium text-mint">
-                  API Settings
-                </span>
-                <button type="button" className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50">
-                  Webhooks
-                </button>
+                {ADMIN_SETTINGS_NAV_INTEGRATIONS.map((item) => {
+                  const active = isIntegrationNavActive(item.href, pathname, hash);
+                  const className = `flex w-full items-center rounded-lg px-2.5 py-2 text-left transition ${
+                    active ? 'bg-mint/10 font-semibold text-mint' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  }`;
+                  return (
+                    <Link key={item.href} href={item.href} className={className}>
+                      {item.label}
+                    </Link>
+                  );
+                })}
               </nav>
             </div>
           </div>
@@ -260,7 +287,10 @@ export default function AdminSettingsApiPage() {
                   <IconChart className="h-8 w-8 text-gray-300" />
                 </div>
               </div>
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div
+                id="store-webhooks"
+                className="scroll-mt-24 overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Active Webhooks</p>

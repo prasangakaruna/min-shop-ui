@@ -3,7 +3,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  ADMIN_SETTINGS_NAV_INTEGRATIONS,
+  ADMIN_SETTINGS_NAV_PRIMARY,
+  isAdminSettingsPrimaryNavActive,
+} from '@/lib/adminSettingsNav';
 import { useStore } from '@/context/StoreContext';
 import {
   apiRequest,
@@ -74,6 +79,7 @@ export default function AdminSettingsPage() {
   const { currentStore, loading: storesLoading } = useStore();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
 
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeSection = searchParams.get('section');
   const showPlanSection = activeSection === 'plan';
@@ -394,85 +400,15 @@ export default function AdminSettingsPage() {
                   </p>
                 </div>
                 <nav className="mt-1 space-y-0.5 text-sm">
-                  {[
-                    'General',
-                    'Plan',
-                    'Billing',
-                    'Users',
-                    'Payments',
-                    'Checkout',
-                    'Customer accounts',
-                    'Shipping and delivery',
-                    'Taxes and duties',
-                    'Locations',
-                    'Apps',
-                    'Sales channels',
-                    'Domains',
-                    'Customer events',
-                    'Notifications',
-                    'Metafields and metaobjects',
-                    'Languages',
-                    'Customer privacy',
-                    'Policies',
-                  ].map((item) => {
+                  {ADMIN_SETTINGS_NAV_PRIMARY.map((item) => {
+                    const active = isAdminSettingsPrimaryNavActive(item.href, pathname, activeSection);
                     const className = `flex w-full items-center rounded-lg px-2.5 py-2 text-left transition ${
-                      (item === 'General' &&
-                        !showPlanSection &&
-                        !showBillingSection &&
-                        !showCustomerAccountsSection &&
-                        !showLocationsSection) ||
-                      (item === 'Plan' && showPlanSection) ||
-                      (item === 'Billing' && showBillingSection) ||
-                      (item === 'Customer accounts' && showCustomerAccountsSection) ||
-                      (item === 'Locations' && showLocationsSection)
-                        ? 'bg-mint/10 font-semibold text-mint'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      active ? 'bg-mint/10 font-semibold text-mint' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`;
-
-                    if (item === 'General') {
-                      return (
-                        <Link key={item} href="/admin/settings" className={className}>
-                          {item}
-                        </Link>
-                      );
-                    }
-
-                    if (item === 'Plan') {
-                      return (
-                        <Link key={item} href="/admin/settings?section=plan" className={className}>
-                          {item}
-                        </Link>
-                      );
-                    }
-
-                    if (item === 'Billing') {
-                      return (
-                        <Link key={item} href="/admin/settings?section=billing" className={className}>
-                          {item}
-                        </Link>
-                      );
-                    }
-
-                    if (item === 'Customer accounts') {
-                      return (
-                        <Link key={item} href="/admin/settings?section=customer-accounts" className={className}>
-                          {item}
-                        </Link>
-                      );
-                    }
-
-                    if (item === 'Locations') {
-                      return (
-                        <Link key={item} href="/admin/settings?section=locations" className={className}>
-                          {item}
-                        </Link>
-                      );
-                    }
-
                     return (
-                      <button key={item} type="button" className={className}>
-                        {item}
-                      </button>
+                      <Link key={item.href} href={item.href} className={className}>
+                        {item.label}
+                      </Link>
                     );
                   })}
                 </nav>
@@ -481,18 +417,15 @@ export default function AdminSettingsPage() {
                     Integrations
                   </p>
                   <nav className="mt-1 space-y-0.5 text-sm">
-                    <Link
-                      href="/admin/settings/api"
-                      className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    >
-                      API Settings
-                    </Link>
-                    <button
-                      type="button"
-                      className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50"
-                    >
-                      Webhooks
-                    </button>
+                    {ADMIN_SETTINGS_NAV_INTEGRATIONS.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className="flex w-full items-center rounded-lg px-2.5 py-2 text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
                   </nav>
                 </div>
               </div>
