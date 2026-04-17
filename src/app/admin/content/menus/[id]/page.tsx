@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
 import MenuLinkPicker from '@/components/admin/MenuLinkPicker';
@@ -23,7 +24,7 @@ type ContentResponse = {
   };
 };
 
-type DraftItem = { id: string; label: string; url: string; isDraft?: boolean; linkSummary?: string };
+type DraftItem = { id: string; label: string; url: string; linkSummary?: string };
 
 function newId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -46,6 +47,7 @@ function DragHandle() {
 }
 
 export default function AdminMenuEditorPage() {
+  const routes = useContentRoutes();
   const params = useParams();
   const router = useRouter();
   const menuId = typeof params.id === 'string' ? params.id : '';
@@ -109,7 +111,7 @@ export default function AdminMenuEditorPage() {
   const persistItems = useMemo(
     () =>
       rows
-        .filter((r) => !r.isDraft && (r.label.trim() || r.url.trim()))
+        .filter((r) => r.label.trim() || r.url.trim())
         .map((r) => ({ id: r.id, label: r.label.trim() || 'Untitled', url: r.url.trim() || '/' })),
     [rows]
   );
@@ -126,7 +128,7 @@ export default function AdminMenuEditorPage() {
     setError(null);
     try {
       const items = rows
-        .filter((r) => !r.isDraft)
+        .filter((r) => r.label.trim() || r.url.trim())
         .map((r) => ({
           id: r.id,
           label: r.label.trim() || 'Untitled',
@@ -175,7 +177,7 @@ export default function AdminMenuEditorPage() {
         },
       });
       const newId = res.data?.id;
-      if (newId) router.push(`/admin/content/menus/${newId}`);
+      if (newId) router.push(routes.menu(newId));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to duplicate menu');
     } finally {
@@ -183,14 +185,8 @@ export default function AdminMenuEditorPage() {
     }
   };
 
-  const addDraftRow = () => {
-    setRows((prev) => [...prev, { id: newId(), label: '', url: '', isDraft: true }]);
-  };
-
-  const commitDraft = (index: number) => {
-    setRows((prev) =>
-      prev.map((r, i) => (i === index ? { ...r, isDraft: false } : r))
-    );
+  const addRow = () => {
+    setRows((prev) => [...prev, { id: newId(), label: '', url: '' }]);
   };
 
   const removeRow = (index: number) => {
@@ -246,7 +242,7 @@ export default function AdminMenuEditorPage() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           Menu not found.
         </div>
-        <Link href="/admin/content/menus" className="mt-4 inline-block text-sm text-mint hover:underline">
+        <Link href={routes.menus} className="mt-4 inline-block text-sm text-mint hover:underline">
           ← Back to Menus
         </Link>
       </div>
@@ -254,11 +250,11 @@ export default function AdminMenuEditorPage() {
   }
 
   return (
-    <div className="min-h-full bg-gray-100/80 pb-24">
+    <div className="min-h-full bg-gray-100/80 pb-28 sm:pb-32">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link href="/admin/content/menus" className="hover:text-gray-900">
+            <Link href={routes.menus} className="hover:text-gray-900">
               Menus
             </Link>
             <span className="text-gray-400">›</span>
@@ -340,18 +336,6 @@ export default function AdminMenuEditorPage() {
                   </details>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                  {row.isDraft ? (
-                    <button
-                      type="button"
-                      title="Add item"
-                      onClick={() => commitDraft(index)}
-                      className="rounded-md p-2 text-emerald-600 hover:bg-emerald-50"
-                    >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                  ) : null}
                   <button
                     type="button"
                     title="Remove"
@@ -368,7 +352,7 @@ export default function AdminMenuEditorPage() {
           </div>
           <button
             type="button"
-            onClick={addDraftRow}
+            onClick={addRow}
             className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
             <span className="text-lg leading-none">+</span>
@@ -377,8 +361,8 @@ export default function AdminMenuEditorPage() {
         </section>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-200 bg-white/95 px-4 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur sm:pl-[calc(16rem+1rem)]">
-        <div className="mx-auto flex max-w-3xl justify-end">
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-20 border-t border-gray-200 bg-white/95 px-4 py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur sm:pl-[calc(16rem+1rem)]">
+        <div className="pointer-events-auto mx-auto flex max-w-3xl justify-end">
           <button
             type="button"
             onClick={() => void save()}

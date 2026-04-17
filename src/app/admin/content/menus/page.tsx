@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
 import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
@@ -37,6 +38,7 @@ function itemsSummary(items: MenuItem[]): string {
 }
 
 export default function AdminContentMenusPage() {
+  const routes = useContentRoutes();
   const { data: session } = useSession();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
   const { currentStore, loading: storesLoading } = useStore();
@@ -237,7 +239,7 @@ export default function AdminContentMenusPage() {
                       <tr key={menu.id} className="hover:bg-gray-50/80">
                         <td className="px-4 py-3">
                           <Link
-                            href={`/admin/content/menus/${menu.id}`}
+                            href={routes.menu(menu.id)}
                             className="group block rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-mint"
                           >
                             <div className="font-medium text-gray-900 group-hover:text-mint">{menu.name}</div>

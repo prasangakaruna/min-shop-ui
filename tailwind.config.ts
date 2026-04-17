@@ -17,6 +17,14 @@ const config: Config = {
           light: "#81E6D9",
           dark: "#38B2AC",
         },
+        /** System operator console (distinct from merchant /admin). */
+        sys: {
+          bg: "#020617",
+          surface: "#0f172a",
+          border: "#1e293b",
+          accent: "#22d3ee",
+          accentMuted: "#0891b2",
+        },
       },
       animation: {
         'spin-slow': 'spin 3s linear infinite',

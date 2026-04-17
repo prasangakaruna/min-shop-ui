@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
 import AdminSearchFilters from '@/components/shared/AdminSearchFilters';
@@ -47,6 +48,7 @@ function formatStatusLine(p: StoreContentPage): { label: string; sub?: string; c
 }
 
 export default function AdminContentPagesListPage() {
+  const routes = useContentRoutes();
   const { data: session } = useSession();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
   const { currentStore, loading: storesLoading } = useStore();
@@ -120,7 +122,7 @@ export default function AdminContentPagesListPage() {
             <h1 className="text-2xl font-bold text-gray-900">Pages</h1>
           </div>
           <Link
-            href="/admin/content/pages/new"
+            href={routes.pagesNew}
             className="inline-flex items-center rounded-lg bg-mint px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-mint-dark"
           >
             Add new
@@ -175,7 +177,7 @@ export default function AdminContentPagesListPage() {
                         <td className="px-4 py-3">
                           <div className="flex flex-col gap-0.5">
                             <Link
-                              href={`/admin/content/pages/${p.id}`}
+                              href={routes.page(p.id)}
                               className="font-medium text-gray-900 hover:text-mint"
                             >
                               {p.title}

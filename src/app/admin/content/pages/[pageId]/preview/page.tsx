@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, getImageDisplayUrl } from '@/lib/api';
 import type { StoreContentPage } from '@/lib/storePages';
@@ -11,6 +12,7 @@ import { normalizeCmsPageStatus } from '@/lib/storePages';
 import { cmsPageMainMaxWidthClass } from '@/lib/storePages';
 
 export default function AdminPagePreview() {
+  const routes = useContentRoutes();
   const params = useParams();
   const pageId = typeof params?.pageId === 'string' ? params.pageId : '';
   const { data: session } = useSession();
@@ -52,7 +54,7 @@ export default function AdminPagePreview() {
     <div className="min-h-screen bg-gray-100">
       <div className="border-b border-amber-200 bg-amber-100 px-4 py-2 text-center text-sm text-amber-950">
         {statusNote} preview — how this page appears on the storefront (content is not limited by public visibility rules here).{' '}
-        <Link href={`/admin/content/pages/${pageId}`} className="font-semibold underline">
+        <Link href={routes.page(pageId)} className="font-semibold underline">
           ← Back to editor
         </Link>
       </div>

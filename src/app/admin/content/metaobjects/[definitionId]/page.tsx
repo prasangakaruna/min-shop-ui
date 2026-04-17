@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, getImageDisplayUrl } from '@/lib/api';
 import {
@@ -191,6 +192,7 @@ function EntryValueFields({
 }
 
 export default function AdminMetaobjectDefinitionPage() {
+  const routes = useContentRoutes();
   const params = useParams();
   const definitionId = typeof params?.definitionId === 'string' ? params.definitionId : '';
 
@@ -401,7 +403,7 @@ export default function AdminMetaobjectDefinitionPage() {
   if (!definition) {
     return (
       <div className="min-h-full bg-gray-50/60 p-6">
-        <Link href="/admin/content/metaobjects" className="text-sm text-mint hover:underline">
+        <Link href={routes.metaobjects} className="text-sm text-mint hover:underline">
           ← Back to metaobjects
         </Link>
         <p className="mt-4 text-sm text-gray-600">Definition not found.</p>
@@ -413,7 +415,7 @@ export default function AdminMetaobjectDefinitionPage() {
     <div className="min-h-full bg-gray-50/60">
       <header className="border-b border-gray-200 bg-white">
         <div className="px-6 py-6">
-          <Link href="/admin/content/metaobjects" className="text-sm text-mint hover:underline">
+          <Link href={routes.metaobjects} className="text-sm text-mint hover:underline">
             ← Metaobjects
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-gray-900">{definition.name}</h1>

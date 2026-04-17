@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { ContentRoutesProvider } from '@/context/ContentRoutesContext';
 import { StoreProvider, useStore } from '@/context/StoreContext';
 import { apiRequest } from '@/lib/api';
 import type { Me, StoreSummary } from '@/lib/api';
@@ -50,7 +51,7 @@ const menuItems: MenuItem[] = [
       { href: '/admin/content/metaobjects', label: 'Metaobjects' },
       { href: '/admin/content/files', label: 'Files' },
       { href: '/admin/content/menus', label: 'Menus' },
-      { href: '/admin/content?section=blog-posts', label: 'Blog posts' },
+      { href: '/admin/content/blog', label: 'Blog posts' },
     ],
   },
   { href: '/admin/customers', label: 'Customers', icon: '👥' },
@@ -90,6 +91,9 @@ function isContentChildActive(
   }
   if (childHref === '/admin/content/metaobjects' || childHref.startsWith('/admin/content/metaobjects')) {
     return pathname === '/admin/content/metaobjects' || pathname?.startsWith('/admin/content/metaobjects/') === true;
+  }
+  if (childHref === '/admin/content/blog' || childHref.startsWith('/admin/content/blog')) {
+    return pathname === '/admin/content/blog' || pathname?.startsWith('/admin/content/blog/') === true;
   }
   const qIdx = childHref.indexOf('?');
   if (qIdx !== -1 && childHref.slice(0, qIdx) === '/admin/content') {
@@ -512,7 +516,9 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <StoreProvider token={accessToken}>
-      <AdminGuard token={accessToken}>{children}</AdminGuard>
+      <ContentRoutesProvider basePath="/admin/content">
+        <AdminGuard token={accessToken}>{children}</AdminGuard>
+      </ContentRoutesProvider>
     </StoreProvider>
   );
 }

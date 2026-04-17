@@ -141,23 +141,37 @@ select.store-settings-select {
   cursor: pointer;
 }
 
-/* Professional Scrollbar */
+/*
+ * Scrollbars: thin, neutral rails (mint stays for focus rings, not scroll thumbs).
+ * WebKit + Firefox where supported.
+ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.42) rgba(241, 245, 249, 0.65);
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4FD1C7;
-  border-radius: 5px;
+  background-color: rgba(100, 116, 139, 0.35);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #38B2AC;
+  background-color: rgba(71, 85, 105, 0.5);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /*

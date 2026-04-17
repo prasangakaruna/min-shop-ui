@@ -31,6 +31,52 @@ function withStoreQuery(path: string, storeSlug: string | null | undefined): str
   return hash ? `${next}#${hash}` : next;
 }
 
+type MenuLinkPickerPanelCoords = {
+  left: number;
+  width: number;
+  top: number | null;
+  bottom: number | null;
+  maxHeight: number;
+};
+
+/** Keep the portal panel inside the viewport; flip above the trigger when the bottom is cramped. */
+function computeMenuLinkPickerPosition(triggerEl: HTMLElement): MenuLinkPickerPanelCoords {
+  const rect = triggerEl.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const margin = 8;
+  const gap = 6;
+  const width = Math.min(420, Math.max(320, rect.width));
+  let left = rect.left;
+  if (left + width > vw - margin) left = vw - width - margin;
+  if (left < margin) left = margin;
+
+  const maxDesired = Math.min(520, vh * 0.7);
+  const minUsable = 160;
+  const spaceBelow = vh - rect.bottom - margin;
+  const spaceAbove = rect.top - margin;
+
+  let top: number | null;
+  let bottom: number | null;
+  let maxHeight: number;
+
+  if (spaceBelow >= maxDesired) {
+    top = rect.bottom + gap;
+    bottom = null;
+    maxHeight = maxDesired;
+  } else if (spaceAbove > spaceBelow && spaceAbove >= minUsable) {
+    top = null;
+    bottom = vh - rect.top + gap;
+    maxHeight = Math.min(maxDesired, spaceAbove - gap);
+  } else {
+    top = rect.bottom + gap;
+    bottom = null;
+    maxHeight = Math.max(minUsable, Math.min(maxDesired, spaceBelow - gap));
+  }
+
+  return { left, width, top, bottom, maxHeight };
+}
+
 function IconHome({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
@@ -156,7 +202,13 @@ export default function MenuLinkPicker({
   const [customUrl, setCustomUrl] = useState('');
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 320 });
+  const [coords, setCoords] = useState<MenuLinkPickerPanelCoords>({
+    left: 0,
+    width: 320,
+    top: 0,
+    bottom: null,
+    maxHeight: 400,
+  });
 
   const top = stack[stack.length - 1];
 
@@ -231,13 +283,20 @@ export default function MenuLinkPicker({
 
   useEffect(() => {
     if (!open || !triggerRef.current) return;
-    const el = triggerRef.current;
-    const rect = el.getBoundingClientRect();
-    const width = Math.min(420, Math.max(320, rect.width));
-    let left = rect.left;
-    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
-    setCoords({ top: rect.bottom + 6, left, width });
-  }, [open]);
+    const update = () => {
+      const el = triggerRef.current;
+      if (el) setCoords(computeMenuLinkPickerPosition(el));
+    };
+    update();
+    const raf = window.requestAnimationFrame(update);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open, stack]);
 
   const select = useCallback(
     (path: string, display: string) => {
@@ -357,11 +416,17 @@ export default function MenuLinkPicker({
   const panel = open && typeof document !== 'undefined' && (
     <div
       ref={panelRef}
-      className="fixed z-[200] max-h-[min(70vh,520px)] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
-      style={{ top: coords.top, left: coords.left, width: coords.width }}
+      className="fixed z-[200] flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl"
+      style={{
+        left: coords.left,
+        width: coords.width,
+        maxHeight: coords.maxHeight,
+        ...(coords.top != null ? { top: coords.top } : {}),
+        ...(coords.bottom != null ? { bottom: coords.bottom } : {}),
+      }}
       role="listbox"
     >
-      <div className="flex max-h-[inherit] flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {stack.length > 1 && (
           <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2">
             <button
@@ -381,8 +446,8 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'root' && (
-          <>
-            <div className="border-b border-gray-100 p-2">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-gray-100 p-2">
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -390,7 +455,7 @@ export default function MenuLinkPicker({
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-400"
               />
             </div>
-            <div className="overflow-y-auto overscroll-contain p-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
               <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Online store</p>
               {filteredRootRows.map((row) => {
                   const Icon = row.icon;
@@ -447,11 +512,11 @@ export default function MenuLinkPicker({
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
 
         {top.screen === 'collections' && (
-          <div className="overflow-y-auto overscroll-contain p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             <div className="border-b border-gray-100 p-2">
               <input
                 value={filter}
@@ -483,8 +548,8 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'products' && (
-          <div className="flex max-h-[min(60vh,440px)] flex-col">
-            <div className="border-b border-gray-100 p-2">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-gray-100 p-2">
               <input
                 value={productQuery}
                 onChange={(e) => setProductQuery(e.target.value)}
@@ -492,7 +557,7 @@ export default function MenuLinkPicker({
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
               />
             </div>
-            <div className="overflow-y-auto overscroll-contain p-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
               {productsLoading ? (
                 <p className="px-3 py-6 text-center text-sm text-gray-500">Loading…</p>
               ) : products.length === 0 ? (
@@ -515,7 +580,7 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'pages' && (
-          <div className="overflow-y-auto overscroll-contain p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             <div className="border-b border-gray-100 p-2">
               <input
                 value={filter}
@@ -562,7 +627,7 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'blogs' && (
-          <div className="overflow-y-auto overscroll-contain p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             <button
               type="button"
               onClick={() => select('/products', 'Blog')}
@@ -576,7 +641,7 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'blog-posts' && (
-          <div className="overflow-y-auto overscroll-contain p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             {blogsLoading ? (
               <p className="px-3 py-6 text-center text-sm text-gray-500">Loading…</p>
             ) : blogPosts.length === 0 ? (
@@ -599,7 +664,7 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'policies' && (
-          <div className="overflow-y-auto overscroll-contain p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             {navLoading ? (
               <p className="px-3 py-6 text-center text-sm text-gray-500">Loading…</p>
             ) : null}
@@ -639,7 +704,7 @@ export default function MenuLinkPicker({
         )}
 
         {top.screen === 'customer' && (
-          <div className="overflow-y-auto overscroll-contain p-1">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
             <button
               type="button"
               onClick={() => select('/profile/orders', 'Orders')}

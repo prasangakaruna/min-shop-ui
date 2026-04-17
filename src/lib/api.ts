@@ -543,6 +543,495 @@ export interface StoreListResponse {
   total: number;
 }
 
+/** GET /system/stores — super-admin only */
+export type SystemStoreOwner = {
+  id: number;
+  name: string | null;
+  email: string | null;
+  user_type: string | null;
+};
+
+export type SystemStoreListRow = {
+  id: number;
+  owner_id: number;
+  name: string;
+  slug: string;
+  domain: string | null;
+  email: string | null;
+  plan: string;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  owner: SystemStoreOwner | null;
+  counts: { products: number; orders: number; api_keys: number; customers: number };
+  /** Sum of order `total` excluding cancelled/refunded (same currency as store checkout). */
+  revenue_total: number;
+  qualifying_orders_count: number;
+  average_order_value: number;
+};
+
+export type SystemStoresSummary = {
+  platform_revenue_total: number;
+  platform_orders_count: number;
+  total_stores_count: number;
+  active_stores_count: number;
+  inactive_stores_count?: number;
+  top_store_by_revenue: {
+    id: number;
+    name: string | null | undefined;
+    slug: string | null | undefined;
+    revenue_total: number;
+  } | null;
+  revenue_definition: string;
+};
+
+export type SystemStoresSort =
+  | 'name'
+  | '-name'
+  | 'created'
+  | '-created'
+  | 'revenue'
+  | '-revenue'
+  | 'orders'
+  | '-orders'
+  | 'products'
+  | '-products';
+
+export interface SystemStoresListResponse {
+  data: SystemStoreListRow[];
+  summary?: SystemStoresSummary;
+  meta?: { sort: string };
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+export type SystemRecentOrder = {
+  id: number;
+  number: string | null;
+  total: number;
+  financial_status: string;
+  fulfillment_status: string | null;
+  email: string | null;
+  created_at: string | null;
+};
+
+export type SystemStoreCustomerRow = {
+  id: number;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  accepts_marketing: boolean;
+  orders_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type SystemStoreCustomersMeta = {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
+export type SystemStoreDetail = {
+  id: number;
+  owner_id: number;
+  name: string;
+  slug: string;
+  domain: string | null;
+  email: string | null;
+  plan: string;
+  is_active: boolean;
+  settings: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+  subdomain: string;
+  owner: SystemStoreOwner | null;
+  counts: {
+    products: number;
+    orders: number;
+    api_keys: number;
+    pages: number;
+    categories: number;
+    collections: number;
+    customers: number;
+  };
+  revenue_total: number;
+  qualifying_orders_count: number;
+  average_order_value: number;
+  order_financial_breakdown: Record<string, number>;
+  recent_orders: SystemRecentOrder[];
+  /** Last 6 calendar months; qualifying orders only (excl. cancelled/refunded). */
+  chart_series_monthly?: Array<{
+    month: string;
+    label: string;
+    revenue: number;
+    orders: number;
+  }>;
+  customers?: SystemStoreCustomerRow[];
+  customers_meta?: SystemStoreCustomersMeta;
+  highlights: {
+    currency_display: string | null;
+    order_id_prefix: string | null;
+    onboarding_completed: boolean;
+    timezone: string | null;
+    backup_region: string | null;
+    company_logo_url: string | null;
+    company_description: string | null;
+  };
+};
+
+export async function getSystemStores(options: {
+  token: string;
+  page?: number;
+  per_page?: number;
+  search?: string;
+  is_active?: boolean;
+  sort?: SystemStoresSort;
+}): Promise<SystemStoresListResponse> {
+  return apiRequest<SystemStoresListResponse>('/system/stores', {
+    token: options.token,
+    query: {
+      page: options.page,
+      per_page: options.per_page ?? 50,
+      search: options.search,
+      ...(options.sort ? { sort: options.sort } : {}),
+      ...(options.is_active !== undefined ? { is_active: options.is_active ? 1 : 0 } : {}),
+    },
+  });
+}
+
+export async function getSystemStoreDetail(options: {
+  token: string;
+  storeId: number;
+  customers_page?: number;
+  customers_per_page?: number;
+}): Promise<{ data: SystemStoreDetail }> {
+  return apiRequest<{ data: SystemStoreDetail }>(`/system/stores/${options.storeId}`, {
+    token: options.token,
+    query: {
+      customers_page: options.customers_page,
+      customers_per_page: options.customers_per_page,
+    },
+  });
+}
+
+/** PATCH /system/stores/{id} — super-admin only; body `{ is_active }` */
+export async function patchSystemStoreStatus(options: {
+  token: string;
+  storeId: number;
+  is_active: boolean;
+}): Promise<{ data: { id: number; is_active: boolean } }> {
+  return apiRequest<{ data: { id: number; is_active: boolean } }>(`/system/stores/${options.storeId}`, {
+    method: 'PATCH',
+    token: options.token,
+    body: { is_active: options.is_active },
+  });
+}
+
+/** GET /system/campaigns — super-admin outbound SMS campaign log */
+export type SystemSmsCampaignRow = {
+  id: number;
+  name: string;
+  message: string;
+  delivered_count: number;
+  attempted_count: number;
+  failed_count: number;
+  queued_count: number;
+  total_recipients: number;
+  status: string;
+  store_id: number | null;
+  store_name: string | null;
+  recipient_phone: string | null;
+  created_at: string | null;
+};
+
+export type SystemSmsCampaignsListResponse = {
+  data: SystemSmsCampaignRow[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
+export async function getSystemCampaigns(options: {
+  token: string;
+  page?: number;
+  per_page?: number;
+  search?: string;
+  status?: string;
+}): Promise<SystemSmsCampaignsListResponse> {
+  return apiRequest<SystemSmsCampaignsListResponse>('/system/campaigns', {
+    token: options.token,
+    query: {
+      page: options.page,
+      per_page: options.per_page ?? 25,
+      search: options.search || undefined,
+      status: options.status?.trim() ? options.status.trim().toLowerCase() : undefined,
+    },
+  });
+}
+
+export async function createSystemCampaign(options: {
+  token: string;
+  body: {
+    name?: string;
+    message: string;
+    total_recipients: number;
+    store_id?: number | null;
+    recipient_phone?: string | null;
+    status?: 'processing' | 'scheduled';
+  };
+}): Promise<{ data: SystemSmsCampaignRow }> {
+  return apiRequest<{ data: SystemSmsCampaignRow }>('/system/campaigns', {
+    method: 'POST',
+    token: options.token,
+    body: options.body,
+  });
+}
+
+export async function patchSystemCampaign(options: {
+  token: string;
+  campaignId: number;
+  body: Partial<{
+    status: 'processing' | 'failed' | 'sent' | 'scheduled' | 'completed';
+    delivered_count: number;
+    attempted_count: number;
+    failed_count: number;
+    queued_count: number;
+    message: string;
+  }>;
+}): Promise<{ data: SystemSmsCampaignRow }> {
+  return apiRequest<{ data: SystemSmsCampaignRow }>(`/system/campaigns/${options.campaignId}`, {
+    method: 'PATCH',
+    token: options.token,
+    body: options.body,
+  });
+}
+
+/** SaaS billing (super-admin) */
+export type BillingPlanRow = {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  price_monthly_cents: number;
+  price_yearly_cents: number;
+  currency: string;
+  features: Record<string, unknown>;
+  usage_limits: Record<string, unknown>;
+  is_active: boolean;
+  sort_order: number;
+};
+
+export type BillingOverview = {
+  active_subscriptions: number;
+  subscriptions_by_plan_slug: Record<string, number>;
+  mrr_estimate_cents: number;
+  open_invoices_count: number;
+  open_invoices_total_cents: number;
+  usage_metering_enabled: boolean;
+  providers: {
+    stripe: { label: string; configured: boolean; enabled_flag: boolean };
+    paypal: { label: string; configured: boolean; enabled_flag: boolean };
+  };
+};
+
+export type BillingSubscriptionRow = {
+  id: number;
+  store_id: number;
+  billing_cycle: 'monthly' | 'yearly';
+  status: string;
+  trial_ends_at: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  paypal_subscription_id: string | null;
+  plan: BillingPlanRow | null;
+  store: { id: number; name: string; slug: string; email: string | null; plan: string } | null;
+  updated_at: string | null;
+};
+
+export type BillingInvoiceLine = {
+  description: string;
+  quantity: number;
+  unit_amount_cents: number;
+  total_cents: number;
+};
+
+export type BillingInvoiceRow = {
+  id: number;
+  store_id: number;
+  store_subscription_id: number | null;
+  invoice_number: string;
+  subtotal_cents: number;
+  tax_cents: number;
+  total_cents: number;
+  currency: string;
+  status: string;
+  billing_reason: string;
+  period_start: string | null;
+  period_end: string | null;
+  line_items: BillingInvoiceLine[];
+  provider: string;
+  provider_invoice_id: string | null;
+  receipt_url: string | null;
+  issued_at: string | null;
+  paid_at: string | null;
+  refunds_cents: number;
+  store: { id: number; name: string; slug: string } | null;
+  adjustments: Array<{
+    id: number;
+    type: string;
+    amount_cents: number;
+    reason: string | null;
+    provider_refund_id: string | null;
+    created_at: string | null;
+  }>;
+};
+
+export type BillingSubscriptionsListResponse = {
+  data: BillingSubscriptionRow[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
+export type BillingInvoicesListResponse = {
+  data: BillingInvoiceRow[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
+export async function getBillingOverview(options: { token: string }): Promise<{ data: BillingOverview }> {
+  return apiRequest<{ data: BillingOverview }>('/system/billing/overview', { token: options.token });
+}
+
+export async function getBillingPlans(options: { token: string }): Promise<{ data: BillingPlanRow[] }> {
+  return apiRequest<{ data: BillingPlanRow[] }>('/system/billing/plans', { token: options.token });
+}
+
+export async function getBillingSubscriptions(options: {
+  token: string;
+  page?: number;
+  per_page?: number;
+}): Promise<BillingSubscriptionsListResponse> {
+  return apiRequest<BillingSubscriptionsListResponse>('/system/billing/subscriptions', {
+    token: options.token,
+    query: { page: options.page, per_page: options.per_page ?? 25 },
+  });
+}
+
+export async function getBillingInvoices(options: {
+  token: string;
+  page?: number;
+  per_page?: number;
+  store_id?: number;
+}): Promise<BillingInvoicesListResponse> {
+  return apiRequest<BillingInvoicesListResponse>('/system/billing/invoices', {
+    token: options.token,
+    query: {
+      page: options.page,
+      per_page: options.per_page ?? 25,
+      ...(options.store_id != null ? { store_id: options.store_id } : {}),
+    },
+  });
+}
+
+export async function postBillingAssignSubscription(options: {
+  token: string;
+  storeId: number;
+  plan_slug: string;
+  billing_cycle: 'monthly' | 'yearly';
+  status?: string;
+  create_opening_invoice?: boolean;
+}): Promise<{ data: { subscription: BillingSubscriptionRow; invoice: BillingInvoiceRow | null } }> {
+  return apiRequest<{ data: { subscription: BillingSubscriptionRow; invoice: BillingInvoiceRow | null } }>(
+    `/system/billing/stores/${options.storeId}/subscription`,
+    {
+      method: 'POST',
+      token: options.token,
+      body: {
+        plan_slug: options.plan_slug,
+        billing_cycle: options.billing_cycle,
+        ...(options.status ? { status: options.status } : {}),
+        ...(options.create_opening_invoice !== undefined ? { create_opening_invoice: options.create_opening_invoice } : {}),
+      },
+    }
+  );
+}
+
+export async function postBillingManualInvoice(options: {
+  token: string;
+  store_id: number;
+  subtotal_cents: number;
+  tax_cents?: number;
+  billing_reason: string;
+  status?: 'draft' | 'open' | 'paid';
+  line_items: BillingInvoiceLine[];
+}): Promise<{ data: BillingInvoiceRow }> {
+  return apiRequest<{ data: BillingInvoiceRow }>('/system/billing/invoices', {
+    method: 'POST',
+    token: options.token,
+    body: {
+      store_id: options.store_id,
+      subtotal_cents: options.subtotal_cents,
+      tax_cents: options.tax_cents ?? 0,
+      billing_reason: options.billing_reason,
+      line_items: options.line_items,
+      ...(options.status ? { status: options.status } : {}),
+    },
+  });
+}
+
+export async function postBillingInvoiceMarkPaid(options: {
+  token: string;
+  invoiceId: number;
+}): Promise<{ data: BillingInvoiceRow }> {
+  return apiRequest<{ data: BillingInvoiceRow }>(`/system/billing/invoices/${options.invoiceId}/mark-paid`, {
+    method: 'POST',
+    token: options.token,
+  });
+}
+
+export async function postBillingInvoiceVoid(options: {
+  token: string;
+  invoiceId: number;
+}): Promise<{ data: BillingInvoiceRow }> {
+  return apiRequest<{ data: BillingInvoiceRow }>(`/system/billing/invoices/${options.invoiceId}/void`, {
+    method: 'POST',
+    token: options.token,
+  });
+}
+
+export async function postBillingInvoiceAdjustment(options: {
+  token: string;
+  invoiceId: number;
+  type: 'refund' | 'credit' | 'surcharge';
+  amount_cents: number;
+  reason?: string;
+  provider_refund_id?: string;
+}): Promise<{ invoice: BillingInvoiceRow }> {
+  return apiRequest<{ invoice: BillingInvoiceRow }>(`/system/billing/invoices/${options.invoiceId}/adjustments`, {
+    method: 'POST',
+    token: options.token,
+    body: {
+      type: options.type,
+      amount_cents: options.amount_cents,
+      ...(options.reason ? { reason: options.reason } : {}),
+      ...(options.provider_refund_id ? { provider_refund_id: options.provider_refund_id } : {}),
+    },
+  });
+}
+
 /** GET /store/api-keys/stats */
 export interface ApiKeysStats {
   system_health_percent: number | null;

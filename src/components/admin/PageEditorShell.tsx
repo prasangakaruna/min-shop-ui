@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import { apiRequest, getImageDisplayUrl, uploadContentLibraryFile } from '@/lib/api';
 import {
@@ -84,6 +85,7 @@ function parentOptions(pages: StoreContentPage[], currentId: string | null): { i
 }
 
 export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'edit'; pageId?: string }) {
+  const routes = useContentRoutes();
   const router = useRouter();
   const { data: session } = useSession();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
@@ -315,7 +317,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
           storeId: currentStore.id,
           body: payload,
         });
-        router.replace(`/admin/content/pages/${res.data.id}`);
+        router.replace(routes.page(res.data.id));
         return;
       }
       const res = await apiRequest<{ data: StoreContentPage }>(`/store/pages/${pageId}`, {
@@ -359,7 +361,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
   if (mode === 'edit' && missing && !loading) {
     return (
       <div className="min-h-full bg-gray-50/60 p-6">
-        <Link href="/admin/content/pages" className="text-sm text-mint hover:underline">
+        <Link href={routes.pages} className="text-sm text-mint hover:underline">
           ← Pages
         </Link>
         <p className="mt-4 text-sm text-gray-600">Page not found.</p>
@@ -382,14 +384,14 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
       <header className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2 shadow-sm sm:gap-3 sm:px-4">
         <div className="flex items-center gap-1 sm:gap-2">
           <Link
-            href="/admin/content/pages"
+            href={routes.pages}
             className="rounded p-2 text-sm text-gray-600 hover:bg-gray-100 hover:text-mint"
             title="All pages"
           >
             ←
           </Link>
           <Link
-            href="/admin/content/pages"
+            href={routes.pages}
             className="flex h-9 w-9 items-center justify-center rounded text-xl leading-none text-gray-500 hover:bg-gray-100 hover:text-gray-900"
             title="Close"
             aria-label="Close editor"
@@ -451,7 +453,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
           </button>
           {mode === 'edit' && pageId ? (
             <Link
-              href={`/admin/content/pages/${pageId}/preview`}
+              href={routes.pagePreview(pageId)}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100 sm:px-3"
@@ -521,7 +523,7 @@ export default function PageEditorShell({ mode, pageId }: { mode: 'create' | 'ed
                   Copy slug path
                 </button>
                 <Link
-                  href="/admin/content/files"
+                  href={routes.files}
                   className="block px-3 py-2 text-sm hover:bg-gray-50"
                   onClick={() => setMoreMenuOpen(false)}
                 >

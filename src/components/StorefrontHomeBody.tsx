@@ -44,6 +44,7 @@ import {
   isMintMarketplaceSectionOrder,
   shouldDisplayPosterPromo,
 } from '@/lib/storefrontHomeTheme';
+import { mintMarketplaceHomeStoreSlug } from '@/lib/mintMarketplaceHomeSlug';
 
 type CouponsBootstrapResponse = {
   volume_promo?: StorefrontHomePrefetchValue['volumePromo'];
@@ -209,7 +210,10 @@ function DefaultMarketplaceHome({
 
 export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | null }) {
   const storefront = useStorefront();
-  const [effectiveSlug, setEffectiveSlug] = useState<string | null>(storeSlug);
+  const [effectiveSlug, setEffectiveSlug] = useState<string | null>(() => {
+    if (storeSlug) return storeSlug;
+    return mintMarketplaceHomeStoreSlug();
+  });
   /** Same stack as the main marketplace (mint-shop.pro) until a custom theme is saved in admin. */
   const [layoutKind, setLayoutKind] = useState<'loading' | 'classic' | 'custom'>('loading');
   const [customTheme, setCustomTheme] = useState<StorefrontHomeTheme | null>(null);
@@ -226,7 +230,13 @@ export default function StorefrontHomeBody({ storeSlug }: { storeSlug: string | 
       setEffectiveSlug(storeSlug);
       return;
     }
-    setEffectiveSlug(storeSlugFromHostname());
+    const fromHost = storeSlugFromHostname();
+    if (fromHost) {
+      setEffectiveSlug(fromHost);
+      return;
+    }
+    const platform = mintMarketplaceHomeStoreSlug();
+    setEffectiveSlug(platform);
   }, [storeSlug]);
 
   useEffect(() => {

@@ -1,5 +1,14 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /**
+   * When another package-lock.json exists higher in the tree (e.g. under the user profile),
+   * Next can infer the wrong root and serve stale/wrong pages. Lock the app to this folder.
+   */
+  turbopack: {
+    root: path.join(__dirname),
+  },
   images: {
     remotePatterns: [
       {

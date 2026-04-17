@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { useContentRoutes } from '@/context/ContentRoutesContext';
 import { useStore } from '@/context/StoreContext';
 import {
   apiRequest,
@@ -86,6 +87,7 @@ function FilesHeroIllustration() {
 }
 
 export default function AdminContentFilesPage() {
+  const routes = useContentRoutes();
   const { data: session } = useSession();
   const token = (session as { access_token?: string } | null)?.access_token ?? null;
   const { currentStore, loading: storesLoading } = useStore();
@@ -235,7 +237,7 @@ export default function AdminContentFilesPage() {
               {uploading ? 'Uploading…' : 'Upload files'}
             </button>
             <p className="mt-10 text-sm">
-              <Link href="/admin/content" className="text-mint hover:underline">
+              <Link href={routes.metaobjects} className="text-mint hover:underline">
                 Learn more about files
               </Link>
             </p>
